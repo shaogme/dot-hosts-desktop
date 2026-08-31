@@ -133,7 +133,7 @@ jobs:
 
             # iso 一步到位使用 1900M 分卷压缩为 .7z
             ARCHIVE_NAME="${HOST_NAME}.7z"
-            7z a -v1900m -mx=9 "$ARCHIVE_NAME" "$TARGET_FILE"
+            7z a -v1900m -mx=6 "$ARCHIVE_NAME" "$TARGET_FILE"
             rm -f "$TARGET_FILE"
 
             # 若总大小未超出 1900M（仅生成 .7z.001），重命名为单个标准 .7z 文件
