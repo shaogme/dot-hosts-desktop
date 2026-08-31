@@ -15,85 +15,35 @@ let
   };
   lib = pkgs.lib;
 
-  # 1. 评估目标主机系统配置 (如 hosts/home-7950x)
+  # 1. 评估目标主机系统配置 (如 virtual-box/coding) 并构建 Disko Raw 镜像
   targetHost = (import (sources.nixpkgs + "/nixos/lib/eval-config.nix") {
     inherit pkgs;
     modules = [ (resolvedHostPath + "/configuration.nix") ];
   });
 
-  targetToplevel = targetHost.config.system.build.toplevel;
-  diskoScript = targetHost.config.system.build.diskoScript;
-  targetDisk = targetHost.config.exts.hardware.disk.btrfs.device or "/dev/sda";
+  targetDiskoImages = targetHost.config.system.build.diskoImages;
+  targetDisk = targetHost.config.exts.hardware.disk.btrfs.device;
   hostName = targetHost.config.networking.hostName;
 
-  # 2. 导出主机配置源码至 Nix Store，供 ISO 安装时复制到目标系统 /etc/nixos
-  hostConfigSource = pkgs.runCommand "host-config-${hostName}" { } ''
+  # 2. 将 raw 镜像压缩为 raw.zst 并生成 bmap 映射表
+  compressedImage = pkgs.runCommand "compressed-${hostName}-raw-image" {
+    nativeBuildInputs = [ pkgs.zstd pkgs.bmaptool ];
+  } ''
     mkdir -p $out
-    cp -rT ${resolvedHostPath} $out
-  '';
-
-  # 3. 收集所有相关 npins 源码路径，确保离线环境中本地源码完备
-  sourceStores = lib.filter (x: builtins.isPath x || lib.isDerivation x) (
-    builtins.attrValues sources
-  );
-
-  # 4. 离线自动化安装脚本定义
-  installScript = pkgs.writeShellScriptBin "nixos-autoinstall" ''
-    set -euo pipefail
-
-    echo "======================================================"
-    echo " Starting Offline Desktop Auto-Installer for: ${hostName}"
-    echo " Target Disk: ${targetDisk}"
-    echo "======================================================"
-
-    # 1. 确保目标磁盘设备就绪
-    echo ">> Waiting for disk ${targetDisk} to be ready..."
-    for i in $(seq 1 30); do
-      if [ -b "${targetDisk}" ]; then
-        break
-      fi
-      echo "Waiting for ${targetDisk}... ($i/30)"
-      sleep 1
-    done
-
-    if [ ! -b "${targetDisk}" ]; then
-      echo "ERROR: Target disk ${targetDisk} not found!"
+    RAW_SRC=$(find -L ${targetDiskoImages} -name "*.raw" | head -n 1)
+    if [ -z "$RAW_SRC" ] || [ ! -f "$RAW_SRC" ]; then
+      echo "ERROR: Raw image not found in ${targetDiskoImages}"
       exit 1
     fi
 
-    # 2. 执行 Disko 自动分区、格式化并挂载至 /mnt
-    echo ">> Partitioning and formatting ${targetDisk} using Disko..."
-    ${diskoScript}
+    echo ">> Generating bmap block map file..."
+    bmaptool create -o $out/system.bmap "$RAW_SRC"
 
-    # 3. 离线安装目标系统 Closure
-    echo ">> Installing NixOS system closure offline to /mnt..."
-    nixos-install --system "${targetToplevel}" \
-      --no-root-password \
-      --no-channel-copy \
-      --substituters "" \
-      --option binary-caches ""
-
-    # 4. 复制主机配置至目标系统的 /etc/nixos
-    echo ">> Copying host configuration files to /mnt/etc/nixos..."
-    mkdir -p /mnt/etc/nixos
-    cp -rT "${hostConfigSource}" /mnt/etc/nixos/
-    chmod -R u+w /mnt/etc/nixos
-
-    # 5. 修复 GPT 备份表至物理磁盘末端
-    echo ">> Relocating Backup GPT table to the end of the disk..."
-    sgdisk -e "${targetDisk}" || true
-    partprobe "${targetDisk}" || true
-    sync
-
-    echo "======================================================"
-    echo " Installation Finished Successfully in Offline Mode!"
-    echo " System will reboot into ${hostName} in 10 seconds..."
-    echo "======================================================"
-    sleep 10
-    reboot
+    echo ">> Compressing raw image with zstd (level 19)..."
+    zstd -19 -T0 "$RAW_SRC" -o $out/system.raw.zst
   '';
 
-  # 5. 评估全自动无人值守离线安装 ISO
+  # 3. 评估全自动无人值守流式安装 ISO
   installerIso = (import (sources.nixpkgs + "/nixos/lib/eval-config.nix") {
     inherit pkgs;
     modules = [
@@ -101,44 +51,17 @@ let
       (sources.nixpkgs + "/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix")
 
       ({ config, pkgs, ... }: {
-        # 禁用系统休眠与挂起
+        # 禁用系统休眠
         systemd.targets.sleep.enable = false;
         systemd.targets.suspend.enable = false;
         systemd.targets.hibernate.enable = false;
         systemd.targets.hybrid-sleep.enable = false;
 
-        # 默认 root 自动免密登录 console
-        services.getty.autologinUser = lib.mkDefault "root";
+        image.baseName = lib.mkForce "nixos-autoinstall-${hostName}";
 
-        # ISO 镜像命名
-        image.baseName = lib.mkForce "nixos-desktop-autoinstall-${hostName}";
-
-        # 预打包所有构建与运行时闭包依赖，确保 ISO 在 100% 纯离线环境下执行安装
-        isoImage.storeContents = [
-          targetToplevel
-          hostConfigSource
-          diskoScript
-        ] ++ sourceStores;
-
-        # 使用高压缩率 zstd 压缩 squashfs
-        isoImage.squashfsCompression = "zstd -Xcompression-level 19";
-
-        # 环境工具
-        environment.systemPackages = with pkgs; [
-          installScript
-          gptfdisk
-          util-linux
-          systemd
-          coreutils
-          btrfs-progs
-          dosfstools
-          e2fsprogs
-          rsync
-        ];
-
-        # 自动化安装 Service
+        # 自动化流式刷盘 Service
         systemd.services.nixos-autoinstall = {
-          description = "Unattended Offline Desktop Installer for ${hostName}";
+          description = "Unattended Fast Raw Streaming Installer for ${hostName}";
           wantedBy = [ "multi-user.target" ];
           after = [ "local-fs.target" ];
 
@@ -149,19 +72,61 @@ let
           };
 
           path = with pkgs; [
-            installScript
+            bmaptool
+            zstd
             gptfdisk
             util-linux
             systemd
             coreutils
-            btrfs-progs
-            dosfstools
-            nixos-install-tools
-            kmod
           ];
 
           script = ''
-            exec ${installScript}/bin/nixos-autoinstall
+            set -euo pipefail
+
+            echo "======================================================"
+            echo " Starting Fast Raw Streaming Installer for: ${hostName}"
+            echo " Target Disk: ${targetDisk}"
+            echo "======================================================"
+
+            # 1. 确保目标磁盘设备就绪
+            echo ">> Waiting for disk ${targetDisk} to be ready..."
+            for i in $(seq 1 30); do
+              if [ -b "${targetDisk}" ]; then
+                break
+              fi
+              echo "Waiting for ${targetDisk}... ($i/30)"
+              sleep 1
+            done
+
+            if [ ! -b "${targetDisk}" ]; then
+              echo "ERROR: Target disk ${targetDisk} not found!"
+              exit 1
+            fi
+
+            # 2. 流式直写 raw 镜像至目标物理磁盘
+            RAW_IMAGE="${compressedImage}/system.raw.zst"
+            BMAP_FILE="${compressedImage}/system.bmap"
+
+            echo ">> Writing raw image to ${targetDisk} using bmaptool..."
+            if [ -f "$BMAP_FILE" ]; then
+              bmaptool copy --bmap "$BMAP_FILE" "$RAW_IMAGE" "${targetDisk}"
+            else
+              echo ">> Bmap file not found, falling back to direct zstd streaming..."
+              zstd -dc "$RAW_IMAGE" | dd of="${targetDisk}" bs=4M iflag=fullblock oflag=direct status=progress conv=fsync
+            fi
+
+            # 3. 修复 GPT 备份表至物理磁盘末端
+            echo ">> Relocating Backup GPT table to the end of the disk..."
+            sgdisk -e "${targetDisk}" || true
+            partprobe "${targetDisk}" || true
+            sync
+
+            echo "======================================================"
+            echo " Installation Finished Successfully in Seconds!"
+            echo " System will reboot into ${hostName} in 5 seconds..."
+            echo "======================================================"
+            sleep 5
+            reboot
           '';
         };
       })
