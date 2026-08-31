@@ -71,6 +71,7 @@ let
           path = with pkgs; [
             zstd
             gptfdisk
+            parted
             util-linux
             systemd
             coreutils
