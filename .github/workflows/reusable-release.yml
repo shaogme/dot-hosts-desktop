@@ -131,17 +131,15 @@ jobs:
             TARGET_FILE="${HOST_NAME}.iso"
             cp "$SRC_FILE" "$TARGET_FILE"
 
-            # iso 直接压缩成 .7z
+            # iso 一步到位使用 1900M 分卷压缩为 .7z
             ARCHIVE_NAME="${HOST_NAME}.7z"
-            7z a -mx=9 "$ARCHIVE_NAME" "$TARGET_FILE"
-
-            FILE_SIZE=$(stat -c%s "$ARCHIVE_NAME")
-            if [ "$FILE_SIZE" -gt "$MAX_SIZE" ]; then
-              echo "File $ARCHIVE_NAME size ($FILE_SIZE bytes) exceeds limit ($MAX_SIZE bytes). Re-compressing into 1900M 7z split volumes..."
-              rm -f "$ARCHIVE_NAME"
-              7z a -v1900m -mx=9 "$ARCHIVE_NAME" "$TARGET_FILE"
-            fi
+            7z a -v1900m -mx=9 "$ARCHIVE_NAME" "$TARGET_FILE"
             rm -f "$TARGET_FILE"
+
+            # 若总大小未超出 1900M（仅生成 .7z.001），重命名为单个标准 .7z 文件
+            if [ -f "${ARCHIVE_NAME}.001" ] && [ ! -f "${ARCHIVE_NAME}.002" ]; then
+              mv "${ARCHIVE_NAME}.001" "$ARCHIVE_NAME"
+            fi
           fi
 
       - name: Upload Artifact
