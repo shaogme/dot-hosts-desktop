@@ -112,7 +112,7 @@ jobs:
 
             # raw 压缩成 .tar.zst
             ARCHIVE_NAME="${HOST_NAME}.tar.zst"
-            tar -I "zstd -19 -T0" -cf "$ARCHIVE_NAME" "$TARGET_FILE"
+            tar -I "zstd -14 -T0" -cf "$ARCHIVE_NAME" "$TARGET_FILE"
             rm -f "$TARGET_FILE"
 
             FILE_SIZE=$(stat -c%s "$ARCHIVE_NAME")
