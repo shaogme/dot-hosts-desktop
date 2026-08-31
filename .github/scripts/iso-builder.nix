@@ -25,9 +25,9 @@ let
   targetDisk = targetHost.config.exts.hardware.disk.btrfs.device;
   hostName = targetHost.config.networking.hostName;
 
-  # 2. 将 raw 镜像压缩为 raw.zst 并生成 bmap 映射表
+  # 2. 将 raw 镜像压缩为 raw.zst
   compressedImage = pkgs.runCommand "compressed-${hostName}-raw-image" {
-    nativeBuildInputs = [ pkgs.zstd pkgs.bmaptool ];
+    nativeBuildInputs = [ pkgs.zstd ];
   } ''
     mkdir -p $out
     RAW_SRC=$(find -L ${targetDiskoImages} -name "*.raw" | head -n 1)
@@ -35,9 +35,6 @@ let
       echo "ERROR: Raw image not found in ${targetDiskoImages}"
       exit 1
     fi
-
-    echo ">> Generating bmap block map file..."
-    bmaptool create -o $out/system.bmap "$RAW_SRC"
 
     echo ">> Compressing raw image with zstd (level 19)..."
     zstd -19 -T0 "$RAW_SRC" -o $out/system.raw.zst
@@ -72,7 +69,6 @@ let
           };
 
           path = with pkgs; [
-            bmaptool
             zstd
             gptfdisk
             util-linux
@@ -103,17 +99,11 @@ let
               exit 1
             fi
 
-            # 2. 流式直写 raw 镜像至目标物理磁盘
+            # 2. 流式直写 raw 镜像至目标物理磁盘 (Direct I/O 绕过内存页缓存)
             RAW_IMAGE="${compressedImage}/system.raw.zst"
-            BMAP_FILE="${compressedImage}/system.bmap"
 
-            echo ">> Writing raw image to ${targetDisk} using bmaptool..."
-            if [ -f "$BMAP_FILE" ]; then
-              bmaptool copy --bmap "$BMAP_FILE" "$RAW_IMAGE" "${targetDisk}"
-            else
-              echo ">> Bmap file not found, falling back to direct zstd streaming..."
-              zstd -dc "$RAW_IMAGE" | dd of="${targetDisk}" bs=4M iflag=fullblock oflag=direct status=progress conv=fsync
-            fi
+            echo ">> Streaming raw image to ${targetDisk} using Direct I/O..."
+            zstd -dc "$RAW_IMAGE" | dd of="${targetDisk}" bs=4M iflag=fullblock oflag=direct status=progress conv=fsync
 
             # 3. 修复 GPT 备份表至物理磁盘末端
             echo ">> Relocating Backup GPT table to the end of the disk..."
