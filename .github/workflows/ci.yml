@@ -1,0 +1,79 @@
+name: Build and Test NixOS Configuration
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'docs/*'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'docs/*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup-hosts:
+    runs-on: ubuntu-latest
+    outputs:
+      hosts: ${{ steps.set-hosts.outputs.hosts }}
+    steps:
+      - uses: actions/checkout@main
+      - id: set-hosts
+        run: echo "hosts=$(bash .github/scripts/get-hosts.sh)" >> $GITHUB_OUTPUT
+
+  host-tests:
+    runs-on: ubuntu-latest
+    needs: setup-hosts
+    if: needs.setup-hosts.outputs.hosts != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        host: ${{ fromJson(needs.setup-hosts.outputs.hosts) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          enable_kvm: true
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            system-features = kvm big-parallel nixos-test
+            substituters = https://cache.nixos.org https://attic.xuyh0120.win/lantian
+            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -la /dev/kvm
+
+      - name: Run Host Tests (${{ matrix.host }})
+        run: |
+          echo "Running tests for host: ${{ matrix.host }}"
+          bash tests/run.sh "${{ matrix.host }}"
+
+  ci-success:
+    needs: 
+      - host-tests
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check Status
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more jobs failed or were cancelled."
+            exit 1
+          fi
+          echo "All jobs passed."

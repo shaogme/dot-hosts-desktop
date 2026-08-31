@@ -1,0 +1,23 @@
+name: Release System Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release Version (e.g. v1.0.0)'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/reusable-release.yml
+    with:
+      is_nightly: false
+      version: ${{ inputs.version }}
+      ref: ${{ github.sha }}

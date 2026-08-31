@@ -1,0 +1,51 @@
+{
+  "pins": {
+    "dot-base": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "shaogme",
+        "repo": "dot-base"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "2ddc90962e27c55d7cdaa120a5f0f7e672e70e2f",
+      "url": "https://github.com/shaogme/dot-base/archive/2ddc90962e27c55d7cdaa120a5f0f7e672e70e2f.tar.gz",
+      "hash": "sha256-X8038Een/Xad5tVbN0KwHV6wEgEfdURwFvdZij14lSs="
+    },
+    "dot-exts": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "shaogme",
+        "repo": "dot-exts"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "753331e05c57c066ef114d5a9608754fd54a1274",
+      "url": "https://github.com/shaogme/dot-exts/archive/753331e05c57c066ef114d5a9608754fd54a1274.tar.gz",
+      "hash": "sha256-ytFnnQSwHqFDszur4hGjY/RKa6aCL/3mVCpUciErmfY="
+    },
+    "home-manager": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "home-manager"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "82c265faf4e3161d6015db07c9b0f1ee36a9029b",
+      "url": "https://github.com/nix-community/home-manager/archive/82c265faf4e3161d6015db07c9b0f1ee36a9029b.tar.gz",
+      "hash": "sha256-XmJmvk9rytTb7dCotO/aqR+YysB8HOqnprlOdv+LAF4="
+    },
+    "nixpkgs": {
+      "type": "Channel",
+      "name": "nixpkgs-unstable",
+      "artifact": "nixexprs.tar.xz",
+      "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.11pre1063758.e8be7818e19a/nixexprs.tar.xz",
+      "hash": "sha256-qeiZaY+0tpZXliRA9odCNx+sOfIOhnkcUq9t+ctPrRA="
+    }
+  },
+  "version": 8
+}

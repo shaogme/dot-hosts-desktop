@@ -1,0 +1,21 @@
+{
+  "pins": {
+    "clash-verge-rev": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "clash-verge-rev",
+        "repo": "clash-verge-rev"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": null,
+      "submodules": false,
+      "version": "v2.5.2",
+      "revision": "28f2efc504059b1dc75c793618b775c8e1b2a5f1",
+      "url": "https://api.github.com/repos/clash-verge-rev/clash-verge-rev/tarball/refs/tags/v2.5.2",
+      "hash": "sha256-5Txjuzq91D+FfBHaXenES4eprIdIKHUFMOKtrHSdbw4="
+    }
+  },
+  "version": 8
+}

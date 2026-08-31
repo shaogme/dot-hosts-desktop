@@ -1,0 +1,221 @@
+name: Reusable Release Workflow
+
+on:
+  workflow_call:
+    inputs:
+      is_nightly:
+        type: boolean
+        required: false
+        default: false
+        description: 'Whether this is a nightly release'
+      version:
+        type: string
+        required: false
+        default: ''
+        description: 'Release version for manually triggered release'
+      ref:
+        type: string
+        required: false
+        default: ''
+        description: 'Git commit SHA or reference to build'
+
+env:
+  CACHIX_SUBSTITUTERS: https://cache.nixos.org https://attic.xuyh0120.win/lantian
+  CACHIX_PUBLIC_KEYS: cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=
+
+jobs:
+  setup-hosts:
+    runs-on: ubuntu-latest
+    outputs:
+      hosts: ${{ steps.set-hosts.outputs.hosts }}
+    steps:
+      - uses: actions/checkout@main
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - id: set-hosts
+        run: echo "hosts=$(bash .github/scripts/get-hosts.sh)" >> $GITHUB_OUTPUT
+
+  build:
+    needs: setup-hosts
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        host: ${{ fromJson(needs.setup-hosts.outputs.hosts) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@master
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          enable_kvm: true
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            system-features = kvm big-parallel nixos-test
+            substituters = ${{ env.CACHIX_SUBSTITUTERS }}
+            trusted-public-keys = ${{ env.CACHIX_PUBLIC_KEYS }}
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -la /dev/kvm
+
+      - name: Build Auto-Installer ISO
+        id: build_image
+        run: |
+          HOST_DIR="${{ matrix.host }}"
+          HOST_NAME=$(basename "$HOST_DIR")
+          echo "host_name=${HOST_NAME}" >> $GITHUB_OUTPUT
+
+          echo "Building Offline Auto-Installer ISO for $HOST_DIR..."
+          nix-build .github/scripts/iso-builder.nix \
+            --arg hostPath "./$HOST_DIR" \
+            --option substituters "${{ env.CACHIX_SUBSTITUTERS }}" \
+            --option trusted-public-keys "${{ env.CACHIX_PUBLIC_KEYS }}" \
+            -o result
+
+      - name: Prepare and Compress ISO Image
+        id: prep
+        run: |
+          HOST_NAME="${{ steps.build_image.outputs.host_name }}"
+          echo "host_name=${HOST_NAME}" >> $GITHUB_OUTPUT
+          MAX_SIZE=$((1900 * 1024 * 1024))
+
+          SRC_FILE=$(find -L result -name "*.iso" 2>/dev/null | head -n 1)
+          if [ -z "$SRC_FILE" ] || [ ! -f "$SRC_FILE" ]; then
+            echo "ERROR: ISO output not found in result directory!"
+            exit 1
+          fi
+          TARGET_FILE="${HOST_NAME}.iso"
+          cp "$SRC_FILE" "$TARGET_FILE"
+
+          # 压缩 ISO 镜像为 7z
+          ARCHIVE_NAME="${HOST_NAME}.7z"
+          7z a -mx=9 "$ARCHIVE_NAME" "$TARGET_FILE"
+
+          FILE_SIZE=$(stat -c%s "$ARCHIVE_NAME")
+          if [ "$FILE_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "File $ARCHIVE_NAME size ($FILE_SIZE bytes) exceeds limit ($MAX_SIZE bytes). Re-compressing into 1900M 7z split volumes..."
+            rm -f "$ARCHIVE_NAME"
+            7z a -v1900m -mx=9 "$ARCHIVE_NAME" "$TARGET_FILE"
+          fi
+          rm -f "$TARGET_FILE"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: image-${{ steps.prep.outputs.host_name }}
+          path: |
+            ${{ steps.prep.outputs.host_name }}.7z*
+          if-no-files-found: error
+
+  upload:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@main
+        with:
+          pattern: image-*
+          merge-multiple: true
+
+      - name: Delete Existing Nightly Release
+        if: inputs.is_nightly
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete nightly --yes --cleanup-tag || true
+          git push origin :refs/tags/nightly || true
+
+      - name: Determine Release Metadata
+        id: rel_meta
+        run: |
+          TARGET_REF="${{ inputs.ref || github.sha }}"
+          SHORT_SHA="${TARGET_REF:0:7}"
+
+          if [ "${{ inputs.is_nightly }}" = "true" ]; then
+            TAG_NAME="nightly"
+            RELEASE_NAME="Nightly Release $(date +'%Y%m%d-%H%M%S') (${SHORT_SHA})"
+            IS_PRERELEASE="true"
+            TITLE="Nightly Desktop System ISO Images Build"
+          elif [ "${{ github.ref_name }}" = "pre-release" ]; then
+            TAG_NAME="pre-release-latest"
+            RELEASE_NAME="Pre-Release $(date +'%Y%m%d-%H%M%S')-${SHORT_SHA}"
+            IS_PRERELEASE="true"
+            TITLE="Desktop System ISO Images Pre-Release"
+          else
+            VERSION="${{ inputs.version || github.ref_name }}"
+            TAG_NAME="${VERSION}"
+            RELEASE_NAME="Release ${VERSION} ($(date +'%Y%m%d'))"
+            IS_PRERELEASE="false"
+            TITLE="Desktop System ISO Images Release"
+          fi
+
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "release_name=${RELEASE_NAME}" >> $GITHUB_OUTPUT
+          echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
+          echo "title=${TITLE}" >> $GITHUB_OUTPUT
+
+      - name: Generate Release Body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${{ steps.rel_meta.outputs.title }}" > release_body.md
+          echo "" >> release_body.md
+          echo "**Commit:** \`${{ inputs.ref || github.sha }}\`" >> release_body.md
+          echo "**Date:** \`$(date -u +'%Y-%m-%d %H:%M:%S UTC')\`" >> release_body.md
+          echo "" >> release_body.md
+          echo "**Artifacts:**" >> release_body.md
+          for f in *.7z*; do
+            if [ -f "$f" ]; then
+              echo "- \`$f\`" >> release_body.md
+            fi
+          done
+
+          if ls *.7z.00* >/dev/null 2>&1; then
+            echo "" >> release_body.md
+            echo "> **Note:** Files with \`.7z.00*\` extensions were split using 7-Zip multi-volume because they exceeded GitHub's 2GB file limit." >> release_body.md
+            echo "> To restore the original ISO: extract with 7-Zip (\`7z x <filename>.7z.001\`)." >> release_body.md
+          fi
+
+          if [ "${{ inputs.is_nightly }}" = "true" ]; then
+            NOTES=$(gh api "repos/${{ github.repository }}/releases/generate-notes" \
+              -f tag_name="${{ steps.rel_meta.outputs.tag_name }}" \
+              -f target_commitish="${{ inputs.ref || github.sha }}" \
+              --jq .body 2>/dev/null || true)
+            if [ -n "$NOTES" ]; then
+              echo "" >> release_body.md
+              echo "<details>" >> release_body.md
+              echo "<summary>Commits</summary>" >> release_body.md
+              echo "" >> release_body.md
+              echo "$NOTES" >> release_body.md
+              echo "" >> release_body.md
+              echo "</details>" >> release_body.md
+            fi
+          fi
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.rel_meta.outputs.tag_name }}
+          target_commitish: ${{ inputs.ref || github.sha }}
+          name: ${{ steps.rel_meta.outputs.release_name }}
+          body_path: release_body.md
+          files: |
+            *.7z
+            *.7z.*
+          prerelease: ${{ steps.rel_meta.outputs.is_prerelease == 'true' }}
+          generate_release_notes: ${{ !inputs.is_nightly }}

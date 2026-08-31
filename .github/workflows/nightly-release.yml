@@ -1,0 +1,24 @@
+name: Nightly Release System Images
+
+on:
+  workflow_run:
+    workflows: ["Build and Test NixOS Configuration"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    uses: ./.github/workflows/reusable-release.yml
+    with:
+      is_nightly: true
+      ref: ${{ github.event.workflow_run.head_sha || github.sha }}
