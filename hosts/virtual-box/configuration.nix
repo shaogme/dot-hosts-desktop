@@ -222,6 +222,9 @@ in
   # 硬件报告路径 (占位，待后续生成完整硬件报告)
   hardware.facter.reportPath = ./facter.json;
 
+  # 关闭 VirtualBox Guest 增强驱动（避免高版本内核编译 vboxguest 驱动冲突）
+  virtualisation.virtualbox.guest.enable = false;
+
   # 内核优化: 启用 CachyOS 内核
   exts.kernel.cachyos.enable = true;
 
