@@ -61,8 +61,8 @@ pkgs.testers.nixosTest {
       if ${if serverCfg.desktop.windowManager.hyprland.enable or false then "True" else "False"}:
           server.succeed("which Hyprland")
           server.succeed("which start-hyprland")
-          server.succeed("test -f /etc/xdg/hypr/hyprland.conf")
-          server.succeed("test -f /etc/hypr/hyprland.conf")
+          server.succeed("test -f /etc/xdg/hypr/hyprland.lua")
+          server.succeed("test -f /etc/hypr/hyprland.lua")
 
       print("VM 测试全部通过！")
     '';
