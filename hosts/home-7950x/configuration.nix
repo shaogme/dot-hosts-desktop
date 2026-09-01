@@ -167,6 +167,13 @@ in
     enable = true;
   };
 
+  # ==========================================
+  # 统一字体与 Fontconfig 配置
+  # ==========================================
+  desktop.fonts = {
+    enable = true;
+  };
+
   # 静态测试与合法性断言 (与配置同模块维护)
   assertions = [
     {
@@ -224,6 +231,14 @@ in
     {
       assertion = config.desktop.apps.v2rayn.enable == true;
       message = "桌面应用配置错误：desktop.apps.v2rayn 未启用";
+    }
+    {
+      assertion = config.desktop.fonts.enable == true;
+      message = "字体配置错误：desktop.fonts 未启用";
+    }
+    {
+      assertion = config.fonts.fontconfig.enable == true;
+      message = "字体配置错误：Fontconfig 未启用";
     }
   ];
 }

@@ -64,6 +64,13 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/xdg/hypr/hyprland.lua")
           server.succeed("test -f /etc/hypr/hyprland.lua")
 
+      # 验证字体与 Fontconfig
+      if ${if serverCfg.desktop.fonts.enable or false then "True" else "False"}:
+          server.succeed("test -f /etc/fonts/fonts.conf")
+          server.succeed("which fc-match")
+          server.succeed("fc-match serif")
+          server.succeed("fc-match monospace")
+
       print("VM 测试全部通过！")
     '';
 }
