@@ -14,7 +14,7 @@ mkSandboxedApp {
   execPath = "bin/clash-verge";
 
   profiles = [ "desktop-gui" "webkitgtk" ];
-  hostDirs = [ ".config/clash-verge" ];
+  hostDirs = [ ".config/clash-verge" ".config/clash-verge-rev" ];
 
   desktop = {
     desktopName = "Clash Verge Rev";

@@ -105,6 +105,10 @@ let
     mkdir -p "$SANDBOX_HOME"
     ${lib.concatStringsSep "\n" (map (dir: "mkdir -p \"$SANDBOX_HOME/${dir}\"") hostDirs)}
 
+    if [ -n "$XDG_RUNTIME_DIR" ]; then
+      mkdir -p "$XDG_RUNTIME_DIR/dconf"
+    fi
+
     exec "${fhs}/bin/${pname}-fhs" "$@"
   '';
 

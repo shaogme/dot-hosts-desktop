@@ -170,7 +170,7 @@ rec {
     ]
     ++ lib.optionals dbus [
       "--ro-bind-try" "$XDG_RUNTIME_DIR/bus" "$XDG_RUNTIME_DIR/bus"
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/dconf" "$XDG_RUNTIME_DIR/dconf"
+      "--bind-try" "$XDG_RUNTIME_DIR/dconf" "$XDG_RUNTIME_DIR/dconf"
     ]
     ++ lib.optional shareNet "--share-net"
     ++ (lib.concatMap (b: [ "--bind" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) customBinds)
