@@ -4,21 +4,32 @@
 
 ---
 
+## 统一工具抽象体系
+
+为消除各 App 在 FHS 依赖、Bubblewrap 沙箱隔离、包装脚本与 Desktop 快捷方式创建中的样板代码，仓库在 [`modules/packages/apps/lib/`](./lib/) 下提供了统一的抽象工具库：
+
+- **[`lib/mk-sandboxed-app.nix`](./lib/mk-sandboxed-app.nix)**: 统一沙箱应用构建器（整合解包、FHS、bwrap、Launcher/Wrapper 生成、Desktop Item 与图标提取）。
+- **[`lib/mk-app-module.nix`](./lib/mk-app-module.nix)**: 统一 NixOS 模块生成器（自动生成 `options.desktop.apps.<name>`、别名支持与系统环境集成）。
+- **[`lib/profiles.nix`](./lib/profiles.nix)**: 预置依赖 Profile 库（`desktop-gui`, `gtk3`, `webkitgtk`, `dotnet`, `media` 等）与沙箱规则生成器。
+- **[`lib/unpackers.nix`](./lib/unpackers.nix)**: 通用解包引擎（支持 `deb`、`tarball` 及多系统架构自动适配）。
+
+---
+
 ## 目录结构规范
 
-每个应用应作为独立子目录维护在 `modules/packages/apps/<app-name>/` 下，标准结构如下：
+每个应用作为独立子目录维护在 `modules/packages/apps/<app-name>/` 下，标准结构如下：
 
 ``` txt
 modules/packages/apps/<app-name>/
-├── default.nix       # NixOS 模块定义（提供 options.desktop.apps.<app-name>）
-├── package.nix       # 软件包构建与 Bubblewrap/FHS 沙箱隔离定义
+├── default.nix       # NixOS 模块定义（调用 mkAppModule，通常仅 5~10 行）
+├── package.nix       # 声明式沙箱构建规范（调用 mkSandboxedApp，通常仅 20~30 行）
 └── npins/            # 由 npins 依赖管理器维护的版本与哈希
     ├── default.nix   # npins 工具自动生成（禁止手动修改）
     └── sources.json  # 锁定的版本、下载源与 SHA-256（禁止手动编写）
 ```
 
 > [!TIP]
-> **自动发现机制**：[`modules/packages/apps/default.nix`](./default.nix) 会自动扫描并引入 `modules/packages/apps/` 下所有包含 `default.nix` 的子目录，**无需在上层手动注册路径**。
+> **自动发现机制**：[`modules/packages/apps/default.nix`](./default.nix) 会自动扫描并引入 `modules/packages/apps/` 下所有包含 `default.nix` 的应用子目录（自动忽略 `lib/` 工具库），**无需在上层手动注册路径**。
 
 ---
 
@@ -26,7 +37,7 @@ modules/packages/apps/<app-name>/
 
 ### 步骤 1：通过 npins 锁定依赖版本
 
-遵循项目的依赖管理规范（见 [AGENTS.md](../../AGENTS.md)），禁止在 Nix 表达式中手写 Hash。
+遵循项目的依赖管理规范（见 [AGENTS.md](../../../AGENTS.md)），禁止在 Nix 表达式中手写 Hash。
 
 1. **初始化 npins 目录**：
 
@@ -35,129 +46,45 @@ modules/packages/apps/<app-name>/
    npins -d modules/packages/apps/<app-name>/npins init --bare
    ```
 
-2. **添加上游 GitHub Release 依赖**：
+2. **添加上游依赖（以 GitHub Release 为例）**：
 
    ```bash
-   # 追踪指定 Tag 并自动计算 Hash
    npins -d modules/packages/apps/<app-name>/npins add github --at v1.0.0 <owner> <repo>
    ```
 
 ---
 
-### 步骤 2：编写软件包与沙箱隔离逻辑 (`package.nix`)
+### 步骤 2：编写软件包与沙箱声明 (`package.nix`)
 
 创建 `modules/packages/apps/<app-name>/package.nix`：
 
-- 从 `npins` 中动态读取版本号，禁止在代码中硬编码版本。
-- 使用 `pkgs.buildFHSEnv` 提供运行时动态链接库（解决二进制在 NixOS 上缺失 FHS 路径的问题）。
-- 配置 Bubblewrap 规则，实现 **宿主机家目录屏蔽** + **独立沙箱家目录持久化**。
-
 ```nix
-{ pkgs, lib ? pkgs.lib, ... }:
+{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? pkgs.callPackage ../lib/mk-sandboxed-app.nix { inherit lib; } }:
 
 let
   sources = import ./npins;
-
-  # 1. 动态从 npins 中获取版本（如 "v1.0.0" -> "1.0.0"）
   rawVersion = sources.<pin-name>.version;
   version = lib.removePrefix "v" rawVersion;
-
-  # 2. 根据版本动态获取官方 Release 二进制
   debUrl = "https://github.com/<owner>/<repo>/releases/download/v${version}/<app>_${version}_amd64.deb";
-  debSrc = builtins.fetchurl debUrl;
+in
+mkSandboxedApp {
+  pname = "<app-name>";
+  inherit version;
+  src = builtins.fetchurl debUrl;
+  srcType = "deb";
+  execPath = "bin/<executable>";
 
-  # 3. 解包二进制文件
-  unpacked = pkgs.stdenv.mkDerivation {
-    pname = "<app-name>-raw";
-    inherit version;
-    src = debSrc;
+  # 依赖 Profile 组合 (如 desktop-gui, webkitgtk, dotnet, media 等)
+  profiles = [ "desktop-gui" "webkitgtk" ];
+  hostDirs = [ ".config/<app-name>" ];
 
-    nativeBuildInputs = [ pkgs.dpkg ];
-    dontBuild = true;
-    dontConfigure = true;
-
-    unpackPhase = "dpkg-deb -x $src .";
-    installPhase = ''
-      mkdir -p $out
-      cp -r usr/* $out/
-    '';
-  };
-
-  # 4. Bubblewrap + FHS 隔离运行环境
-  fhs = pkgs.buildFHSEnv {
-    name = "<app-name>-fhs";
-
-    targetPkgs = pkgs: with pkgs; [
-      # 根据应用实际依赖补充（如 GTK3 / WebKitGTK / Qt 等）
-      gtk3
-      glib
-      openssl
-      libxkbcommon
-      wayland
-      libx11
-      libGL
-      mesa
-      pipewire
-      alsa-lib
-    ];
-
-    extraBwrapArgs = [
-      # 核心隔离：屏蔽宿主机真实家目录，防止访问 ~/.ssh, ~/.gnupg 等
-      "--tmpfs" "$HOME"
-
-      # 独立持久化：将专属沙箱目录挂载为容器内的 $HOME
-      "--bind" "\${XDG_DATA_HOME:-$HOME/.local/share}/sandboxes/<app-name>" "$HOME"
-
-      # 图形与音频穿透通道
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/wayland-0" "$XDG_RUNTIME_DIR/wayland-0"
-      "--ro-bind-try" "/tmp/.X11-unix" "/tmp/.X11-unix"
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/pulse" "$XDG_RUNTIME_DIR/pulse"
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/pipewire-0" "$XDG_RUNTIME_DIR/pipewire-0"
-      "--share-net"
-    ];
-
-    runScript = pkgs.writeShellScript "<app-name>-launcher" ''
-      if [ -n "$WAYLAND_DISPLAY" ]; then
-        export GDK_BACKEND=wayland,x11
-      fi
-      exec ${unpacked}/bin/<executable> "$@"
-    '';
-  };
-
-  # 5. 宿主机包装器：自动创建专属持久化目录并启动容器
-  wrapper = pkgs.writeShellScriptBin "<executable>" ''
-    SANDBOX_HOME="''${XDG_DATA_HOME:-$HOME/.local/share}/sandboxes/<app-name>"
-    mkdir -p "$SANDBOX_HOME"
-
-    exec ${fhs}/bin/<app-name>-fhs "$@"
-  '';
-
-  # 6. 生成 Desktop Entry 快捷方式
-  desktopItem = pkgs.makeDesktopItem {
-    name = "<app-name>";
+  desktop = {
     desktopName = "<App Display Name>";
     genericName = "<Category Name>";
     comment = "<Description>";
-    exec = "<executable> %U";
-    icon = "<app-name>";
-    terminal = false;
-    type = "Application";
     categories = [ "Network" "Utility" ];
+    icon = "<app-name>";
   };
-in
-pkgs.symlinkJoin {
-  name = "<app-name>";
-  paths = [
-    wrapper
-    desktopItem
-  ];
-  postBuild = ''
-    mkdir -p $out/share/icons/hicolor
-    if [ -d "${unpacked}/share/icons/hicolor" ]; then
-      cp -r ${unpacked}/share/icons/hicolor/* $out/share/icons/hicolor/
-    fi
-  '';
 }
 ```
 
@@ -167,34 +94,12 @@ pkgs.symlinkJoin {
 
 创建 `modules/packages/apps/<app-name>/default.nix`：
 
-- 提供 `desktop.apps.<app-name>.enable` 配置项。
-- 允许用户覆盖 `desktop.apps.<app-name>.package`。
-
 ```nix
-{ config, pkgs, lib, ... }:
-
-with lib;
-
-let
-  cfg = config.desktop.apps.<app-name>;
-in
-{
-  options.desktop.apps.<app-name> = {
-    enable = mkEnableOption "<App Name> 桌面应用程序（基于 Bubblewrap 沙箱隔离）";
-
-    package = mkOption {
-      type = types.package;
-      default = import ./package.nix { inherit pkgs lib; };
-      defaultText = literalExpression "import ./package.nix { inherit pkgs lib; }";
-      description = "使用的 <App Name> 软件包实例。";
-    };
-  };
-
-  config = mkIf cfg.enable {
-    environment.systemPackages = [
-      cfg.package
-    ];
-  };
+import ../lib/mk-app-module.nix {
+  name = "<app-name>";
+  description = "<App Display Name> 桌面应用程序";
+  package = ./package.nix;
+  # 可选：提供别名 (如 aliases = [ "app-alias" ];)
 }
 ```
 
@@ -202,7 +107,7 @@ in
 
 ### 步骤 4：启用与验证
 
-1. **在主机配置中启用**（例如 [`hosts/home-7950x/configuration.nix`](../../hosts/home-7950x/configuration.nix)）：
+1. **在主机配置中启用**（例如 [`hosts/home-7950x/configuration.nix`](../../../hosts/home-7950x/configuration.nix)）：
 
    ```nix
    desktop.apps.<app-name> = {
@@ -224,6 +129,17 @@ in
 
 ---
 
+## 常用 Profile 清单
+
+| Profile 名称 | 包含组件与适用场景 |
+| :--- | :--- |
+| **`desktop-gui`** | 通用桌面 GUI 元 Profile：整合基础 C 运行时、X11、Wayland、GPU 加速、PipeWire 音频、Fontconfig 字体及 GTK3 |
+| **`webkitgtk`** | WebKitGTK 4.1 与 libsoup3 支持（如 Clash Verge Rev、Tauri 应用） |
+| **`dotnet`** | .NET CoreCLR / Avalonia UI 运行时依赖（ICU、SQLite 原生库等，如 v2rayN） |
+| **`media`** | 完整多媒体与安全编解码库（FFmpeg、libvpx、NSS、NSPR 等，如 Firefox） |
+
+---
+
 ## 安全与沙箱规范摘要
 
 | 隔离维度 | 实现方式 | 说明 |
@@ -238,11 +154,10 @@ in
 
 ## 参考样例
 
-请直接查阅生产环境成熟示例：
-
 - [`modules/packages/apps/clash-verge/package.nix`](./clash-verge/package.nix)
 - [`modules/packages/apps/clash-verge/default.nix`](./clash-verge/default.nix)
-- [`modules/packages/apps/clash-verge/npins/sources.json`](./clash-verge/npins/sources.json)
+- [`modules/packages/apps/firefox/package.nix`](./firefox/package.nix)
+- [`modules/packages/apps/firefox/default.nix`](./firefox/default.nix)
+- [`modules/packages/apps/firefox-developer-edition/package.nix`](./firefox-developer-edition/package.nix)
 - [`modules/packages/apps/v2rayn/package.nix`](./v2rayn/package.nix)
 - [`modules/packages/apps/v2rayn/default.nix`](./v2rayn/default.nix)
-- [`modules/packages/apps/v2rayn/npins/sources.json`](./v2rayn/npins/sources.json)
