@@ -6,5 +6,6 @@
     ./loginManager
     ./windowManager
     ./fonts
+    ./terminal
   ];
 }
