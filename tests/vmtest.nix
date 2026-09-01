@@ -51,6 +51,12 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /run/current-system/sw/share/applications/v2rayn.desktop")
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/256x256/apps/v2rayn.png")
 
+      # 验证登录管理器 (tuigreet)
+      if ${if serverCfg.desktop.loginManager.tuigreet.enable or false then "True" else "False"}:
+          server.succeed("which tuigreet")
+          server.succeed("test -f /etc/tuigreet/config.toml")
+          server.succeed("test -d /var/cache/tuigreet")
+
       print("VM 测试全部通过！")
     '';
 }

@@ -1,15 +1,15 @@
 # 桌面应用（Apps）模块开发指南
 
-本文档指导如何在 `modules/apps/` 下为桌面环境打包、沙箱隔离并添加新的应用程序。
+本文档指导如何在 `modules/packages/apps/` 下为桌面环境打包、沙箱隔离并添加新的应用程序。
 
 ---
 
 ## 目录结构规范
 
-每个应用应作为独立子目录维护在 `modules/apps/<app-name>/` 下，标准结构如下：
+每个应用应作为独立子目录维护在 `modules/packages/apps/<app-name>/` 下，标准结构如下：
 
 ``` txt
-modules/apps/<app-name>/
+modules/packages/apps/<app-name>/
 ├── default.nix       # NixOS 模块定义（提供 options.desktop.apps.<app-name>）
 ├── package.nix       # 软件包构建与 Bubblewrap/FHS 沙箱隔离定义
 └── npins/            # 由 npins 依赖管理器维护的版本与哈希
@@ -18,7 +18,7 @@ modules/apps/<app-name>/
 ```
 
 > [!TIP]
-> **自动发现机制**：[`modules/apps/default.nix`](./default.nix) 会自动扫描并引入 `modules/apps/` 下所有包含 `default.nix` 的子目录，**无需在上层手动注册路径**。
+> **自动发现机制**：[`modules/packages/apps/default.nix`](./default.nix) 会自动扫描并引入 `modules/packages/apps/` 下所有包含 `default.nix` 的子目录，**无需在上层手动注册路径**。
 
 ---
 
@@ -31,22 +31,22 @@ modules/apps/<app-name>/
 1. **初始化 npins 目录**：
 
    ```bash
-   mkdir -p modules/apps/<app-name>/npins
-   npins -d modules/apps/<app-name>/npins init --bare
+   mkdir -p modules/packages/apps/<app-name>/npins
+   npins -d modules/packages/apps/<app-name>/npins init --bare
    ```
 
 2. **添加上游 GitHub Release 依赖**：
 
    ```bash
    # 追踪指定 Tag 并自动计算 Hash
-   npins -d modules/apps/<app-name>/npins add github --at v1.0.0 <owner> <repo>
+   npins -d modules/packages/apps/<app-name>/npins add github --at v1.0.0 <owner> <repo>
    ```
 
 ---
 
 ### 步骤 2：编写软件包与沙箱隔离逻辑 (`package.nix`)
 
-创建 `modules/apps/<app-name>/package.nix`：
+创建 `modules/packages/apps/<app-name>/package.nix`：
 
 - 从 `npins` 中动态读取版本号，禁止在代码中硬编码版本。
 - 使用 `pkgs.buildFHSEnv` 提供运行时动态链接库（解决二进制在 NixOS 上缺失 FHS 路径的问题）。
@@ -165,7 +165,7 @@ pkgs.symlinkJoin {
 
 ### 步骤 3：编写 NixOS 模块入口 (`default.nix`)
 
-创建 `modules/apps/<app-name>/default.nix`：
+创建 `modules/packages/apps/<app-name>/default.nix`：
 
 - 提供 `desktop.apps.<app-name>.enable` 配置项。
 - 允许用户覆盖 `desktop.apps.<app-name>.package`。
@@ -240,9 +240,9 @@ in
 
 请直接查阅生产环境成熟示例：
 
-- [`modules/apps/clash-verge/package.nix`](./clash-verge/package.nix)
-- [`modules/apps/clash-verge/default.nix`](./clash-verge/default.nix)
-- [`modules/apps/clash-verge/npins/sources.json`](./clash-verge/npins/sources.json)
-- [`modules/apps/v2rayn/package.nix`](./v2rayn/package.nix)
-- [`modules/apps/v2rayn/default.nix`](./v2rayn/default.nix)
-- [`modules/apps/v2rayn/npins/sources.json`](./v2rayn/npins/sources.json)
+- [`modules/packages/apps/clash-verge/package.nix`](./clash-verge/package.nix)
+- [`modules/packages/apps/clash-verge/default.nix`](./clash-verge/default.nix)
+- [`modules/packages/apps/clash-verge/npins/sources.json`](./clash-verge/npins/sources.json)
+- [`modules/packages/apps/v2rayn/package.nix`](./v2rayn/package.nix)
+- [`modules/packages/apps/v2rayn/default.nix`](./v2rayn/default.nix)
+- [`modules/packages/apps/v2rayn/npins/sources.json`](./v2rayn/npins/sources.json)

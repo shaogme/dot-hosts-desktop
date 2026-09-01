@@ -2,7 +2,7 @@
 
 {
   imports = [
-    ./packages.nix
-    ./apps
+    ./packages
+    ./loginManager
   ];
 }

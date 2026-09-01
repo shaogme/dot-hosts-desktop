@@ -63,8 +63,11 @@ in
       };
   };
 
-  # 图形驱动与硬件加速: 启用 AMD 显卡驱动与加速支持
-  base.hardware.graphics.amd.enable = true;
+  # 虚拟机环境适配 (Hyprland / Wayland 兼容性)
+  environment.sessionVariables = {
+    WLR_NO_HARDWARE_CURSORS = "1";
+    WLR_RENDERER_ALLOW_SOFTWARE = "1";
+  };
   
   # 性能与内存调优
   base.performance.tuning.profile = "desktop-performance";
@@ -89,11 +92,24 @@ in
   };
 
   # ==========================================
-  # 桌面与图形环境 (Hyprland & Audio)
+  # 桌面与图形环境 (Hyprland & Audio & Greetd)
   # ==========================================
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
+  };
+
+  # 登录管理器 (tuigreet)
+  desktop.loginManager.tuigreet = {
+    enable = true;
+    command = "Hyprland";
+    display = {
+      showTime = true;
+    };
+    remember = {
+      username = true;
+      session = true;
+    };
   };
 
   # 音频服务支持 (PipeWire)
@@ -119,6 +135,11 @@ in
         enable = true;
         systemd.enable = true;
         settings = {
+          env = [
+            "WLR_NO_HARDWARE_CURSORS,1"
+            "WLR_RENDERER_ALLOW_SOFTWARE,1"
+          ];
+
           "$mod" = "SUPER";
           "$terminal" = "kitty";
           "$menu" = "wofi --show drun";
@@ -292,12 +313,12 @@ in
       message = "网络后端配置错误：应当使用 networkmanager";
     }
     {
-      assertion = config.base.hardware.graphics.amd.enable == true;
-      message = "图形驱动配置错误：AMD 显卡驱动与加速未启用";
-    }
-    {
       assertion = config.programs.hyprland.enable == true;
       message = "桌面环境配置错误：Hyprland 未启用";
+    }
+    {
+      assertion = config.desktop.loginManager.tuigreet.enable == true;
+      message = "登录管理器配置错误：tuigreet 未启用";
     }
     {
       assertion = config.base.container.podman.enable == true;

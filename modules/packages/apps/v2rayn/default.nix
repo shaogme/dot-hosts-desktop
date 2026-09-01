@@ -8,7 +8,7 @@ in
 {
   # =========================================================================
   # NixOS 模块选项定义：desktop.apps.v2rayn
-  # 该模块可被 modules/apps/default.nix 的自动发现机制自动引入。
+  # 该模块可被 modules/packages/apps/default.nix 的自动发现机制自动引入。
   # =========================================================================
   options.desktop.apps.v2rayn = {
     enable = mkEnableOption "v2rayN GUI 桌面应用程序（基于 Bubblewrap 沙箱与 FHS 隔离运行）";

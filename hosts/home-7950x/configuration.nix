@@ -89,11 +89,24 @@ in
   };
 
   # ==========================================
-  # 桌面与图形环境 (Hyprland & Audio)
+  # 桌面与图形环境 (Hyprland & Audio & Greetd)
   # ==========================================
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
+  };
+
+  # 登录管理器 (tuigreet)
+  desktop.loginManager.tuigreet = {
+    enable = true;
+    command = "Hyprland";
+    display = {
+      showTime = true;
+    };
+    remember = {
+      username = true;
+      session = true;
+    };
   };
 
   # 音频服务支持 (PipeWire)
@@ -295,6 +308,10 @@ in
     {
       assertion = config.programs.hyprland.enable == true;
       message = "桌面环境配置错误：Hyprland 未启用";
+    }
+    {
+      assertion = config.desktop.loginManager.tuigreet.enable == true;
+      message = "登录管理器配置错误：tuigreet 未启用";
     }
     {
       assertion = config.base.container.podman.enable == true;
