@@ -28,7 +28,7 @@ in
 
   # Desktop Entry 与图标配置
   desktop ? {},                  # pkgs.makeDesktopItem 传参
-  iconStrategy ? "hicolor",      # "hicolor" | "firefox-sizes" | "custom" | "none"
+  iconStrategy ? "auto",         # "auto" | "hicolor" | "firefox-sizes" | "custom" | "none"
   customPostBuild ? "",          # symlinkJoin 的自定义 postBuild 逻辑
   aliases ? [],                  # 可执行命令别名列表 (如 [ "firefox-devedition" ])
   postUnpack ? "",               # 解包后的自定义处理逻辑
@@ -123,14 +123,49 @@ let
 
   # 9. 图标安装 PostBuild Hook 生成
   iconPostBuild =
-    if iconStrategy == "hicolor" then ''
-      mkdir -p $out/share/icons/hicolor
-      if [ -d "${unpacked}/share/icons/hicolor" ]; then
-        cp -rn ${unpacked}/share/icons/hicolor/* $out/share/icons/hicolor/
+    if iconStrategy == "auto" || iconStrategy == "hicolor" then ''
+      if [ -d "${unpacked}/share/icons" ]; then
+        mkdir -p $out/share/icons
+        cp -rn ${unpacked}/share/icons/* $out/share/icons/
+      fi
+      if [ -d "${unpacked}/share/pixmaps" ]; then
+        mkdir -p $out/share/pixmaps
+        cp -rn ${unpacked}/share/pixmaps/* $out/share/pixmaps/
+      fi
+
+      # 补充 HiDPI / 特殊目录到基础目录的回退与别名映射
+      if [ -d "$out/share/icons/hicolor" ]; then
+        if [ -d "$out/share/icons/hicolor/256x256@2/apps" ] && [ ! -d "$out/share/icons/hicolor/256x256/apps" ]; then
+          mkdir -p "$out/share/icons/hicolor/256x256/apps"
+          for f in "$out/share/icons/hicolor/256x256@2/apps"/*; do
+            if [ -f "$f" ]; then
+              ln -sf "$f" "$out/share/icons/hicolor/256x256/apps/$(basename "$f")"
+            fi
+          done
+        fi
+
+        ${lib.concatStringsSep "\n" (map (alias: ''
+          for icon_dir in "$out"/share/icons/hicolor/*/apps; do
+            if [ -d "$icon_dir" ]; then
+              for ext in png svg xpm; do
+                if [ -f "$icon_dir/${pname}.$ext" ] && [ ! -f "$icon_dir/${alias}.$ext" ]; then
+                  ln -sf "$icon_dir/${pname}.$ext" "$icon_dir/${alias}.$ext"
+                fi
+              done
+            fi
+          done
+          if [ -d "$out/share/pixmaps" ]; then
+            for ext in png svg xpm; do
+              if [ -f "$out/share/pixmaps/${pname}.$ext" ] && [ ! -f "$out/share/pixmaps/${alias}.$ext" ]; then
+                ln -sf "$out/share/pixmaps/${pname}.$ext" "$out/share/pixmaps/${alias}.$ext"
+              fi
+            done
+          fi
+        '') aliases)}
       fi
     ''
     else if iconStrategy == "firefox-sizes" then ''
-      for size in 16 32 48 64 128; do
+      for size in 16 24 32 48 64 128 256; do
         icon_file="${unpacked}/browser/chrome/icons/default/default''${size}.png"
         if [ -f "$icon_file" ]; then
           mkdir -p "$out/share/icons/hicolor/''${size}x''${size}/apps"
@@ -140,6 +175,13 @@ let
           '') aliases)}
         fi
       done
+      if [ -f "${unpacked}/browser/chrome/icons/default/default128.png" ]; then
+        mkdir -p "$out/share/pixmaps"
+        cp "${unpacked}/browser/chrome/icons/default/default128.png" "$out/share/pixmaps/${pname}.png"
+        ${lib.concatStringsSep "\n" (map (alias: ''
+          cp "${unpacked}/browser/chrome/icons/default/default128.png" "$out/share/pixmaps/${alias}.png"
+        '') aliases)}
+      fi
     ''
     else "";
 

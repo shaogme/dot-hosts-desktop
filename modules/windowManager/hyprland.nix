@@ -113,8 +113,9 @@ let
     bind = [
       { _args = [ (inline ''"SUPER + Return"'') (inline ''hl.dsp.exec_cmd("kitty")'') ]; }
       { _args = [ (inline ''"SUPER + Q"'') (inline ''hl.dsp.window.close()'') ]; }
-      { _args = [ (inline ''"SUPER + M"'') (inline ''hl.dsp.exit()'') ]; }
-      { _args = [ (inline ''"SUPER + Space"'') (inline ''hl.dsp.exec_cmd("wofi --show drun")'') ]; }
+      { _args = [ (inline ''"SUPER + M"'') (inline ''hl.dsp.exec_cmd("wlogout-menu")'') ]; }
+      { _args = [ (inline ''"SUPER + Space"'') (inline ''hl.dsp.exec_cmd("wofi --show drun --allow-images")'') ]; }
+      { _args = [ (inline ''"SUPER + B"'') (inline ''hl.dsp.exec_cmd("pkill -SIGUSR1 waybar")'') ]; }
       { _args = [ (inline ''"SUPER + V"'') (inline ''hl.dsp.window.float({ action = "toggle" })'') ]; }
       { _args = [ (inline ''"SUPER + F"'') (inline ''hl.dsp.window.fullscreen()'') ]; }
 
@@ -245,6 +246,68 @@ in
       };
     };
 
+    iconTheme = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否启用并统一配置桌面与 GTK 图标主题（如 Adwaita、hicolor-icon-theme）。";
+      };
+
+      package = mkOption {
+        type = types.package;
+        default = pkgs.adwaita-icon-theme;
+        defaultText = literalExpression "pkgs.adwaita-icon-theme";
+        description = "默认图标主题软件包。";
+      };
+
+      name = mkOption {
+        type = types.str;
+        default = "Adwaita";
+        description = "默认图标主题名称。";
+      };
+    };
+
+    wofi = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否启用并生成系统级 Wofi 启动器配置（默认开启图像/图标渲染与不区分大小写检索）。";
+      };
+
+      allowImages = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否允许 Wofi 在 drun 模式下显示应用程序图标。";
+      };
+
+      imageSize = mkOption {
+        type = types.int;
+        default = 32;
+        description = "Wofi 中应用程序图标的显示大小（像素）。";
+      };
+
+      settings = mkOption {
+        type = types.attrsOf types.anything;
+        default = { };
+        description = "写入 /etc/xdg/wofi/config 的自定义配置项。";
+      };
+    };
+
+    powerMenu = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否启用基于 wlogout 的全屏现代化电源中心（集成锁屏、注销、休眠、睡眠、重启、关机，并在打开时自动隐藏 Waybar，退出时恢复）。";
+      };
+
+      package = mkOption {
+        type = types.package;
+        default = pkgs.wlogout;
+        defaultText = literalExpression "pkgs.wlogout";
+        description = "使用的 wlogout 软件包。";
+      };
+    };
+
     defaultTools = {
       enable = mkOption {
         type = types.bool;
@@ -263,6 +326,8 @@ in
           slurp
           dunst
           libnotify
+          hicolor-icon-theme
+          adwaita-icon-theme
         ];
         description = "Wayland 桌面配套工具软件包列表。";
       };
@@ -363,10 +428,29 @@ in
         pulse.enable = true;
       };
 
-      # 3. 桌面配套常用工具包与 Wi-Fi 支持工具
+      # 3. 桌面配套常用工具包与 Wi-Fi 支持工具以及图标主题包与电源管理中心
       environment.systemPackages =
+        let
+          wlogoutMenuScript = pkgs.writeShellScriptBin "wlogout-menu" ''
+            # 防止重复唤起
+            if ${pkgs.procps}/bin/pidof wlogout >/dev/null 2>&1; then
+              exit 0
+            fi
+
+            # 1. 隐藏 Waybar（向 waybar 发送 SIGUSR1 信号切换至隐藏状态）
+            ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
+
+            # 2. 阻塞运行全屏电源中心 wlogout
+            ${cfg.powerMenu.package}/bin/wlogout -b 5 -c 0 -r 0 -m 0 --protocol layer-shell "$@"
+
+            # 3. 退出后恢复显示 Waybar（向 waybar 发送 SIGUSR1 信号恢复显示）
+            ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
+          '';
+        in
         (optionals cfg.defaultTools.enable cfg.defaultTools.packages)
-        ++ (optionals cfg.wifi.enable cfg.wifi.packages);
+        ++ (optionals cfg.wifi.enable cfg.wifi.packages)
+        ++ (optionals cfg.iconTheme.enable [ cfg.iconTheme.package pkgs.hicolor-icon-theme ])
+        ++ (optionals cfg.powerMenu.enable [ cfg.powerMenu.package wlogoutMenuScript ]);
 
       # 4. 可选的 NetworkManager Applet 系统级支持
       programs.nm-applet.enable = mkIf cfg.wifi.enable true;
@@ -376,6 +460,9 @@ in
         {
           NIXOS_OZONE_WL = "1";
         }
+        (mkIf cfg.iconTheme.enable {
+          XCURSOR_THEME = cfg.iconTheme.name;
+        })
         cfg.sessionVariables
         (mkIf cfg.virtualization.enable {
           WLR_NO_HARDWARE_CURSORS = "1";
@@ -383,7 +470,7 @@ in
         })
       ];
 
-      # 6. 系统级 Hyprland 配置文件部署
+      # 6. 系统级 Hyprland, Wofi, Waybar 与 Wlogout 配置文件部署
       environment.etc =
         let
           generatedText =
@@ -391,11 +478,232 @@ in
               attrs = finalSettings;
             }
             + optionalString (cfg.extraConfig != "") "\n${cfg.extraConfig}";
+
+          wofiConfText =
+            let
+              defaultWofiSettings = {
+                allow_images = cfg.wofi.allowImages;
+                image_size = cfg.wofi.imageSize;
+                insensitive = true;
+                hide_scroll = true;
+              };
+              mergedWofi = defaultWofiSettings // cfg.wofi.settings;
+              renderWofiVal = v: if builtins.isBool v then (if v then "true" else "false") else toString v;
+            in
+            lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "${k}=${renderWofiVal v}") mergedWofi) + "\n";
+
+          waybarConfText = builtins.toJSON {
+            layer = "top";
+            position = "top";
+            height = 32;
+            spacing = 4;
+            modules-left = [
+              "hyprland/workspaces"
+            ];
+            modules-center = [
+              "hyprland/window"
+            ];
+            modules-right = [
+              "pulseaudio"
+              "network"
+              "cpu"
+              "memory"
+              "temperature"
+              "battery"
+              "clock"
+              "tray"
+              "custom/power"
+            ];
+            "hyprland/workspaces" = {
+              format = "{name}";
+              on-click = "activate";
+            };
+            "hyprland/window" = {
+              max-length = 50;
+              separate-outputs = true;
+            };
+            clock = {
+              format = "{:%Y-%m-%d %H:%M}";
+              tooltip-format = "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>";
+            };
+            cpu = {
+              format = " {usage}%";
+              tooltip = false;
+            };
+            memory = {
+              format = " {}%";
+            };
+            temperature = {
+              critical-threshold = 80;
+              format = "{temperatureC}°C ";
+            };
+            battery = {
+              states = {
+                warning = 30;
+                critical = 15;
+              };
+              format = "{icon} {capacity}%";
+              format-charging = " {capacity}%";
+              format-plugged = " {capacity}%";
+              format-icons = [ "" "" "" "" "" ];
+            };
+            network = {
+              format-wifi = " {essid} ({signalStrength}%)";
+              format-ethernet = " {ipaddr}/{cidr}";
+              format-disconnected = "⚠ Disconnected";
+            };
+            pulseaudio = {
+              format = "{icon} {volume}%";
+              format-muted = " Muted";
+              format-icons = {
+                default = [ "" "" "" ];
+              };
+              on-click = "pavucontrol";
+            };
+            tray = {
+              spacing = 10;
+            };
+            "custom/power" = {
+              format = "⏻";
+              tooltip = false;
+              on-click = "wlogout-menu";
+            };
+          };
+
+          waybarStyleText = ''
+            * {
+              border: none;
+              border-radius: 0;
+              font-family: inherit;
+              font-size: 13px;
+              min-height: 0;
+            }
+            window#waybar {
+              background-color: rgba(20, 20, 25, 0.85);
+              border-bottom: 2px solid rgba(100, 100, 120, 0.3);
+              color: #ffffff;
+            }
+            #workspaces button {
+              padding: 0 6px;
+              background-color: transparent;
+              color: #ffffff;
+              border-bottom: 2px solid transparent;
+            }
+            #workspaces button:hover {
+              background: rgba(255, 255, 255, 0.1);
+            }
+            #workspaces button.active {
+              background-color: rgba(100, 150, 255, 0.3);
+              border-bottom: 2px solid #5294e2;
+            }
+            #clock, #battery, #cpu, #memory, #temperature, #network, #pulseaudio, #tray, #custom-power {
+              padding: 0 10px;
+              color: #ffffff;
+            }
+            #custom-power {
+              color: #ff5555;
+              font-weight: bold;
+              margin-right: 6px;
+            }
+            #custom-power:hover {
+              color: #ff7777;
+              background-color: rgba(255, 85, 85, 0.2);
+              border-radius: 4px;
+            }
+          '';
+
+          wlogoutLayoutText = builtins.toJSON [
+            {
+              label = "lock";
+              action = "hyprlock || loginctl lock-session";
+              text = "锁定 (Lock)";
+              keybind = "l";
+            }
+            {
+              label = "logout";
+              action = "hyprctl dispatch exit || loginctl terminate-user $USER";
+              text = "注销 (Logout)";
+              keybind = "e";
+            }
+            {
+              label = "suspend";
+              action = "systemctl suspend";
+              text = "睡眠 (Suspend)";
+              keybind = "u";
+            }
+            {
+              label = "hibernate";
+              action = "systemctl hibernate";
+              text = "休眠 (Hibernate)";
+              keybind = "h";
+            }
+            {
+              label = "reboot";
+              action = "systemctl reboot";
+              text = "重启 (Reboot)";
+              keybind = "r";
+            }
+            {
+              label = "shutdown";
+              action = "systemctl poweroff";
+              text = "关机 (Shutdown)";
+              keybind = "s";
+            }
+          ];
+
+          wlogoutStyleText = ''
+            * {
+              background-image: none;
+              box-shadow: none;
+            }
+            window {
+              background-color: rgba(12, 12, 12, 0.85);
+            }
+            button {
+              border-radius: 12px;
+              border-color: rgba(255, 255, 255, 0.1);
+              text-decoration-color: #FFFFFF;
+              color: #FFFFFF;
+              background-color: rgba(30, 30, 30, 0.8);
+              border-style: solid;
+              border-width: 1px;
+              background-repeat: no-repeat;
+              background-position: center;
+              background-size: 25%;
+              margin: 12px;
+              font-family: inherit;
+              font-size: 16px;
+              transition: all 0.2s ease-in-out;
+            }
+            button:focus, button:active, button:hover {
+              background-color: rgba(65, 75, 110, 0.95);
+              border-color: rgba(120, 160, 255, 0.8);
+              outline-style: none;
+            }
+            #lock { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/lock.png")); }
+            #logout { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/logout.png")); }
+            #suspend { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/suspend.png")); }
+            #hibernate { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/hibernate.png")); }
+            #shutdown { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/shutdown.png")); }
+            #reboot { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/reboot.png")); }
+          '';
         in
         {
           "hypr/hyprland.lua".text = generatedText;
           "xdg/hypr/hyprland.lua".text = generatedText;
-        };
+        }
+        // (optionalAttrs cfg.wofi.enable {
+          "xdg/wofi/config".text = wofiConfText;
+        })
+        // (optionalAttrs cfg.powerMenu.enable {
+          "xdg/waybar/config.jsonc".text = waybarConfText;
+          "xdg/waybar/config".text = waybarConfText;
+          "xdg/waybar/style.css".text = waybarStyleText;
+          "wlogout/layout".text = wlogoutLayoutText;
+          "wlogout/style.css".text = wlogoutStyleText;
+          "xdg/wlogout/layout".text = wlogoutLayoutText;
+          "xdg/wlogout/style.css".text = wlogoutStyleText;
+        });
     }
 
     # 7. Home Manager 自动联动
@@ -417,8 +725,35 @@ in
               extraConfig = cfg.extraConfig;
             };
             home.packages =
+              let
+                wlogoutMenuScript = pkgs.writeShellScriptBin "wlogout-menu" ''
+                  # 防止重复唤起
+                  if ${pkgs.procps}/bin/pidof wlogout >/dev/null 2>&1; then
+                    exit 0
+                  fi
+
+                  # 1. 隐藏 Waybar（向 waybar 发送 SIGUSR1 信号切换至隐藏状态）
+                  ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
+
+                  # 2. 阻塞运行全屏电源中心 wlogout
+                  ${cfg.powerMenu.package}/bin/wlogout -b 5 -c 0 -r 0 -m 0 --protocol layer-shell "$@"
+
+                  # 3. 退出后恢复显示 Waybar（向 waybar 发送 SIGUSR1 信号恢复显示）
+                  ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
+                '';
+              in
               (optionals cfg.defaultTools.enable cfg.defaultTools.packages)
-              ++ (optionals cfg.wifi.enable cfg.wifi.packages);
+              ++ (optionals cfg.wifi.enable cfg.wifi.packages)
+              ++ (optionals cfg.iconTheme.enable [ cfg.iconTheme.package pkgs.hicolor-icon-theme ])
+              ++ (optionals cfg.powerMenu.enable [ cfg.powerMenu.package wlogoutMenuScript ]);
+
+            gtk = mkIf cfg.iconTheme.enable {
+              enable = true;
+              iconTheme = {
+                name = cfg.iconTheme.name;
+                package = cfg.iconTheme.package;
+              };
+            };
           })
         ];
       };

@@ -316,5 +316,17 @@ in
       assertion = config.programs.virt-manager.enable == true;
       message = "虚拟机管理工具配置错误：virt-manager 未启用";
     }
+    {
+      assertion = config.desktop.windowManager.hyprland.iconTheme.enable == true;
+      message = "桌面环境配置错误：Hyprland 图标主题 (iconTheme.enable) 未启用";
+    }
+    {
+      assertion = config.desktop.windowManager.hyprland.wofi.allowImages == true;
+      message = "桌面启动器配置错误：Wofi 图像与图标渲染 (wofi.allowImages) 未启用";
+    }
+    {
+      assertion = config.desktop.windowManager.hyprland.powerMenu.enable == true;
+      message = "桌面电源管理配置错误：Hyprland 全屏电源中心 (powerMenu.enable) 未启用";
+    }
   ];
 }

@@ -45,11 +45,24 @@ pkgs.testers.nixosTest {
       if ${if serverCfg.desktop.apps.clash-verge.enable or false then "True" else "False"}:
           server.succeed("which clash-verge")
           server.succeed("test -f /run/current-system/sw/share/applications/clash-verge.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/256x256/apps/clash-verge.png")
 
       if ${if serverCfg.desktop.apps.v2rayn.enable or false then "True" else "False"}:
           server.succeed("which v2rayn")
           server.succeed("test -f /run/current-system/sw/share/applications/v2rayn.desktop")
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/256x256/apps/v2rayn.png")
+
+      if ${if serverCfg.desktop.apps.firefox.enable or false then "True" else "False"}:
+          server.succeed("which firefox")
+          server.succeed("test -f /run/current-system/sw/share/applications/firefox.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/firefox.png")
+
+      if ${if serverCfg.desktop.apps.firefox-developer-edition.enable or false then "True" else "False"}:
+          server.succeed("which firefox-developer-edition")
+          server.succeed("which firefox-devedition")
+          server.succeed("test -f /run/current-system/sw/share/applications/firefox-developer-edition.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/firefox-developer-edition.png")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/firefox-devedition.png")
 
       # 验证登录管理器 (tuigreet)
       if ${if serverCfg.desktop.loginManager.tuigreet.enable or false then "True" else "False"}:
@@ -59,12 +72,19 @@ pkgs.testers.nixosTest {
           if ${if serverCfg.desktop.loginManager.tuigreet.consoleSession.enable or false then "True" else "False"}:
               server.succeed("test -f ${serverCfg.services.displayManager.sessionData.desktops}/share/wayland-sessions/console.desktop")
 
-      # 验证窗口管理器 (Hyprland)
+      # 验证窗口管理器 (Hyprland)、启动器 (Wofi) 与电源中心 (wlogout)
       if ${if serverCfg.desktop.windowManager.hyprland.enable or false then "True" else "False"}:
           server.succeed("which Hyprland")
           server.succeed("which start-hyprland")
           server.succeed("test -f /etc/xdg/hypr/hyprland.lua")
           server.succeed("test -f /etc/hypr/hyprland.lua")
+          server.succeed("test -f /etc/xdg/wofi/config")
+          if ${if serverCfg.desktop.windowManager.hyprland.powerMenu.enable or false then "True" else "False"}:
+              server.succeed("which wlogout")
+              server.succeed("which wlogout-menu")
+              server.succeed("test -f /etc/xdg/waybar/config.jsonc")
+              server.succeed("test -f /etc/wlogout/layout")
+              server.succeed("test -f /etc/wlogout/style.css")
 
       # 验证 Wi-Fi 管理支持 (Hyprland 与 Packages)
       if ${if serverCfg.desktop.packages.wifi.enable or false then "True" else "False"}:
