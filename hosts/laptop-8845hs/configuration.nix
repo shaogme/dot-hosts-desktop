@@ -353,6 +353,10 @@ in
       message = "桌面启动器配置错误：Wofi 图像与图标渲染 (wofi.allowImages) 未启用";
     }
     {
+      assertion = config.desktop.windowManager.hyprland.wofi.mode == "drun";
+      message = "桌面启动器配置错误：Wofi 默认模式应当为 drun";
+    }
+    {
       assertion = config.desktop.windowManager.hyprland.powerMenu.enable == true;
       message = "桌面电源管理配置错误：Hyprland 全屏电源中心 (powerMenu.enable) 未启用";
     }

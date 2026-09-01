@@ -123,7 +123,8 @@ let
     terminal = desktop.terminal or false;
     type = "Application";
     categories = desktop.categories or [ "Utility" ];
-  } // (builtins.removeAttrs desktop [ "desktopName" "genericName" "comment" "icon" "terminal" "categories" ]));
+    startupWMClass = desktop.startupWMClass or pname;
+  } // (builtins.removeAttrs desktop [ "desktopName" "genericName" "comment" "icon" "terminal" "categories" "startupWMClass" ]));
 
   # 9. 图标安装 PostBuild Hook 生成
   iconPostBuild =
@@ -131,10 +132,12 @@ let
       if [ -d "${unpacked}/share/icons" ]; then
         mkdir -p $out/share/icons
         cp -rn ${unpacked}/share/icons/* $out/share/icons/
+        chmod -R u+w $out/share/icons
       fi
       if [ -d "${unpacked}/share/pixmaps" ]; then
         mkdir -p $out/share/pixmaps
         cp -rn ${unpacked}/share/pixmaps/* $out/share/pixmaps/
+        chmod -R u+w $out/share/pixmaps
       fi
 
       # 补充 HiDPI / 特殊目录到基础目录的回退与别名映射

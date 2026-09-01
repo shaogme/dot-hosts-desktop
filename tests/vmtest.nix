@@ -93,6 +93,8 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/xdg/hypr/hyprland.lua")
           server.succeed("test -f /etc/hypr/hyprland.lua")
           server.succeed("test -f /etc/xdg/wofi/config")
+          server.succeed("test -f /etc/wofi/config")
+          server.succeed("grep -q 'mode=drun' /etc/wofi/config")
           if ${if serverCfg.desktop.windowManager.hyprland.powerMenu.enable or false then "True" else "False"}:
               server.succeed("which wlogout")
               server.succeed("which wlogout-menu")

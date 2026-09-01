@@ -207,6 +207,22 @@ let
     bind = (mergedSettings.bind or [ ]) ++ normalizedExtraBinds;
     on = (mergedSettings.on or [ ]) ++ wifiExecOnceOn ++ extraExecOnceOn;
   };
+
+  wofiConfText =
+    let
+      defaultWofiSettings = {
+        mode = cfg.wofi.mode;
+        allow_images = cfg.wofi.allowImages;
+        image_size = cfg.wofi.imageSize;
+        insensitive = true;
+        hide_scroll = true;
+        term = "${pkgs.kitty}/bin/kitty";
+        gtk_dark = true;
+      };
+      mergedWofi = defaultWofiSettings // cfg.wofi.settings;
+      renderWofiVal = v: if builtins.isBool v then (if v then "true" else "false") else toString v;
+    in
+    lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "${k}=${renderWofiVal v}") mergedWofi) + "\n";
 in
 {
   options.desktop.windowManager.hyprland = {
@@ -274,6 +290,12 @@ in
         description = "是否启用并生成系统级 Wofi 启动器配置（默认开启图像/图标渲染与不区分大小写检索）。";
       };
 
+      mode = mkOption {
+        type = types.str;
+        default = "drun";
+        description = "Wofi 默认启动模式（如 drun、run、dmenu）。";
+      };
+
       allowImages = mkOption {
         type = types.bool;
         default = true;
@@ -289,7 +311,7 @@ in
       settings = mkOption {
         type = types.attrsOf types.anything;
         default = { };
-        description = "写入 /etc/xdg/wofi/config 的自定义配置项。";
+        description = "写入 /etc/wofi/config 及 /etc/xdg/wofi/config 的自定义配置项。";
       };
     };
 
@@ -478,19 +500,6 @@ in
               attrs = finalSettings;
             }
             + optionalString (cfg.extraConfig != "") "\n${cfg.extraConfig}";
-
-          wofiConfText =
-            let
-              defaultWofiSettings = {
-                allow_images = cfg.wofi.allowImages;
-                image_size = cfg.wofi.imageSize;
-                insensitive = true;
-                hide_scroll = true;
-              };
-              mergedWofi = defaultWofiSettings // cfg.wofi.settings;
-              renderWofiVal = v: if builtins.isBool v then (if v then "true" else "false") else toString v;
-            in
-            lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "${k}=${renderWofiVal v}") mergedWofi) + "\n";
 
           waybarConfText = builtins.toJSON {
             layer = "top";
@@ -693,6 +702,7 @@ in
           "xdg/hypr/hyprland.lua".text = generatedText;
         }
         // (optionalAttrs cfg.wofi.enable {
+          "wofi/config".text = wofiConfText;
           "xdg/wofi/config".text = wofiConfText;
         })
         // (optionalAttrs cfg.powerMenu.enable {
@@ -746,6 +756,10 @@ in
               ++ (optionals cfg.wifi.enable cfg.wifi.packages)
               ++ (optionals cfg.iconTheme.enable [ cfg.iconTheme.package pkgs.hicolor-icon-theme ])
               ++ (optionals cfg.powerMenu.enable [ cfg.powerMenu.package wlogoutMenuScript ]);
+
+            xdg.configFile = mkIf cfg.wofi.enable {
+              "wofi/config".text = wofiConfText;
+            };
 
             gtk = mkIf cfg.iconTheme.enable {
               enable = true;

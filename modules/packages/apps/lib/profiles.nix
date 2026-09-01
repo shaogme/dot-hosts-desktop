@@ -114,14 +114,14 @@ rec {
 
     # XCB / Qt 附加图形环境 (如 WeChat Universal 等)
     xcb = pkgs: with pkgs; [
-      xorg.libxcb
-      xorg.xcbutil
-      xorg.xcbutilimage
-      xorg.xcbutilkeysyms
-      xorg.xcbutilrenderutil
-      xorg.xcbutilwm
-      xorg.xcbutilcursor
-      xorg.xcbutilerrors
+      libxcb
+      libxcb-util
+      libxcb-image
+      libxcb-keysyms
+      libxcb-render-util
+      libxcb-wm
+      libxcb-cursor
+      libxcb-errors
     ];
 
     # 桌面 GUI 应用元 Profile (常用 GUI 应用的基础集合)

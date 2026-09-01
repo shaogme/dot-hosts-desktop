@@ -37,6 +37,7 @@ mkSandboxedApp {
     if [ -d "$out/opt/apps/com.tencent.wechat/entries/icons" ]; then
       mkdir -p $out/share
       cp -rn $out/opt/apps/com.tencent.wechat/entries/icons $out/share/
+      chmod -R u+w $out/share/icons 2>/dev/null || true
       for icon_dir in "$out"/share/icons/hicolor/*/apps; do
         if [ -d "$icon_dir" ]; then
           if [ -f "$icon_dir/com.tencent.wechat.png" ] && [ ! -f "$icon_dir/wechat.png" ]; then
