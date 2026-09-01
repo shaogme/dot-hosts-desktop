@@ -36,8 +36,8 @@ let
       exit 1
     fi
 
-    echo ">> Compressing raw image with zstd (level 19)..."
-    zstd -19 -T0 "$RAW_SRC" -o $out/system.raw.zst
+    echo ">> Compressing raw image with zstd (level 14)..."
+    zstd -14 -T0 "$RAW_SRC" -o $out/system.raw.zst
   '';
 
   # 3. 评估全自动无人值守流式安装 ISO
