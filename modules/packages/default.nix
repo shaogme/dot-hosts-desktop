@@ -6,10 +6,6 @@ let
   cfg = config.desktop.packages;
 in
 {
-  imports = [
-    ./apps
-  ];
-
   options.desktop.packages = {
     enable = mkOption {
       type = types.bool;

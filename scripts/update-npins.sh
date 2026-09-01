@@ -46,7 +46,7 @@ if [ -f "$REPO_DIR/.github/scripts/get-hosts.sh" ]; then
     fi
 fi
 
-# 2. 扫描 modules 目录下所有包含 npins 的模块与应用 (如 modules/packages/apps/clash-verge)
+# 2. 扫描 modules 目录下所有包含 npins 的模块与应用 (如 modules/apps/clash-verge)
 if [ -d "$REPO_DIR/modules" ]; then
     while IFS= read -r npins_dir; do
         target_dir=$(dirname "$npins_dir")

@@ -1,12 +1,12 @@
 # 桌面应用（Apps）模块开发指南
 
-本文档指导如何在 `modules/packages/apps/` 下为桌面环境打包、沙箱隔离并添加新的应用程序。
+本文档指导如何在 `modules/apps/` 下为桌面环境打包、沙箱隔离并添加新的应用程序。
 
 ---
 
 ## 统一工具抽象体系
 
-为消除各 App 在 FHS 依赖、Bubblewrap 沙箱隔离、包装脚本与 Desktop 快捷方式创建中的样板代码，仓库在 [`modules/packages/apps/lib/`](./lib/) 下提供了统一的抽象工具库：
+为消除各 App 在 FHS 依赖、Bubblewrap 沙箱隔离、包装脚本与 Desktop 快捷方式创建中的样板代码，仓库在 [`modules/apps/lib/`](./lib/) 下提供了统一的抽象工具库：
 
 - **[`lib/mk-sandboxed-app.nix`](./lib/mk-sandboxed-app.nix)**: 统一沙箱应用构建器（整合解包、FHS、bwrap、Launcher/Wrapper 生成、Desktop Item 与图标提取）。
 - **[`lib/mk-app-module.nix`](./lib/mk-app-module.nix)**: 统一 NixOS 模块生成器（自动生成 `options.desktop.apps.<name>`、别名支持与系统环境集成）。
@@ -17,10 +17,10 @@
 
 ## 目录结构规范
 
-每个应用作为独立子目录维护在 `modules/packages/apps/<app-name>/` 下，标准结构如下：
+每个应用作为独立子目录维护在 `modules/apps/<app-name>/` 下，标准结构如下：
 
 ``` txt
-modules/packages/apps/<app-name>/
+modules/apps/<app-name>/
 ├── default.nix       # NixOS 模块定义（调用 mkAppModule，通常仅 5~10 行）
 ├── package.nix       # 声明式沙箱构建规范（调用 mkSandboxedApp，通常仅 20~30 行）
 ├── update.sh         # 可选：自定义上游版本抓取与 npins 更新脚本（针对非 Git/非 GitHub 源）
@@ -30,7 +30,7 @@ modules/packages/apps/<app-name>/
 ```
 
 > [!TIP]
-> **自动发现机制**：[`modules/packages/apps/default.nix`](./default.nix) 会自动扫描并引入 `modules/packages/apps/` 下所有包含 `default.nix` 的应用子目录（自动忽略 `lib/` 工具库），**无需在上层手动注册路径**。
+> **自动发现机制**：[`modules/apps/default.nix`](./default.nix) 会自动扫描并引入 `modules/apps/` 下所有包含 `default.nix` 的应用子目录（自动忽略 `lib/` 工具库），**无需在上层手动注册路径**。
 
 ---
 
@@ -38,34 +38,34 @@ modules/packages/apps/<app-name>/
 
 ### 步骤 1：通过 npins 锁定依赖版本
 
-遵循项目的依赖管理规范（见 [AGENTS.md](../../../AGENTS.md)），禁止在 Nix 表达式中手写 Hash。
+遵循项目的依赖管理规范（见 [AGENTS.md](../../AGENTS.md)），禁止在 Nix 表达式中手写 Hash。
 
 1. **初始化 npins 目录**：
 
    ```bash
-   mkdir -p modules/packages/apps/<app-name>/npins
-   npins -d modules/packages/apps/<app-name>/npins init --bare
+   mkdir -p modules/apps/<app-name>/npins
+   npins -d modules/apps/<app-name>/npins init --bare
    ```
 
 2. **添加上游依赖**：
    - **标准 GitHub Release / Git 仓库**：
 
      ```bash
-     npins -d modules/packages/apps/<app-name>/npins add github --at v1.0.0 <owner> <repo>
+     npins -d modules/apps/<app-name>/npins add github --at v1.0.0 <owner> <repo>
      ```
 
    - **特殊非 Git 来源（厂商 CDN / APT 软件源 / 归档 API）**：
      编写专用的 `update.sh` 自定义更新脚本（详见下文[自定义上游更新机制](#自定义上游更新机制-updatesh)），并执行：
 
      ```bash
-     bash modules/packages/apps/<app-name>/update.sh
+     bash modules/apps/<app-name>/update.sh
      ```
 
 ---
 
 ### 步骤 2：编写软件包与沙箱声明 (`package.nix`)
 
-创建 `modules/packages/apps/<app-name>/package.nix`：
+创建 `modules/apps/<app-name>/package.nix`：
 
 ```nix
 { pkgs, lib ? pkgs.lib, mkSandboxedApp ? pkgs.callPackage ../lib/mk-sandboxed-app.nix { inherit lib; } }:
@@ -101,7 +101,7 @@ mkSandboxedApp {
 
 ### 步骤 3：编写 NixOS 模块入口 (`default.nix`)
 
-创建 `modules/packages/apps/<app-name>/default.nix`：
+创建 `modules/apps/<app-name>/default.nix`：
 
 ```nix
 import ../lib/mk-app-module.nix {
@@ -116,7 +116,7 @@ import ../lib/mk-app-module.nix {
 
 ### 步骤 4：启用与验证
 
-1. **在主机配置中启用**（例如 [`hosts/home-7950x/configuration.nix`](../../../hosts/home-7950x/configuration.nix)）：
+1. **在主机配置中启用**（例如 [`hosts/home-7950x/configuration.nix`](../../hosts/home-7950x/configuration.nix)）：
 
    ```nix
    desktop.apps.<app-name> = {
@@ -148,13 +148,13 @@ import ../lib/mk-app-module.nix {
 - **Linux 发行版 APT 软件仓库**（如 **微信 WeChat Universal** 托管在统信 UOS 官方应用商店源，版本索引记录在 `Packages.gz` 中）。
 - **版本元数据 API + 归档文件服务**（如 **Firefox Developer Edition** 通过 Mozilla `product-details` API 发布版本号，安装包存储于 Archive 归档库）。
 
-为了让这些非标准分发的应用同样能够实现全自动一键版本升级，并与仓库的 [`scripts/update-npins.sh`](../../../scripts/update-npins.sh) 统一依赖更新流无缝协同，可在应用子目录下编写 `update.sh` 脚本。
+为了让这些非标准分发的应用同样能够实现全自动一键版本升级，并与仓库的 [`scripts/update-npins.sh`](../../scripts/update-npins.sh) 统一依赖更新流无缝协同，可在应用子目录下编写 `update.sh` 脚本。
 
 ---
 
 ### 2. 统一调度与执行机制
 
-根目录的 [`scripts/update-npins.sh`](../../../scripts/update-npins.sh) 会自动扫描 `modules/` 下所有带有 `npins/` 的模块与应用。执行流程如下：
+根目录的 [`scripts/update-npins.sh`](../../scripts/update-npins.sh) 会自动扫描 `modules/` 下所有带有 `npins/` 的模块与应用。执行流程如下：
 
 ```mermaid
 flowchart LR

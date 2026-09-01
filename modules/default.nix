@@ -2,6 +2,7 @@
 
 {
   imports = [
+    ./apps
     ./packages
     ./loginManager
     ./windowManager
