@@ -111,6 +111,11 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/xdg/wofi/config")
           server.succeed("test -f /etc/wofi/config")
           server.succeed("grep -q 'mode=drun' /etc/wofi/config")
+          server.succeed("which xdg-terminal-exec")
+          server.succeed("test -f /etc/xdg/xdg-terminals.list")
+          server.succeed("grep -q 'kitty.desktop' /etc/xdg/xdg-terminals.list")
+          server.succeed("test -f /etc/xdg/hyprland-xdg-terminals.list")
+          server.succeed("grep -q 'kitty.desktop' /etc/xdg/hyprland-xdg-terminals.list")
           if ${if serverCfg.desktop.windowManager.hyprland.powerMenu.enable or false then "True" else "False"}:
               server.succeed("which wlogout")
               server.succeed("which wlogout-menu")

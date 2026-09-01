@@ -492,7 +492,17 @@ in
         })
       ];
 
-      # 6. 系统级 Hyprland, Wofi, Waybar 与 Wlogout 配置文件部署
+      # 6. 配置 XDG 默认终端规范 (xdg-terminal-exec)，确保 GLib/GIO 及 Wofi drun 模式正常拉起 Kitty
+      xdg.terminal-exec = {
+        enable = true;
+        settings = {
+          default = [ "kitty.desktop" ];
+          Hyprland = [ "kitty.desktop" ];
+          hyprland = [ "kitty.desktop" ];
+        };
+      };
+
+      # 7. 系统级 Hyprland, Wofi, Waybar 与 Wlogout 配置文件部署
       environment.etc =
         let
           generatedText =
@@ -759,6 +769,8 @@ in
 
             xdg.configFile = mkIf cfg.wofi.enable {
               "wofi/config".text = wofiConfText;
+              "xdg-terminals.list".text = "kitty.desktop\n";
+              "hyprland-xdg-terminals.list".text = "kitty.desktop\n";
             };
 
             gtk = mkIf cfg.iconTheme.enable {
