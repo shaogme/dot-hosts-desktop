@@ -536,6 +536,10 @@ in
             "hyprland/workspaces" = {
               format = "{name}";
               on-click = "activate";
+              sort-by = "number";
+              persistent-workspaces = {
+                "*" = 5;
+              };
             };
             "hyprland/window" = {
               max-length = 50;
@@ -614,6 +618,9 @@ in
             #workspaces button.active {
               background-color: rgba(100, 150, 255, 0.3);
               border-bottom: 2px solid #5294e2;
+            }
+            #workspaces button.empty {
+              color: rgba(255, 255, 255, 0.4);
             }
             #clock, #battery, #cpu, #memory, #temperature, #network, #pulseaudio, #tray, #custom-power {
               padding: 0 10px;
