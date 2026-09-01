@@ -43,6 +43,7 @@ rec {
     graphics = pkgs: with pkgs; [
       libGL
       libGLU
+      libgbm
       mesa
       libva
       libdrm
@@ -105,6 +106,7 @@ rec {
       at-spi2-core
       cups
       expat
+      libgbm
       libsecret
       libnotify
       nspr
