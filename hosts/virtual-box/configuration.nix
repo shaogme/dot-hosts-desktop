@@ -50,8 +50,8 @@ in
       enable = true;
       device = "/dev/sda";
       swapSize = 4096;
-      # 显式指定基础镜像大小（MB），用于 Disko 构建参考
-      imageBaseSize = 8192; 
+      # 显式指定基础镜像大小，用于 Disko 构建参考
+      imageBaseSize = 12288;
       partitions.root = {
         size = "100%";
         subvolumes = {
