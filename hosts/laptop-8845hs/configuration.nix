@@ -51,7 +51,7 @@ in
       device = "/dev/nvme0n1";
       swapSize = 4096;
       # 显式指定基础镜像大小，用于 Disko 构建参考
-      imageBaseSize = 12288; 
+      imageBaseSize = 20480; 
       partitions.root = {
         size = "100%";
         subvolumes = {
@@ -138,6 +138,9 @@ in
   # 内核优化: 启用 CachyOS 内核
   exts.kernel.cachyos.enable = true;
 
+  # 内核模块: 启用 KVM 虚拟化支持 (AMD CPU)
+  boot.kernelModules = [ "kvm-amd" ];
+
   # 网络配置: 使用 NetworkManager 后端
   base.hardware.network = {
     enable = true;
@@ -154,7 +157,7 @@ in
   users.users.${hostConfig.user} = {
     isNormalUser = true;
     description = "Shaog";
-    extraGroups = [ "wheel" "networkmanager" "video" "audio" "input" ];
+    extraGroups = [ "wheel" "networkmanager" "video" "audio" "input" "kvm" "libvirtd" ];
     initialHashedPassword = hostConfig.auth.rootHash;
     openssh.authorizedKeys.keys = hostConfig.auth.sshKeys;
   };
@@ -189,6 +192,25 @@ in
   desktop.fonts = {
     enable = true;
   };
+
+  # ==========================================
+  # 虚拟化与虚拟机管理 (KVM / QEMU / Libvirt)
+  # ==========================================
+  virtualisation = {
+    libvirtd = {
+      enable = true;
+      qemu = {
+        package = pkgs.qemu_kvm;
+        runAsRoot = true;
+        swtpm.enable = true;
+      };
+    };
+    spiceUSBRedirection.enable = true;
+  };
+
+  # Virt-Manager 图形管理工具
+  programs.virt-manager.enable = true;
+  programs.dconf.enable = true;
 
   # 静态测试与合法性断言 (与配置同模块维护)
   assertions = [
@@ -263,6 +285,26 @@ in
     {
       assertion = config.fonts.fontconfig.enable == true;
       message = "字体配置错误：Fontconfig 未启用";
+    }
+    {
+      assertion = config.virtualisation.libvirtd.enable == true;
+      message = "虚拟化配置错误：libvirtd 未启用";
+    }
+    {
+      assertion = builtins.elem "kvm-amd" config.boot.kernelModules;
+      message = "内核模块配置错误：kvm-amd 未启用";
+    }
+    {
+      assertion = builtins.elem "kvm" config.users.users.${hostConfig.user}.extraGroups;
+      message = "用户组配置错误：用户 ${hostConfig.user} 未加入 kvm 组";
+    }
+    {
+      assertion = builtins.elem "libvirtd" config.users.users.${hostConfig.user}.extraGroups;
+      message = "用户组配置错误：用户 ${hostConfig.user} 未加入 libvirtd 组";
+    }
+    {
+      assertion = config.programs.virt-manager.enable == true;
+      message = "虚拟机管理工具配置错误：virt-manager 未启用";
     }
   ];
 }
