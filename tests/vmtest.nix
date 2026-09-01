@@ -56,6 +56,8 @@ pkgs.testers.nixosTest {
           server.succeed("which tuigreet")
           server.succeed("test -f /etc/tuigreet/config.toml")
           server.succeed("test -d /var/cache/tuigreet")
+          if ${if serverCfg.desktop.loginManager.tuigreet.consoleSession.enable or false then "True" else "False"}:
+              server.succeed("test -f ${serverCfg.services.displayManager.sessionData.desktops}/share/wayland-sessions/console.desktop")
 
       # 验证窗口管理器 (Hyprland)
       if ${if serverCfg.desktop.windowManager.hyprland.enable or false then "True" else "False"}:

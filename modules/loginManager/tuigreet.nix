@@ -159,6 +159,26 @@ in
       description = "默认启动的会话命令（如 start-hyprland、sway 等）。";
     };
 
+    consoleSession = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否自动向会话列表（F3: Sessions）中注册控制台/终端（Console / Shell）桌面会话项，支持在 tuigreet 中直接登录到命令行。";
+      };
+
+      name = mkOption {
+        type = types.str;
+        default = "Console";
+        description = "控制台会话在 tuigreet 会话菜单中显示的名称。";
+      };
+
+      command = mkOption {
+        type = types.str;
+        default = "/run/current-system/sw/bin/sh -c 'exec $SHELL -l'";
+        description = "控制台会话执行的命令（默认以登录模式启动当前用户默认 Shell）。";
+      };
+    };
+
     sessions = mkOption {
       type = types.listOf types.str;
       default = [
@@ -704,6 +724,22 @@ in
 
     # 将生成的 TOML 配置文件同步至 /etc/tuigreet/config.toml
     environment.etc."tuigreet/config.toml".source = configFile;
+
+    # 注册控制台/终端会话项，支持在 tuigreet (F3: Sessions) 中选择直接进入命令行
+    services.displayManager.sessionPackages = mkIf cfg.consoleSession.enable [
+      (pkgs.writeTextFile {
+        name = "console-session";
+        destination = "/share/wayland-sessions/console.desktop";
+        text = ''
+          [Desktop Entry]
+          Name=${cfg.consoleSession.name}
+          Comment=Log in to interactive console / login shell
+          Exec=${cfg.consoleSession.command}
+          Type=Application
+        '';
+        passthru.providedSessions = [ "console" ];
+      })
+    ];
 
     # 将 tuigreet 添加至系统环境，便于命令行排查与 --mock 预览
     environment.systemPackages = [
