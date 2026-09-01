@@ -136,6 +136,7 @@ pkgs.testers.nixosTest {
       if ${if serverCfg.desktop.fonts.enable or false then "True" else "False"}:
           server.succeed("test -f /etc/fonts/fonts.conf")
           server.succeed("which fc-match")
+          server.succeed("fc-match sans-serif")
           server.succeed("fc-match serif")
           server.succeed("fc-match monospace")
 

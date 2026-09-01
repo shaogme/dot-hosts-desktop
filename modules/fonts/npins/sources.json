@@ -1,0 +1,21 @@
+{
+  "pins": {
+    "tsanger-jinkai": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "shaogme",
+        "repo": "fonts"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": "tsanger-jinkai/",
+      "submodules": false,
+      "version": "tsanger-jinkai/v2026.9.1",
+      "revision": "50b79b80fcad30ada8c4ab3bd7d0ce9fba002411",
+      "url": "https://api.github.com/repos/shaogme/fonts/tarball/refs/tags/tsanger-jinkai/v2026.9.1",
+      "hash": "sha256-jQ1Betjlirjb6ESKVpm9vZqJjWZWu5IIZezF35klgyc="
+    }
+  },
+  "version": 8
+}

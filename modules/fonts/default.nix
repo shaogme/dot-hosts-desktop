@@ -4,6 +4,31 @@ with lib;
 
 let
   cfg = config.desktop.fonts;
+  sources = import ./npins;
+
+  tsangerJinKaiPackage =
+    let
+      rawVersion = sources.tsanger-jinkai.version;
+      version = lib.removePrefix "v" (lib.removePrefix "tsanger-jinkai/" rawVersion);
+      encodedVersion = lib.replaceStrings [ "/" ] [ "%2F" ] rawVersion;
+      fontUrl = "https://github.com/shaogme/fonts/releases/download/${encodedVersion}/TsangerJinKai04-W04.ttf";
+    in
+    pkgs.stdenvNoCC.mkDerivation {
+      pname = "tsanger-jinkai";
+      inherit version;
+      src = builtins.fetchurl fontUrl;
+      dontUnpack = true;
+      installPhase = ''
+        runHook preInstall
+        install -Dm644 $src $out/share/fonts/truetype/TsangerJinKai04-W04.ttf
+        runHook postInstall
+      '';
+      meta = with lib; {
+        description = "Tsanger JinKai 04 font";
+        homepage = "https://github.com/shaogme/fonts";
+        platforms = platforms.all;
+      };
+    };
 in
 {
   options.desktop.fonts = {
@@ -21,28 +46,75 @@ in
       };
     };
 
-    # 主要字体（楷体）配置
-    main = {
+    # 主无衬线字体（Geist Sans）配置
+    sansSerif = {
       enable = mkOption {
         type = types.bool;
         default = true;
-        description = "是否启用文鼎楷体（texlivePackages.arphic）作为系统默认主字体（Serif / Sans-Serif 中文优先）。";
+        description = "是否启用 Geist（Geist Sans）作为系统默认主无衬线字体。";
       };
-      packages = mkOption {
-        type = types.listOf types.package;
-        default = with pkgs.texlivePackages; [
-          arphic-ttf
-          arphic
-        ];
-        description = "文鼎楷体软件包列表。";
+      package = mkOption {
+        type = types.package;
+        default = pkgs.geist-font;
+        description = "Geist Sans 软件包。";
       };
       families = mkOption {
         type = types.listOf types.str;
         default = [
-          "AR PL KaitiM GB"
-          "AR PL KaitiM Big5"
+          "Geist"
+          "Geist Sans"
         ];
-        description = "主字体（楷体）优先族名称列表。";
+        description = "无衬线字体优先族名称列表。";
+      };
+    };
+
+    # 主衬线字体（Alegreya）配置
+    serif = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否启用 Alegreya 作为系统默认主衬线字体。";
+      };
+      package = mkOption {
+        type = types.package;
+        default = pkgs.alegreya;
+        description = "Alegreya 软件包。";
+      };
+      families = mkOption {
+        type = types.listOf types.str;
+        default = [
+          "Alegreya"
+        ];
+        description = "衬线字体优先族名称列表。";
+      };
+    };
+
+    # 中文字体（仓耳今楷）配置
+    cjk = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否启用仓耳今楷（Tsanger JinKai）作为系统默认中文字体。";
+      };
+      package = mkOption {
+        type = types.package;
+        default = tsangerJinKaiPackage;
+        description = "仓耳今楷软件包。";
+      };
+      families = mkOption {
+        type = types.listOf types.str;
+        default = [
+          "TsangerJinKai04"
+          "仓耳今楷04"
+          "TsangerJinKai04 W04"
+          "仓耳今楷04 W04"
+        ];
+        description = "中文字体优先族名称列表。";
+      };
+      monoFamilies = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        description = "中文等宽字体优先族名称列表。";
       };
     };
 
@@ -144,7 +216,9 @@ in
     packages = mkOption {
       type = types.listOf types.package;
       default =
-        (optionals cfg.main.enable cfg.main.packages)
+        (optional cfg.sansSerif.enable cfg.sansSerif.package)
+        ++ (optional cfg.serif.enable cfg.serif.package)
+        ++ (optional cfg.cjk.enable cfg.cjk.package)
         ++ (optional cfg.monospace.enable cfg.monospace.package)
         ++ (optionals cfg.nerdFonts.enable cfg.nerdFonts.packages)
         ++ (optional cfg.emoji.enable cfg.emoji.package)
@@ -166,7 +240,8 @@ in
         serif = mkOption {
           type = types.listOf types.str;
           default =
-            (optionals cfg.main.enable cfg.main.families)
+            (optionals cfg.serif.enable cfg.serif.families)
+            ++ (optionals cfg.cjk.enable cfg.cjk.families)
             ++ [
               "Noto Serif CJK SC"
               "Noto Serif CJK TC"
@@ -179,7 +254,8 @@ in
         sansSerif = mkOption {
           type = types.listOf types.str;
           default =
-            (optionals cfg.main.enable cfg.main.families)
+            (optionals cfg.sansSerif.enable cfg.sansSerif.families)
+            ++ (optionals cfg.cjk.enable cfg.cjk.families)
             ++ [
               "Noto Sans CJK SC"
               "Noto Sans CJK TC"
@@ -193,6 +269,7 @@ in
           type = types.listOf types.str;
           default =
             (optionals cfg.monospace.enable cfg.monospace.families)
+            ++ (optionals cfg.cjk.enable cfg.cjk.monoFamilies)
             ++ (optionals cfg.nerdFonts.enable cfg.nerdFonts.families)
             ++ [
               "DejaVu Sans Mono"
