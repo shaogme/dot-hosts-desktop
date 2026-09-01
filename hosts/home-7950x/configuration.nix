@@ -64,7 +64,7 @@ in
   };
 
   # 图形驱动与硬件加速: 启用 AMD 显卡驱动与加速支持
-  base.hardware.graphics.amd.enable = true;
+  base.hardware.graphics.mode = "amd";
   
   # 性能与内存调优
   base.performance.tuning.profile = "desktop-performance";
@@ -209,7 +209,7 @@ in
       message = "网络后端配置错误：应当使用 networkmanager";
     }
     {
-      assertion = config.base.hardware.graphics.amd.enable == true;
+      assertion = config.base.hardware.graphics.mode == "amd";
       message = "图形驱动配置错误：AMD 显卡驱动与加速未启用";
     }
     {
