@@ -78,6 +78,22 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/qq.png")
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/linuxqq.png")
 
+      if ${if serverCfg.desktop.apps.vscode.enable or false then "True" else "False"}:
+          server.succeed("which vscode")
+          server.succeed("which code")
+          server.succeed("test -f /run/current-system/sw/share/applications/vscode.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/vscode.png")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/code.png")
+
+      if ${if serverCfg.desktop.apps.vscode-insiders.enable or false then "True" else "False"}:
+          server.succeed("which vscode-insiders")
+          server.succeed("which code-insiders")
+          server.succeed("which vscode-insider")
+          server.succeed("which code-insider")
+          server.succeed("test -f /run/current-system/sw/share/applications/vscode-insiders.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/vscode-insiders.png")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/code-insiders.png")
+
       # 验证登录管理器 (tuigreet)
       if ${if serverCfg.desktop.loginManager.tuigreet.enable or false then "True" else "False"}:
           server.succeed("which tuigreet")

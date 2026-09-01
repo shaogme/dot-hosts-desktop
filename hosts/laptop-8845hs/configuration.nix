@@ -208,6 +208,10 @@ in
     enable = true;
   };
 
+  desktop.apps.vscode-insiders = {
+    enable = true;
+  };
+
   # ==========================================
   # 统一字体与 Fontconfig 配置
   # ==========================================
@@ -315,6 +319,10 @@ in
     {
       assertion = config.desktop.apps.qq.enable == true;
       message = "桌面应用配置错误：desktop.apps.qq 未启用";
+    }
+    {
+      assertion = config.desktop.apps.vscode-insiders.enable == true;
+      message = "桌面应用配置错误：desktop.apps.vscode-insiders 未启用";
     }
     {
       assertion = config.desktop.fonts.enable == true;

@@ -1,0 +1,12 @@
+{
+  "pins": {
+    "vscode": {
+      "type": "MutableUrl",
+      "update_url": "https://update.code.visualstudio.com/latest/linux-deb-x64/stable",
+      "unpack": false,
+      "url": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/08d4889f9ec4a1685d257b9b95de036c8e1ce1e5/code_1.135.0-1787669172_amd64.deb",
+      "hash": "sha256-6BAXIPCkj45q5aQRLRD/6l8T0pjn0KcBK0427rxTAiw="
+    }
+  },
+  "version": 8
+}

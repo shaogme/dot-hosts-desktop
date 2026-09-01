@@ -1,0 +1,12 @@
+{
+  "pins": {
+    "vscode-insiders": {
+      "type": "MutableUrl",
+      "update_url": "https://update.code.visualstudio.com/latest/linux-deb-x64/insider",
+      "unpack": false,
+      "url": "https://vscode.download.prss.microsoft.com/dbazure/download/insider/6b83849594a181ba0dcadea99844b6f1f42bbcc9/code-insiders_1.136.0-1788268052_amd64.deb",
+      "hash": "sha256-WfcQZpAa0lW7y1jitVcv+e/885VA2dVY8SjwPQPyH9A="
+    }
+  },
+  "version": 8
+}
