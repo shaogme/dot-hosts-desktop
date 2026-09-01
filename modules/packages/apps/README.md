@@ -145,7 +145,7 @@ import ../lib/mk-app-module.nix {
 | 隔离维度 | 实现方式 | 说明 |
 | :--- | :--- | :--- |
 | **宿主机 $HOME 保护** | `--tmpfs $HOME` | 容器无法接触宿主机 `~/.ssh`、`~/.gnupg`、工作文档与浏览器 Cookies |
-| **数据持久化路径** | `--bind $SANDBOX_HOME $HOME` | 映射至 `~/.local/share/sandboxes/<app-name>`，重启或升级配置不丢失 |
+| **数据持久化路径** | `--bind $SANDBOX_HOME $HOME` | 映射至 `~/.sandboxes/<app-name>`，重启或升级配置不丢失 |
 | **图形显示** | `--ro-bind-try $WAYLAND_DISPLAY` / `/tmp/.X11-unix` | 仅只读穿透 Wayland / X11 显示协议通道 |
 | **音频服务** | `--ro-bind-try $XDG_RUNTIME_DIR/pipewire-0` | 仅只读穿透 PipeWire / PulseAudio Socket |
 | **网络通道** | `--share-net` | 允许正常的网络通信 |

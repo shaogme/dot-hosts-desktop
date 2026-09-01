@@ -127,7 +127,7 @@ rec {
     extraBwrapArgs ? [],
   }:
     let
-      sandboxHome = "\${XDG_DATA_HOME:-$HOME/.local/share}/sandboxes/${sandboxName}";
+      sandboxHome = "\${XDG_DATA_HOME:-$HOME}/.sandboxes/${sandboxName}";
     in
     lib.optionals isolatedHome [
       "--tmpfs" "$HOME"

@@ -101,7 +101,7 @@ let
 
   # 7. 生成宿主机 Wrapper 包装器脚本
   wrapper = pkgs.writeShellScriptBin binaryName ''
-    SANDBOX_HOME="''${XDG_DATA_HOME:-$HOME/.local/share}/sandboxes/${sandboxName}"
+    SANDBOX_HOME="''${XDG_DATA_HOME:-$HOME}/.sandboxes/${sandboxName}"
     mkdir -p "$SANDBOX_HOME"
     ${lib.concatStringsSep "\n" (map (dir: "mkdir -p \"$SANDBOX_HOME/${dir}\"") hostDirs)}
 
