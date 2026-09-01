@@ -162,6 +162,18 @@ let
     { _args = [ "WLR_RENDERER_ALLOW_SOFTWARE" "1" ]; }
   ];
 
+  # Wi-Fi 托盘自启动配置
+  wifiExecOnceOn = optional cfg.wifi.enable {
+    _args = [
+      "hyprland.start"
+      (inline ''
+        function()
+          hl.exec_cmd("nm-applet --indicator")
+        end
+      '')
+    ];
+  };
+
   # 将 extraExecOnce 格式化为 autostart 动作
   extraExecOnceOn = optional (cfg.extraExecOnce != [ ]) {
     _args = [
@@ -192,7 +204,7 @@ let
 
   finalSettings = mergedSettings // {
     bind = (mergedSettings.bind or [ ]) ++ normalizedExtraBinds;
-    on = (mergedSettings.on or [ ]) ++ extraExecOnceOn;
+    on = (mergedSettings.on or [ ]) ++ wifiExecOnceOn ++ extraExecOnceOn;
   };
 in
 {
@@ -214,6 +226,22 @@ in
         type = types.bool;
         default = true;
         description = "是否自动启用 PipeWire 音频服务与 rtkit 实时调度支持。";
+      };
+    };
+
+    wifi = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "是否启用 Wi-Fi 支持与托盘管理（如 networkmanager-applet / nm-applet）。";
+      };
+
+      packages = mkOption {
+        type = types.listOf types.package;
+        default = with pkgs; [
+          networkmanagerapplet
+        ];
+        description = "Hyprland Wi-Fi 管理工具包列表。";
       };
     };
 
@@ -335,10 +363,15 @@ in
         pulse.enable = true;
       };
 
-      # 3. 桌面配套常用工具包
-      environment.systemPackages = mkIf cfg.defaultTools.enable cfg.defaultTools.packages;
+      # 3. 桌面配套常用工具包与 Wi-Fi 支持工具
+      environment.systemPackages =
+        (optionals cfg.defaultTools.enable cfg.defaultTools.packages)
+        ++ (optionals cfg.wifi.enable cfg.wifi.packages);
 
-      # 4. 会话环境变量
+      # 4. 可选的 NetworkManager Applet 系统级支持
+      programs.nm-applet.enable = mkIf cfg.wifi.enable true;
+
+      # 5. 会话环境变量
       environment.sessionVariables = mkMerge [
         {
           NIXOS_OZONE_WL = "1";
@@ -350,7 +383,7 @@ in
         })
       ];
 
-      # 5. 系统级 Hyprland 配置文件部署
+      # 6. 系统级 Hyprland 配置文件部署
       environment.etc =
         let
           generatedText =
@@ -365,7 +398,7 @@ in
         };
     }
 
-    # 6. Home Manager 自动联动
+    # 7. Home Manager 自动联动
     (optionalAttrs (options ? home-manager) {
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
@@ -383,7 +416,9 @@ in
               settings = finalSettings;
               extraConfig = cfg.extraConfig;
             };
-            home.packages = mkIf cfg.defaultTools.enable cfg.defaultTools.packages;
+            home.packages =
+              (optionals cfg.defaultTools.enable cfg.defaultTools.packages)
+              ++ (optionals cfg.wifi.enable cfg.wifi.packages);
           })
         ];
       };

@@ -101,6 +101,7 @@ in
   # ==========================================
   desktop.windowManager.hyprland = {
     enable = true;
+    wifi.enable = true;
   };
 
   # 登录管理器 (tuigreet)
@@ -167,6 +168,7 @@ in
   # ==========================================
   desktop.packages = {
     enable = true;
+    wifi.enable = true;
   };
 
   # 桌面应用配置
@@ -247,6 +249,10 @@ in
       message = "窗口管理器配置错误：Hyprland 未启用";
     }
     {
+      assertion = config.desktop.windowManager.hyprland.wifi.enable == true;
+      message = "窗口管理器 Wi-Fi 配置错误：Hyprland Wi-Fi 未启用";
+    }
+    {
       assertion = config.programs.hyprland.enable == true;
       message = "桌面环境配置错误：Hyprland 未启用";
     }
@@ -261,6 +267,10 @@ in
     {
       assertion = config.desktop.packages.enable == true;
       message = "软件包集合配置错误：desktop.packages 未启用";
+    }
+    {
+      assertion = config.desktop.packages.wifi.enable == true;
+      message = "软件包集合 Wi-Fi 配置错误：desktop.packages.wifi 未启用";
     }
     {
       assertion = config.desktop.apps.clash-verge.enable == true;

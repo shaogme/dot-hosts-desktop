@@ -120,6 +120,25 @@ in
       };
     };
 
+    wifi = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "是否安装无线网络与 Wi-Fi 管理工具（如 networkmanager / nmtui, nmcli, iw, wireless-tools 等）。";
+      };
+      packages = mkOption {
+        type = types.listOf types.package;
+        default = with pkgs; [
+          networkmanager # 提供 nmcli, nmtui
+          wirelesstools  # 提供 iwconfig, iwlist 等
+          iw
+          wavemon
+          impala
+        ];
+        description = "Wi-Fi 与无线网络管理工具包列表。";
+      };
+    };
+
     compression = {
       enable = mkOption {
         type = types.bool;
@@ -172,6 +191,7 @@ in
       ++ optionals cfg.cli.enable cfg.cli.packages
       ++ optionals cfg.system.enable cfg.system.packages
       ++ optionals cfg.network.enable cfg.network.packages
+      ++ optionals cfg.wifi.enable cfg.wifi.packages
       ++ optionals cfg.compression.enable cfg.compression.packages
       ++ optionals cfg.terminal.enable cfg.terminal.packages
       ++ cfg.extraPackages;

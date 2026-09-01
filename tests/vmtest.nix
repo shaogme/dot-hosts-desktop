@@ -66,6 +66,15 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/xdg/hypr/hyprland.lua")
           server.succeed("test -f /etc/hypr/hyprland.lua")
 
+      # 验证 Wi-Fi 管理支持 (Hyprland 与 Packages)
+      if ${if serverCfg.desktop.packages.wifi.enable or false then "True" else "False"}:
+          server.succeed("which nmcli")
+          server.succeed("which nmtui")
+          server.succeed("which iw")
+
+      if ${if serverCfg.desktop.windowManager.hyprland.wifi.enable or false then "True" else "False"}:
+          server.succeed("which nm-applet")
+
       # 验证字体与 Fontconfig
       if ${if serverCfg.desktop.fonts.enable or false then "True" else "False"}:
           server.succeed("test -f /etc/fonts/fonts.conf")
