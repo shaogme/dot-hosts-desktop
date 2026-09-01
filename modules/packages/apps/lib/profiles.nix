@@ -100,6 +100,30 @@ rec {
       cups
     ];
 
+    # Electron / Chromium 基础运行环境 (如 Linux QQ, VSCode, Slack 等)
+    electron = pkgs: with pkgs; [
+      at-spi2-core
+      cups
+      expat
+      libsecret
+      libnotify
+      nspr
+      nss
+      systemdLibs
+    ];
+
+    # XCB / Qt 附加图形环境 (如 WeChat Universal 等)
+    xcb = pkgs: with pkgs; [
+      xorg.libxcb
+      xorg.xcbutil
+      xorg.xcbutilimage
+      xorg.xcbutilkeysyms
+      xorg.xcbutilrenderutil
+      xorg.xcbutilwm
+      xorg.xcbutilcursor
+      xorg.xcbutilerrors
+    ];
+
     # 桌面 GUI 应用元 Profile (常用 GUI 应用的基础集合)
     desktop-gui = pkgs:
       pkgProfiles.base pkgs

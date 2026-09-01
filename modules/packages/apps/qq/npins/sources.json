@@ -1,0 +1,11 @@
+{
+  "pins": {
+    "qq": {
+      "type": "Url",
+      "url": "https://qqdl.gtimg.cn/qqfile/QQNT/9.9.35/beta/1763096b/linuxqq_3.2.33-52892_amd64.deb",
+      "unpack": false,
+      "hash": "sha256-UCqXjy0Dr58hrO/EYfnR0f4JtlutYgu/zbWJp5rFO34="
+    }
+  },
+  "version": 8
+}

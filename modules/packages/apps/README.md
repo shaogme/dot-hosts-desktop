@@ -134,6 +134,8 @@ import ../lib/mk-app-module.nix {
 | Profile 名称 | 包含组件与适用场景 |
 | :--- | :--- |
 | **`desktop-gui`** | 通用桌面 GUI 元 Profile：整合基础 C 运行时、X11、Wayland、GPU 加速、PipeWire 音频、Fontconfig 字体及 GTK3 |
+| **`electron`** | Electron / Chromium 基础运行环境（at-spi2-core、expat、libsecret、libnotify、NSS、NSPR、systemd 等，如 QQ、VSCode） |
+| **`xcb`** | XCB / Qt 附加图形环境（xcbutilimage、xcbutilkeysyms、xcbutilwm 等，如微信 WeChat Universal） |
 | **`webkitgtk`** | WebKitGTK 4.1 与 libsoup3 支持（如 Clash Verge Rev、Tauri 应用） |
 | **`dotnet`** | .NET CoreCLR / Avalonia UI 运行时依赖（ICU、SQLite 原生库等，如 v2rayN） |
 | **`media`** | 完整多媒体与安全编解码库（FFmpeg、libvpx、NSS、NSPR 等，如 Firefox） |
@@ -159,5 +161,9 @@ import ../lib/mk-app-module.nix {
 - [`modules/packages/apps/firefox/package.nix`](./firefox/package.nix)
 - [`modules/packages/apps/firefox/default.nix`](./firefox/default.nix)
 - [`modules/packages/apps/firefox-developer-edition/package.nix`](./firefox-developer-edition/package.nix)
+- [`modules/packages/apps/qq/package.nix`](./qq/package.nix)
+- [`modules/packages/apps/qq/default.nix`](./qq/default.nix)
 - [`modules/packages/apps/v2rayn/package.nix`](./v2rayn/package.nix)
 - [`modules/packages/apps/v2rayn/default.nix`](./v2rayn/default.nix)
+- [`modules/packages/apps/wechat/package.nix`](./wechat/package.nix)
+- [`modules/packages/apps/wechat/default.nix`](./wechat/default.nix)

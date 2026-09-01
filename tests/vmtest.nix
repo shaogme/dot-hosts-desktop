@@ -64,6 +64,20 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/firefox-developer-edition.png")
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/firefox-devedition.png")
 
+      if ${if serverCfg.desktop.apps.wechat.enable or false then "True" else "False"}:
+          server.succeed("which wechat")
+          server.succeed("which wechat-universal")
+          server.succeed("which weixin")
+          server.succeed("test -f /run/current-system/sw/share/applications/wechat.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/256x256/apps/wechat.png")
+
+      if ${if serverCfg.desktop.apps.qq.enable or false then "True" else "False"}:
+          server.succeed("which qq")
+          server.succeed("which linuxqq")
+          server.succeed("test -f /run/current-system/sw/share/applications/qq.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/qq.png")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/linuxqq.png")
+
       # 验证登录管理器 (tuigreet)
       if ${if serverCfg.desktop.loginManager.tuigreet.enable or false then "True" else "False"}:
           server.succeed("which tuigreet")

@@ -1,0 +1,11 @@
+{
+  "pins": {
+    "wechat": {
+      "type": "Url",
+      "url": "https://pro-store-packages.uniontech.com/appstore/pool/appstore/c/com.tencent.wechat/com.tencent.wechat_4.1.1.7_amd64.deb",
+      "unpack": false,
+      "hash": "sha256-ifhWU6TzpsIXKuuQBnGRJKvZ5hWs+JZuoD362utJ89w="
+    }
+  },
+  "version": 8
+}
