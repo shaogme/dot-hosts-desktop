@@ -114,6 +114,7 @@ let
       { _args = [ (inline ''"SUPER + Return"'') (inline ''hl.dsp.exec_cmd("kitty")'') ]; }
       { _args = [ (inline ''"SUPER + Q"'') (inline ''hl.dsp.window.close()'') ]; }
       { _args = [ (inline ''"SUPER + M"'') (inline ''hl.dsp.exec_cmd("wlogout-menu")'') ]; }
+      { _args = [ (inline ''"XF86PowerOff"'') (inline ''hl.dsp.exec_cmd("wlogout-menu")'') ]; }
       { _args = [ (inline ''"SUPER + Space"'') (inline ''hl.dsp.exec_cmd("wofi --show drun --allow-images")'') ]; }
       { _args = [ (inline ''"SUPER + B"'') (inline ''hl.dsp.exec_cmd("pkill -SIGUSR1 waybar")'') ]; }
       { _args = [ (inline ''"SUPER + V"'') (inline ''hl.dsp.window.float({ action = "toggle" })'') ]; }
@@ -196,6 +197,11 @@ let
       { _args = [ (inline b) ]; }
   ) cfg.extraBinds;
 
+  powerMenuLayerRules = optionals (cfg.powerMenu.enable && cfg.powerMenu.blur.enable) [
+    "blur, wlogout"
+    "ignorezero, wlogout"
+  ];
+
   # 合并默认配置、虚拟机配置与用户自定义 settings
   rawSettings = defaultSettings // (optionalAttrs cfg.virtualization.enable {
     env = (defaultSettings.env or [ ]) ++ virtualizationEnv;
@@ -206,7 +212,134 @@ let
   finalSettings = mergedSettings // {
     bind = (mergedSettings.bind or [ ]) ++ normalizedExtraBinds;
     on = (mergedSettings.on or [ ]) ++ wifiExecOnceOn ++ extraExecOnceOn;
+    layerrule = (mergedSettings.layerrule or [ ]) ++ powerMenuLayerRules;
   };
+
+  # 高清矢量 SVG 图标包（纯净内嵌生成，零外部网络依赖）
+  powerIcons = pkgs.runCommandLocal "wlogout-modern-svg-icons" { } ''
+    mkdir -p $out/icons
+
+    # 1. 锁屏 (Lock)
+    cat <<'EOF' > $out/icons/lock.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#89b4fa" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+  <circle cx="12" cy="16" r="1.2" fill="#89b4fa"></circle>
+</svg>
+EOF
+
+    # 2. 注销 (Logout)
+    cat <<'EOF' > $out/icons/logout.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#f9e2af" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+  <polyline points="16 17 21 12 16 7"></polyline>
+  <line x1="21" y1="12" x2="9" y2="12"></line>
+</svg>
+EOF
+
+    # 3. 睡眠 (Suspend)
+    cat <<'EOF' > $out/icons/suspend.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#cba6f7" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+  <path d="M14 4h3l-3 4h3" stroke-width="1.4"></path>
+</svg>
+EOF
+
+    # 4. 休眠 (Hibernate)
+    cat <<'EOF' > $out/icons/hibernate.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#94e2d5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="12" y1="2" x2="12" y2="22"></line>
+  <path d="M4.93 4.93l14.14 14.14"></path>
+  <path d="M2 12h20"></path>
+  <path d="M4.93 19.07l14.14-14.14"></path>
+  <circle cx="12" cy="12" r="2.5" fill="#94e2d5" fill-opacity="0.3"></circle>
+</svg>
+EOF
+
+    # 5. 重启 (Reboot)
+    cat <<'EOF' > $out/icons/reboot.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#fab387" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21.5 2v6h-6"></path>
+  <path d="M21.34 15.57a9 9 0 1 1-2.07-8.82l6.23-0.75"></path>
+</svg>
+EOF
+
+    # 6. 关机 (Shutdown)
+    cat <<'EOF' > $out/icons/shutdown.svg
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#f38ba8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+  <line x1="12" y1="2" x2="12" y2="12"></line>
+</svg>
+EOF
+  '';
+
+  # 现代化主题配色板
+  themePalettes = {
+    catppuccin-mocha = {
+      bg = "rgba(17, 17, 27, 0.72)";
+      cardBg = "rgba(30, 30, 46, 0.75)";
+      cardBorder = "rgba(205, 214, 244, 0.12)";
+      text = "#cdd6f4";
+      lock = { hex = "#89b4fa"; rgb = "137, 180, 250"; };
+      logout = { hex = "#f9e2af"; rgb = "249, 226, 175"; };
+      suspend = { hex = "#cba6f7"; rgb = "203, 166, 247"; };
+      hibernate = { hex = "#94e2d5"; rgb = "148, 226, 213"; };
+      reboot = { hex = "#fab387"; rgb = "250, 179, 135"; };
+      shutdown = { hex = "#f38ba8"; rgb = "243, 139, 168"; };
+    };
+    tokyo-night = {
+      bg = "rgba(26, 27, 38, 0.72)";
+      cardBg = "rgba(36, 40, 59, 0.78)";
+      cardBorder = "rgba(192, 202, 245, 0.12)";
+      text = "#c0caf5";
+      lock = { hex = "#7aa2f7"; rgb = "122, 162, 247"; };
+      logout = { hex = "#e0af68"; rgb = "224, 175, 104"; };
+      suspend = { hex = "#bb9af7"; rgb = "187, 154, 247"; };
+      hibernate = { hex = "#7dcfff"; rgb = "125, 207, 255"; };
+      reboot = { hex = "#ff9e64"; rgb = "255, 158, 100"; };
+      shutdown = { hex = "#f7768e"; rgb = "247, 118, 142"; };
+    };
+    nord = {
+      bg = "rgba(46, 52, 64, 0.72)";
+      cardBg = "rgba(59, 66, 82, 0.78)";
+      cardBorder = "rgba(236, 239, 244, 0.12)";
+      text = "#eceff4";
+      lock = { hex = "#88c0d0"; rgb = "136, 192, 208"; };
+      logout = { hex = "#ebcb8b"; rgb = "235, 203, 139"; };
+      suspend = { hex = "#b48ead"; rgb = "180, 142, 173"; };
+      hibernate = { hex = "#8fbcbb"; rgb = "143, 188, 187"; };
+      reboot = { hex = "#d08770"; rgb = "208, 135, 112"; };
+      shutdown = { hex = "#bf616a"; rgb = "191, 97, 106"; };
+    };
+  };
+
+  currentTheme = themePalettes.${cfg.powerMenu.theme} or themePalettes.catppuccin-mocha;
+
+  # wlogout 布局启动参数
+  wlogoutArgs =
+    if cfg.powerMenu.style == "bar" then
+      "-b 6 -c 16 -r 0 -T 320 -B 320 -L 120 -R 120 --protocol layer-shell"
+    else if cfg.powerMenu.style == "grid" then
+      "-b 3 -c 16 -r 16 -T 240 -B 240 -L 280 -R 280 --protocol layer-shell"
+    else
+      "-b 3 -c 24 -r 24 -m 120 --protocol layer-shell";
+
+  # 电源中心快捷包装启动脚本
+  wlogoutMenuScript = pkgs.writeShellScriptBin "wlogout-menu" ''
+    # 防止重复唤起
+    if ${pkgs.procps}/bin/pidof wlogout >/dev/null 2>&1; then
+      exit 0
+    fi
+
+    # 1. 隐藏 Waybar（向 waybar 发送 SIGUSR1 信号切换至隐藏状态）
+    ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
+
+    # 2. 阻塞运行全屏现代化电源中心 wlogout
+    ${cfg.powerMenu.package}/bin/wlogout ${wlogoutArgs} "$@"
+
+    # 3. 退出后恢复显示 Waybar（向 waybar 发送 SIGUSR1 信号恢复显示）
+    ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
+  '';
 
   wofiConfText =
     let
@@ -319,7 +452,7 @@ in
       enable = mkOption {
         type = types.bool;
         default = true;
-        description = "是否启用基于 wlogout 的全屏现代化电源中心（集成锁屏、注销、休眠、睡眠、重启、关机，并在打开时自动隐藏 Waybar，退出时恢复）。";
+        description = "是否启用基于 wlogout 的全屏现代化毛玻璃电源中心（集成锁屏、注销、休眠、睡眠、重启、关机，并在打开时自动隐藏 Waybar，退出时恢复）。";
       };
 
       package = mkOption {
@@ -327,6 +460,32 @@ in
         default = pkgs.wlogout;
         defaultText = literalExpression "pkgs.wlogout";
         description = "使用的 wlogout 软件包。";
+      };
+
+      style = mkOption {
+        type = types.enum [ "bar" "grid" "fullscreen" ];
+        default = "bar";
+        description = "电源菜单布局形态：bar(居中横向浮动胶囊岛)、grid(2x3紧凑卡片矩阵)、fullscreen(全屏极简沉浸式)。";
+      };
+
+      theme = mkOption {
+        type = types.enum [ "catppuccin-mocha" "tokyo-night" "nord" ];
+        default = "catppuccin-mocha";
+        description = "电源菜单主题配色方案（支持 catppuccin-mocha、tokyo-night、nord）。";
+      };
+
+      blur = {
+        enable = mkOption {
+          type = types.bool;
+          default = true;
+          description = "是否自动向 Hyprland 注册 wlogout 的 layerrule 背景毛玻璃模糊。";
+        };
+      };
+
+      extraStyle = mkOption {
+        type = types.lines;
+        default = "";
+        description = "追加到 wlogout style.css 的自定义 CSS 样式规则。";
       };
     };
 
@@ -452,23 +611,6 @@ in
 
       # 3. 桌面配套常用工具包与 Wi-Fi 支持工具以及图标主题包与电源管理中心
       environment.systemPackages =
-        let
-          wlogoutMenuScript = pkgs.writeShellScriptBin "wlogout-menu" ''
-            # 防止重复唤起
-            if ${pkgs.procps}/bin/pidof wlogout >/dev/null 2>&1; then
-              exit 0
-            fi
-
-            # 1. 隐藏 Waybar（向 waybar 发送 SIGUSR1 信号切换至隐藏状态）
-            ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
-
-            # 2. 阻塞运行全屏电源中心 wlogout
-            ${cfg.powerMenu.package}/bin/wlogout -b 5 -c 0 -r 0 -m 0 --protocol layer-shell "$@"
-
-            # 3. 退出后恢复显示 Waybar（向 waybar 发送 SIGUSR1 信号恢复显示）
-            ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
-          '';
-        in
         (optionals cfg.defaultTools.enable cfg.defaultTools.packages)
         ++ (optionals cfg.wifi.enable cfg.wifi.packages)
         ++ (optionals cfg.iconTheme.enable [ cfg.iconTheme.package pkgs.hicolor-icon-theme ])
@@ -653,37 +795,37 @@ in
             {
               label = "lock";
               action = "hyprlock || loginctl lock-session";
-              text = "锁定 (Lock)";
+              text = "锁定 [L]";
               keybind = "l";
             }
             {
               label = "logout";
               action = "hyprctl dispatch exit || loginctl terminate-user $USER";
-              text = "注销 (Logout)";
+              text = "注销 [E]";
               keybind = "e";
             }
             {
               label = "suspend";
               action = "systemctl suspend";
-              text = "睡眠 (Suspend)";
+              text = "睡眠 [U]";
               keybind = "u";
             }
             {
               label = "hibernate";
               action = "systemctl hibernate";
-              text = "休眠 (Hibernate)";
+              text = "休眠 [H]";
               keybind = "h";
             }
             {
               label = "reboot";
               action = "systemctl reboot";
-              text = "重启 (Reboot)";
+              text = "重启 [R]";
               keybind = "r";
             }
             {
               label = "shutdown";
               action = "systemctl poweroff";
-              text = "关机 (Shutdown)";
+              text = "关机 [S]";
               keybind = "s";
             }
           ];
@@ -692,37 +834,94 @@ in
             * {
               background-image: none;
               box-shadow: none;
+              font-family: "Geist", "TsangerJinKai04", "Maple Mono NF CN", "Noto Sans CJK SC", sans-serif;
             }
+
             window {
-              background-color: rgba(12, 12, 12, 0.85);
+              background-color: ${currentTheme.bg};
             }
+
             button {
-              border-radius: 12px;
-              border-color: rgba(255, 255, 255, 0.1);
-              text-decoration-color: #FFFFFF;
-              color: #FFFFFF;
-              background-color: rgba(30, 30, 30, 0.8);
-              border-style: solid;
-              border-width: 1px;
+              border-radius: 18px;
+              border: 1px solid ${currentTheme.cardBorder};
+              color: ${currentTheme.text};
+              background-color: ${currentTheme.cardBg};
               background-repeat: no-repeat;
-              background-position: center;
-              background-size: 25%;
-              margin: 12px;
-              font-family: inherit;
-              font-size: 16px;
-              transition: all 0.2s ease-in-out;
+              background-position: center 32%;
+              background-size: 54px;
+              margin: 10px;
+              padding: 16px 12px;
+              font-size: 15px;
+              font-weight: 500;
+              box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+              transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
             }
+
             button:focus, button:active, button:hover {
-              background-color: rgba(65, 75, 110, 0.95);
-              border-color: rgba(120, 160, 255, 0.8);
               outline-style: none;
             }
-            #lock { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/lock.png")); }
-            #logout { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/logout.png")); }
-            #suspend { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/suspend.png")); }
-            #hibernate { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/hibernate.png")); }
-            #shutdown { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/shutdown.png")); }
-            #reboot { background-image: image(url("${cfg.powerMenu.package}/share/wlogout/icons/reboot.png")); }
+
+            #lock {
+              background-image: image(url("${powerIcons}/icons/lock.svg"));
+            }
+            #lock:hover, #lock:focus {
+              background-color: rgba(${currentTheme.lock.rgb}, 0.16);
+              border-color: ${currentTheme.lock.hex};
+              color: #ffffff;
+              box-shadow: 0 0 24px rgba(${currentTheme.lock.rgb}, 0.40);
+            }
+
+            #logout {
+              background-image: image(url("${powerIcons}/icons/logout.svg"));
+            }
+            #logout:hover, #logout:focus {
+              background-color: rgba(${currentTheme.logout.rgb}, 0.16);
+              border-color: ${currentTheme.logout.hex};
+              color: #ffffff;
+              box-shadow: 0 0 24px rgba(${currentTheme.logout.rgb}, 0.40);
+            }
+
+            #suspend {
+              background-image: image(url("${powerIcons}/icons/suspend.svg"));
+            }
+            #suspend:hover, #suspend:focus {
+              background-color: rgba(${currentTheme.suspend.rgb}, 0.16);
+              border-color: ${currentTheme.suspend.hex};
+              color: #ffffff;
+              box-shadow: 0 0 24px rgba(${currentTheme.suspend.rgb}, 0.40);
+            }
+
+            #hibernate {
+              background-image: image(url("${powerIcons}/icons/hibernate.svg"));
+            }
+            #hibernate:hover, #hibernate:focus {
+              background-color: rgba(${currentTheme.hibernate.rgb}, 0.16);
+              border-color: ${currentTheme.hibernate.hex};
+              color: #ffffff;
+              box-shadow: 0 0 24px rgba(${currentTheme.hibernate.rgb}, 0.40);
+            }
+
+            #reboot {
+              background-image: image(url("${powerIcons}/icons/reboot.svg"));
+            }
+            #reboot:hover, #reboot:focus {
+              background-color: rgba(${currentTheme.reboot.rgb}, 0.16);
+              border-color: ${currentTheme.reboot.hex};
+              color: #ffffff;
+              box-shadow: 0 0 24px rgba(${currentTheme.reboot.rgb}, 0.40);
+            }
+
+            #shutdown {
+              background-image: image(url("${powerIcons}/icons/shutdown.svg"));
+            }
+            #shutdown:hover, #shutdown:focus {
+              background-color: rgba(${currentTheme.shutdown.rgb}, 0.18);
+              border-color: ${currentTheme.shutdown.hex};
+              color: #ffffff;
+              box-shadow: 0 0 24px rgba(${currentTheme.shutdown.rgb}, 0.45);
+            }
+
+            ${cfg.powerMenu.extraStyle}
           '';
         in
         {
@@ -763,33 +962,24 @@ in
               extraConfig = cfg.extraConfig;
             };
             home.packages =
-              let
-                wlogoutMenuScript = pkgs.writeShellScriptBin "wlogout-menu" ''
-                  # 防止重复唤起
-                  if ${pkgs.procps}/bin/pidof wlogout >/dev/null 2>&1; then
-                    exit 0
-                  fi
-
-                  # 1. 隐藏 Waybar（向 waybar 发送 SIGUSR1 信号切换至隐藏状态）
-                  ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
-
-                  # 2. 阻塞运行全屏电源中心 wlogout
-                  ${cfg.powerMenu.package}/bin/wlogout -b 5 -c 0 -r 0 -m 0 --protocol layer-shell "$@"
-
-                  # 3. 退出后恢复显示 Waybar（向 waybar 发送 SIGUSR1 信号恢复显示）
-                  ${pkgs.procps}/bin/pkill -SIGUSR1 waybar 2>/dev/null || true
-                '';
-              in
               (optionals cfg.defaultTools.enable cfg.defaultTools.packages)
               ++ (optionals cfg.wifi.enable cfg.wifi.packages)
               ++ (optionals cfg.iconTheme.enable [ cfg.iconTheme.package pkgs.hicolor-icon-theme ])
               ++ (optionals cfg.powerMenu.enable [ cfg.powerMenu.package wlogoutMenuScript ]);
 
-            xdg.configFile = mkIf cfg.wofi.enable {
-              "wofi/config".text = wofiConfText;
-              "xdg-terminals.list".text = "kitty.desktop\n";
-              "hyprland-xdg-terminals.list".text = "kitty.desktop\n";
-            };
+            xdg.configFile =
+              (optionalAttrs cfg.wofi.enable {
+                "wofi/config".text = wofiConfText;
+                "xdg-terminals.list".text = "kitty.desktop\n";
+                "hyprland-xdg-terminals.list".text = "kitty.desktop\n";
+              })
+              // (optionalAttrs cfg.powerMenu.enable {
+                "wlogout/layout".text = wlogoutLayoutText;
+                "wlogout/style.css".text = wlogoutStyleText;
+                "waybar/config.jsonc".text = waybarConfText;
+                "waybar/config".text = waybarConfText;
+                "waybar/style.css".text = waybarStyleText;
+              });
 
             gtk = mkIf cfg.iconTheme.enable {
               enable = true;
