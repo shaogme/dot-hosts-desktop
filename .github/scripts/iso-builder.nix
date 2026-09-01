@@ -54,13 +54,29 @@ let
         systemd.targets.hibernate.enable = false;
         systemd.targets.hybrid-sleep.enable = false;
 
+        # 禁用 ZRAM Swap 并调优页缓存回收，防止内存堆积
+        zramSwap.enable = false;
+        boot.kernel.sysctl = {
+          "vm.vfs_cache_pressure" = 500;
+        };
+
         image.baseName = lib.mkForce "nixos-autoinstall-${hostName}";
+
+        # 将压缩镜像直接放置在 ISO9660 文件系统根目录下的 /images 路径中
+        # 避免将其打包进 nix-store.squashfs 导致的双重压缩与 SquashFS 内存页缓存堆积
+        isoImage.contents = [
+          {
+            source = "${compressedImage}/system.raw.zst";
+            target = "/images/system.raw.zst";
+          }
+        ];
 
         # 自动化流式刷盘 Service
         systemd.services.nixos-autoinstall = {
           description = "Unattended Fast Raw Streaming Installer for ${hostName}";
           wantedBy = [ "multi-user.target" ];
-          after = [ "local-fs.target" ];
+          after = [ "local-fs.target" "iso.mount" ];
+          requires = [ "iso.mount" ];
 
           serviceConfig = {
             Type = "oneshot";
@@ -100,10 +116,18 @@ let
               exit 1
             fi
 
-            # 2. 流式直写 raw 镜像至目标物理磁盘 (Direct I/O 绕过内存页缓存)
-            RAW_IMAGE="${compressedImage}/system.raw.zst"
+            # 2. 从 ISO9660 挂载点 (/iso) 直接流式直写 raw 镜像至目标物理磁盘 (Direct I/O 绕过内存页缓存)
+            RAW_IMAGE="/iso/images/system.raw.zst"
+            if [ ! -f "$RAW_IMAGE" ]; then
+              if [ -f "/iso/system.raw.zst" ]; then
+                RAW_IMAGE="/iso/system.raw.zst"
+              else
+                echo "ERROR: Raw image not found at $RAW_IMAGE!"
+                exit 1
+              fi
+            fi
 
-            echo ">> Streaming raw image to ${targetDisk} using Direct I/O..."
+            echo ">> Streaming raw image ($RAW_IMAGE) to ${targetDisk} using Direct I/O..."
             zstd -dc "$RAW_IMAGE" | dd of="${targetDisk}" bs=4M iflag=fullblock oflag=direct status=progress conv=fsync
 
             # 3. 修复 GPT 备份表至物理磁盘末端
