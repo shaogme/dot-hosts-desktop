@@ -75,6 +75,9 @@ rec {
       gdk-pixbuf
       libayatana-appindicator
       libappindicator-gtk3
+      gsettings-desktop-schemas
+      dconf
+      dconf.lib
     ];
 
     # WebKitGTK 浏览器内核 (如 Clash Verge Rev)
