@@ -546,40 +546,42 @@ in
               separate-outputs = true;
             };
             clock = {
-              format = "{:%Y-%m-%d %H:%M}";
+              format = "  {:%Y-%m-%d %H:%M}";
               tooltip-format = "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>";
             };
             cpu = {
-              format = " {usage}%";
+              format = "  {usage}%";
               tooltip = false;
             };
             memory = {
-              format = " {}%";
+              format = "󰍛  {}%";
             };
             temperature = {
               critical-threshold = 80;
-              format = "{temperatureC}°C ";
+              format = "  {temperatureC}°C";
             };
             battery = {
               states = {
                 warning = 30;
                 critical = 15;
               };
-              format = "{icon} {capacity}%";
-              format-charging = " {capacity}%";
-              format-plugged = " {capacity}%";
-              format-icons = [ "" "" "" "" "" ];
+              format = "{icon}  {capacity}%";
+              format-charging = "󰂄  {capacity}%";
+              format-plugged = "󰚥  {capacity}%";
+              format-icons = [ "󰂎" "󰁺" "󰁼" "󰁾" "󰂀" "󰂂" "󰁹" ];
             };
             network = {
-              format-wifi = " {essid} ({signalStrength}%)";
-              format-ethernet = " {ipaddr}/{cidr}";
-              format-disconnected = "⚠ Disconnected";
+              interval = 5;
+              format-wifi = "{icon}  {essid} ({signalStrength}%)";
+              format-ethernet = "󰈀  {ipaddr}/{cidr}";
+              format-disconnected = "<span color='#ff5555'>󰤮</span>  Disconnected";
+              format-icons = [ "󰤯" "󰤟" "󰤢" "󰤥" "󰤨" ];
             };
             pulseaudio = {
-              format = "{icon} {volume}%";
-              format-muted = " Muted";
+              format = "{icon}  {volume}%";
+              format-muted = "<span color='#888888'>󰝟</span>  Muted";
               format-icons = {
-                default = [ "" "" "" ];
+                default = [ "󰕿" "󰖀" "󰕾" ];
               };
               on-click = "pavucontrol";
             };
@@ -587,7 +589,7 @@ in
               spacing = 10;
             };
             "custom/power" = {
-              format = "⏻";
+              format = "";
               tooltip = false;
               on-click = "wlogout-menu";
             };
@@ -625,6 +627,15 @@ in
             #clock, #battery, #cpu, #memory, #temperature, #network, #pulseaudio, #tray, #custom-power {
               padding: 0 10px;
               color: #ffffff;
+            }
+            #battery.warning {
+              color: #f9e2af;
+            }
+            #battery.critical {
+              color: #ff5555;
+            }
+            #temperature.critical {
+              color: #ff5555;
             }
             #custom-power {
               color: #ff5555;
