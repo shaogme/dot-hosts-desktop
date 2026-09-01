@@ -20,7 +20,7 @@ let
 
   # 将失败的断言转换为 Bash 报错语句
   generateFailure = index: assertionObj: ''
-    echo "错误: [${name}] 静态断言未通过 - ${assertionObj.message}"
+    printf '错误: [%s] 静态断言未通过 - %s\n' ${pkgs.lib.escapeShellArg name} ${pkgs.lib.escapeShellArg assertionObj.message}
   '';
 
   failuresBash = pkgs.lib.concatStringsSep "\n" (pkgs.lib.imap0 generateFailure failedAssertions);
