@@ -1,0 +1,11 @@
+{
+  "pins": {
+    "firefox": {
+      "type": "Url",
+      "url": "https://archive.mozilla.org/pub/firefox/releases/155.0/linux-x86_64/en-US/firefox-155.0.tar.xz",
+      "unpack": true,
+      "hash": "sha256-c8OJXhzn7xSQg2/E2mD8+bRTadqh733MkUkGxn1Mv18="
+    }
+  },
+  "version": 8
+}

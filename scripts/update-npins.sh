@@ -80,6 +80,10 @@ for target in "${SORTED_TARGETS[@]}"; do
     echo "=========================================="
     (
         cd "$target_dir"
+        if [ -f "update.sh" ]; then
+            echo "Running custom update script for: $target"
+            bash update.sh "$@"
+        fi
         run_npins upgrade
         run_npins update "$@"
     )

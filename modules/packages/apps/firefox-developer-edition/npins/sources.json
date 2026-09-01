@@ -1,0 +1,11 @@
+{
+  "pins": {
+    "firefox-developer-edition": {
+      "type": "Url",
+      "url": "https://archive.mozilla.org/pub/devedition/releases/156.0b1/linux-x86_64/en-US/firefox-156.0b1.tar.xz",
+      "unpack": true,
+      "hash": "sha256-aYzK7nS0it5ZXad8/qSlYqJsAk+QOwGR/4aehfDsNEM="
+    }
+  },
+  "version": 8
+}
