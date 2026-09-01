@@ -155,8 +155,8 @@ in
 
     command = mkOption {
       type = types.nullOr types.str;
-      default = "Hyprland";
-      description = "默认启动的会话命令（如 Hyprland、sway 等）。";
+      default = "start-hyprland";
+      description = "默认启动的会话命令（如 start-hyprland、sway 等）。";
     };
 
     sessions = mkOption {

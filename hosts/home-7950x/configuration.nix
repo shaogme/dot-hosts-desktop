@@ -89,17 +89,16 @@ in
   };
 
   # ==========================================
-  # 桌面与图形环境 (Hyprland & Audio & Greetd)
+  # 桌面与图形环境 (Hyprland & 窗口管理器)
   # ==========================================
-  programs.hyprland = {
+  desktop.windowManager.hyprland = {
     enable = true;
-    xwayland.enable = true;
   };
 
   # 登录管理器 (tuigreet)
   desktop.loginManager.tuigreet = {
     enable = true;
-    command = "Hyprland";
+    command = "start-hyprland";
     display = {
       showTime = true;
     };
@@ -107,15 +106,6 @@ in
       username = true;
       session = true;
     };
-  };
-
-  # 音频服务支持 (PipeWire)
-  security.rtkit.enable = true;
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
   };
 
   # ==========================================
@@ -126,104 +116,6 @@ in
     useUserPackages = true;
     users.${hostConfig.user} = { pkgs, ... }: {
       home.stateVersion = "26.11";
-
-      # Wayland / Hyprland 窗口管理器配置
-      wayland.windowManager.hyprland = {
-        enable = true;
-        systemd.enable = true;
-        settings = {
-          "$mod" = "SUPER";
-          "$terminal" = "kitty";
-          "$menu" = "wofi --show drun";
-
-          monitor = [
-            ",preferred,auto,auto"
-          ];
-
-          exec-once = [
-            "waybar"
-            "dunst"
-          ];
-
-          general = {
-            gaps_in = 5;
-            gaps_out = 10;
-            border_size = 2;
-            layout = "dwindle";
-          };
-
-          decoration = {
-            rounding = 8;
-            blur = {
-              enabled = true;
-              size = 5;
-              passes = 2;
-            };
-          };
-
-          animations = {
-            enabled = true;
-          };
-
-          bind = [
-            "$mod, Return, exec, $terminal"
-            "$mod, Q, killactive,"
-            "$mod, M, exit,"
-            "$mod, Space, exec, $menu"
-            "$mod, V, togglefloating,"
-            "$mod, F, fullscreen,"
-
-            # 窗口焦点移动
-            "$mod, left, movefocus, l"
-            "$mod, right, movefocus, r"
-            "$mod, up, movefocus, u"
-            "$mod, down, movefocus, d"
-            "$mod, h, movefocus, l"
-            "$mod, l, movefocus, r"
-            "$mod, k, movefocus, u"
-            "$mod, j, movefocus, d"
-
-            # 工作区切换 (1-9)
-            "$mod, 1, workspace, 1"
-            "$mod, 2, workspace, 2"
-            "$mod, 3, workspace, 3"
-            "$mod, 4, workspace, 4"
-            "$mod, 5, workspace, 5"
-            "$mod, 6, workspace, 6"
-            "$mod, 7, workspace, 7"
-            "$mod, 8, workspace, 8"
-            "$mod, 9, workspace, 9"
-
-            # 移动活动窗口至工作区
-            "$mod SHIFT, 1, movetoworkspace, 1"
-            "$mod SHIFT, 2, movetoworkspace, 2"
-            "$mod SHIFT, 3, movetoworkspace, 3"
-            "$mod SHIFT, 4, movetoworkspace, 4"
-            "$mod SHIFT, 5, movetoworkspace, 5"
-            "$mod SHIFT, 6, movetoworkspace, 6"
-            "$mod SHIFT, 7, movetoworkspace, 7"
-            "$mod SHIFT, 8, movetoworkspace, 8"
-            "$mod SHIFT, 9, movetoworkspace, 9"
-          ];
-
-          bindm = [
-            "$mod, mouse:272, movewindow"
-            "$mod, mouse:273, resizewindow"
-          ];
-        };
-      };
-
-      # 用户环境常用 Wayland 桌面配套工具
-      home.packages = with pkgs; [
-        kitty
-        waybar
-        wofi
-        wl-clipboard
-        grim
-        slurp
-        dunst
-        libnotify
-      ];
     };
   };
 
@@ -304,6 +196,10 @@ in
     {
       assertion = config.base.hardware.graphics.amd.enable == true;
       message = "图形驱动配置错误：AMD 显卡驱动与加速未启用";
+    }
+    {
+      assertion = config.desktop.windowManager.hyprland.enable == true;
+      message = "窗口管理器配置错误：Hyprland 未启用";
     }
     {
       assertion = config.programs.hyprland.enable == true;
