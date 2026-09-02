@@ -3,11 +3,17 @@
 {
   imports = [
     ./apps
-    ./packages
-    ./loginManager
-    ./windowManager
+    ./audio
+    ./bar
     ./fonts
-    ./terminal
     ./inputMethod
+    ./launcher
+    ./loginManager
+    ./notification
+    ./packages
+    ./powerMenu
+    ./terminal
+    ./theme
+    ./windowManager
   ];
 }

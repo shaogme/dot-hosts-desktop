@@ -86,11 +86,35 @@ in
   };
 
   # ==========================================
-  # 桌面与图形环境 (Hyprland & 窗口管理器)
+  # 桌面与图形环境 (Hyprland & 桌面基础设施与组件)
   # ==========================================
   desktop.windowManager.hyprland = {
     enable = true;
     virtualization.enable = true;
+  };
+
+  desktop.audio.pipewire = {
+    enable = true;
+  };
+
+  desktop.bar.waybar = {
+    enable = true;
+  };
+
+  desktop.launcher.wofi = {
+    enable = true;
+  };
+
+  desktop.powerMenu.wlogout = {
+    enable = true;
+  };
+
+  desktop.notification.dunst = {
+    enable = true;
+  };
+
+  desktop.theme = {
+    enable = true;
   };
 
   # 登录管理器 (tuigreet)
@@ -247,6 +271,38 @@ in
     {
       assertion = config.programs.hyprland.enable == true;
       message = "桌面环境配置错误：Hyprland 未启用";
+    }
+    {
+      assertion = config.desktop.audio.pipewire.enable == true;
+      message = "音频服务配置错误：PipeWire 未启用";
+    }
+    {
+      assertion = config.desktop.bar.waybar.enable == true;
+      message = "状态栏配置错误：Waybar 未启用";
+    }
+    {
+      assertion = config.desktop.launcher.wofi.enable == true;
+      message = "桌面启动器配置错误：Wofi 未启用";
+    }
+    {
+      assertion = config.desktop.launcher.wofi.allowImages == true;
+      message = "桌面启动器配置错误：Wofi 图像与图标渲染 (allowImages) 未启用";
+    }
+    {
+      assertion = config.desktop.launcher.wofi.mode == "drun";
+      message = "桌面启动器配置错误：Wofi 默认模式应当为 drun";
+    }
+    {
+      assertion = config.desktop.powerMenu.wlogout.enable == true;
+      message = "桌面电源管理配置错误：wlogout 电源中心 (powerMenu.wlogout) 未启用";
+    }
+    {
+      assertion = config.desktop.theme.enable == true;
+      message = "桌面主题配置错误：desktop.theme 未启用";
+    }
+    {
+      assertion = config.desktop.notification.dunst.enable == true;
+      message = "通知服务配置错误：Dunst 未启用";
     }
     {
       assertion = config.desktop.loginManager.tuigreet.enable == true;

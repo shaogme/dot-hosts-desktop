@@ -104,12 +104,16 @@ pkgs.testers.nixosTest {
           if ${if (serverCfg.desktop.loginManager.tuigreet.defaultSession or null) != null then "True" else "False"}:
               server.succeed("test -f /var/cache/tuigreet/lastsession-path")
 
-      # 验证窗口管理器 (Hyprland)、启动器 (Wofi) 与电源中心 (wlogout)
+      # 验证窗口管理器 (Hyprland) 核心
       if ${if serverCfg.desktop.windowManager.hyprland.enable or false then "True" else "False"}:
           server.succeed("which Hyprland")
           server.succeed("which start-hyprland")
           server.succeed("test -f /etc/xdg/hypr/hyprland.lua")
           server.succeed("test -f /etc/hypr/hyprland.lua")
+
+      # 验证启动器 (Wofi) 与 xdg-terminal-exec
+      if ${if (serverCfg.desktop ? launcher && serverCfg.desktop.launcher ? wofi && serverCfg.desktop.launcher.wofi.enable) then "True" else "False"}:
+          server.succeed("which wofi")
           server.succeed("test -f /etc/xdg/wofi/config")
           server.succeed("test -f /etc/wofi/config")
           server.succeed("grep -q 'mode=drun' /etc/wofi/config")
@@ -118,21 +122,24 @@ pkgs.testers.nixosTest {
           server.succeed("grep -q 'kitty.desktop' /etc/xdg/xdg-terminals.list")
           server.succeed("test -f /etc/xdg/hyprland-xdg-terminals.list")
           server.succeed("grep -q 'kitty.desktop' /etc/xdg/hyprland-xdg-terminals.list")
-          if ${if serverCfg.desktop.windowManager.hyprland.powerMenu.enable or false then "True" else "False"}:
-              server.succeed("which wlogout")
-              server.succeed("which wlogout-menu")
-              server.succeed("test -f /etc/xdg/waybar/config.jsonc")
-              server.succeed("test -f /etc/wlogout/layout")
-              server.succeed("test -f /etc/wlogout/style.css")
 
-      # 验证 Wi-Fi 管理支持 (Hyprland 与 Packages)
+      # 验证电源中心 (wlogout)
+      if ${if (serverCfg.desktop ? powerMenu && serverCfg.desktop.powerMenu ? wlogout && serverCfg.desktop.powerMenu.wlogout.enable) then "True" else "False"}:
+          server.succeed("which wlogout")
+          server.succeed("which wlogout-menu")
+          server.succeed("test -f /etc/wlogout/layout")
+          server.succeed("test -f /etc/wlogout/style.css")
+
+      # 验证状态栏 (Waybar)
+      if ${if (serverCfg.desktop ? bar && serverCfg.desktop.bar ? waybar && serverCfg.desktop.bar.waybar.enable) then "True" else "False"}:
+          server.succeed("which waybar")
+          server.succeed("test -f /etc/xdg/waybar/config.jsonc")
+
+      # 验证 Wi-Fi 管理支持 (Packages)
       if ${if serverCfg.desktop.packages.wifi.enable or false then "True" else "False"}:
           server.succeed("which nmcli")
           server.succeed("which nmtui")
           server.succeed("which iw")
-
-      if ${if serverCfg.desktop.windowManager.hyprland.wifi.enable or false then "True" else "False"}:
-          server.succeed("which nm-applet")
 
       # 验证字体与 Fontconfig
       if ${if serverCfg.desktop.fonts.enable or false then "True" else "False"}:
