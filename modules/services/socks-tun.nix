@@ -20,20 +20,19 @@ let
           type = "fakeip";
           tag = "dns-fakeip";
           inet4_range = "198.18.0.0/15";
-          inet6_range = "fc00::/18";
         }
       ];
       rules = [
         {
-          query_type = [ "A" "AAAA" ];
+          query_type = [ "A" ];
           server = "dns-fakeip";
         }
         {
-          query_type = [ "HTTPS" ];
+          query_type = [ "AAAA" "HTTPS" ];
           action = "reject";
         }
       ];
-      strategy = "prefer_ipv4";
+      strategy = "ipv4_only";
     };
     inbounds = [
       {
