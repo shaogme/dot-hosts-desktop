@@ -14,6 +14,7 @@
     ./powerMenu
     ./terminal
     ./theme
+    ./wallpaper
     ./windowManager
   ];
 }

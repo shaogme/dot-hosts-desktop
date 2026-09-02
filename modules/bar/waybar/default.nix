@@ -110,6 +110,14 @@ let
       on-click-right = "swaync-client -d -sw";
       escape = true;
     };
+    "custom/wallpaper" = {
+      format = "󰸉";
+      tooltip = true;
+      tooltip-format = "桌面壁纸管理\n• 左键：随机换壁纸\n• 右键：选择壁纸\n• 中键：恢复上次壁纸";
+      on-click = "awww-random";
+      on-click-right = "awww-switch";
+      on-click-middle = "awww-restore";
+    };
     "custom/power" = {
       format = "";
       tooltip = false;
@@ -149,7 +157,7 @@ let
     #workspaces button.empty {
       color: rgba(255, 255, 255, 0.4);
     }
-    #clock, #battery, #cpu, #memory, #temperature, #network, #pulseaudio, #tray, #custom-notification, #custom-power {
+    #clock, #battery, #cpu, #memory, #temperature, #network, #pulseaudio, #tray, #custom-notification, #custom-wallpaper, #custom-power {
       padding: 0 10px;
       color: #ffffff;
     }
@@ -158,6 +166,13 @@ let
     }
     #custom-notification:hover {
       color: #7aa2f7;
+    }
+    #custom-wallpaper {
+      font-size: 14px;
+      color: #cba6f7;
+    }
+    #custom-wallpaper:hover {
+      color: #f5c2e7;
     }
     #battery.warning {
       color: #f9e2af;

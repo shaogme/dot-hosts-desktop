@@ -119,6 +119,10 @@ in
     enable = true;
   };
 
+  desktop.wallpaper.awww = {
+    enable = true;
+  };
+
   # 登录管理器 (tuigreet)
   desktop.loginManager.tuigreet = {
     enable = true;
@@ -325,6 +329,10 @@ in
     {
       assertion = config.desktop.theme.enable == true;
       message = "桌面主题配置错误：desktop.theme 未启用";
+    }
+    {
+      assertion = config.desktop.wallpaper.awww.enable == true;
+      message = "壁纸服务配置错误：awww 壁纸模块未启用";
     }
     {
       assertion = config.desktop.notification.swaync.enable == true;
