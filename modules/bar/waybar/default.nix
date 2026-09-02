@@ -93,6 +93,12 @@ in
         description = "点击网络状态模块执行的网络配置命令行。";
       };
 
+      netSpeed = mkOption {
+        type = types.str;
+        default = "ghostty -e btop";
+        description = "点击实时网速监控模块执行的命令行。";
+      };
+
       bluetooth = mkOption {
         type = types.str;
         default = "ghostty -e bluetuith";
@@ -129,6 +135,30 @@ in
         type = types.str;
         default = "SUPER + B";
         description = "在 Hyprland 中切换/显隐 Waybar 的快捷键绑定（设为空字符串则不注册）。";
+      };
+    };
+
+    netSpeed = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否在任务栏启用当前实时网络上下行速率监控。";
+      };
+
+      mode = mkOption {
+        type = types.enum [ "custom" "native" ];
+        default = "custom";
+        description = ''
+          实时网速监控实现模式：
+          - "custom"：智能多网卡/代理隧道聚合流式组件（推荐，支持全网卡吞吐聚合、防抖定宽排版与悬浮明细）；
+          - "native"：Waybar 原生 network 模块扩展（零额外进程，绑定默认主路由物理网卡）。
+        '';
+      };
+
+      interval = mkOption {
+        type = types.int;
+        default = 1;
+        description = "网速监控采样与刷新时间间隔（单位：秒）。";
       };
     };
 

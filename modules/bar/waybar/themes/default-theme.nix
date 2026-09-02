@@ -9,6 +9,97 @@ with lib;
 
 let
   cfg = config.desktop.bar.waybar;
+  netSpeedCfg = cfg.netSpeed or {
+    enable = true;
+    mode = "custom";
+    interval = 1;
+  };
+
+  waybarNetSpeedScript = pkgs.writeShellScriptBin "waybar-netspeed" ''
+    set -u
+
+    INTERVAL="''${INTERVAL:-${toString netSpeedCfg.interval}}"
+
+    format_bytes() {
+      local b=$1
+      if (( b < 1024 )); then
+        printf "%4d.0 B/s" "$b"
+      elif (( b < 1048576 )); then
+        local kb_x10=$(( b * 10 / 1024 ))
+        printf "%3d.%d KB/s" "$(( kb_x10 / 10 ))" "$(( kb_x10 % 10 ))"
+      elif (( b < 1073741824 )); then
+        local mb_x10=$(( b * 10 / 1048576 ))
+        printf "%3d.%d MB/s" "$(( mb_x10 / 10 ))" "$(( mb_x10 % 10 ))"
+      else
+        local gb_x10=$(( b * 10 / 1073741824 ))
+        printf "%3d.%d GB/s" "$(( gb_x10 / 10 ))" "$(( gb_x10 % 10 ))"
+      fi
+    }
+
+    declare -A prev_rx prev_tx
+
+    # 首次采样初始化网卡计数
+    while IFS=': ' read -r iface r_bytes r_pkts r_errs r_drop r_fifo r_frame r_comp r_mcast t_bytes t_pkts t_errs t_drop t_fifo t_colls t_carrier t_comp rest; do
+      [[ "$iface" =~ ^(Inter-\||face|lo|docker.*|veth.*|br-.*|virbr.*)$ ]] && continue
+      [[ -z "$iface" || -z "$r_bytes" || -z "$t_bytes" ]] && continue
+      prev_rx["$iface"]=$r_bytes
+      prev_tx["$iface"]=$t_bytes
+    done < /proc/net/dev
+
+    # 初始默认输出
+    down_zero=$(format_bytes 0)
+    up_zero=$(format_bytes 0)
+    init_text="<span size='7000' foreground='#a6e3a1'>⇣ $down_zero</span>"$'\n'"<span size='7000' foreground='#89b4fa'>⇡ $up_zero</span>"
+    ${pkgs.jq}/bin/jq -nc \
+      --arg text "$init_text" \
+      --arg tooltip "实时网速监控正在初始化..." \
+      --arg class "custom-netspeed" \
+      '{ text: $text, tooltip: $tooltip, class: $class }'
+
+    # 持续流式监控输出
+    while true; do
+      sleep "$INTERVAL"
+
+      total_rx_rate=0
+      total_tx_rate=0
+      details=""
+
+      while IFS=': ' read -r iface r_bytes r_pkts r_errs r_drop r_fifo r_frame r_comp r_mcast t_bytes t_pkts t_errs t_drop t_fifo t_colls t_carrier t_comp rest; do
+        [[ "$iface" =~ ^(Inter-\||face|lo|docker.*|veth.*|br-.*|virbr.*)$ ]] && continue
+        [[ -z "$iface" || -z "$r_bytes" || -z "$t_bytes" ]] && continue
+
+        prx="''${prev_rx["$iface"]:-$r_bytes}"
+        ptx="''${prev_tx["$iface"]:-$t_bytes}"
+
+        prev_rx["$iface"]=$r_bytes
+        prev_tx["$iface"]=$t_bytes
+
+        drx=$(( (r_bytes - prx) / INTERVAL ))
+        dtx=$(( (t_bytes - ptx) / INTERVAL ))
+        (( drx < 0 )) && drx=0
+        (( dtx < 0 )) && dtx=0
+
+        total_rx_rate=$(( total_rx_rate + drx ))
+        total_tx_rate=$(( total_tx_rate + dtx ))
+
+        rx_fmt=$(format_bytes "$drx")
+        tx_fmt=$(format_bytes "$dtx")
+        details+="• $iface:  ⇣ $rx_fmt   ⇡ $tx_fmt"$'\n'
+      done < /proc/net/dev
+
+      down_str=$(format_bytes "$total_rx_rate")
+      up_str=$(format_bytes "$total_tx_rate")
+
+      text="<span size='7000' foreground='#a6e3a1'>⇣ $down_str</span>"$'\n'"<span size='7000' foreground='#89b4fa'>⇡ $up_str</span>"
+      tooltip="<b>网络实时上下行速率</b>"$'\n\n'"总下行: <b>$down_str</b>"$'\n'"总上行: <b>$up_str</b>"$'\n\n'"<b>活动网卡明细:</b>"$'\n'"$details"
+
+      ${pkgs.jq}/bin/jq -nc \
+        --arg text "$text" \
+        --arg tooltip "$tooltip" \
+        --arg class "custom-netspeed" \
+        '{ text: $text, tooltip: $tooltip, class: $class }'
+    done
+  '';
 
   waybarClockScript = pkgs.writeShellScriptBin "waybar-clock" ''
     time=$(date +"%I:%M %p")
@@ -194,6 +285,9 @@ let
         "custom/separator#dot"
         "tray"
         "network"
+      ]
+      ++ optional (netSpeedCfg.enable && netSpeedCfg.mode == "custom") "custom/netspeed"
+      ++ [
         "bluetooth"
       ];
     };
@@ -332,10 +426,16 @@ let
     };
 
     network = {
-      interval = 3;
-      format = "{icon}";
-      format-wifi = "{icon}";
-      format-ethernet = "<span size='11500'>󰌘</span>";
+      interval = if (netSpeedCfg.enable && netSpeedCfg.mode == "native") then netSpeedCfg.interval else 3;
+      format = if (netSpeedCfg.enable && netSpeedCfg.mode == "native")
+        then "{icon} <span size='7000' foreground='#a6e3a1'>⇣{bandwidthDownBytes}</span> <span size='7000' foreground='#89b4fa'>⇡{bandwidthUpBytes}</span>"
+        else "{icon}";
+      format-wifi = if (netSpeedCfg.enable && netSpeedCfg.mode == "native")
+        then "{icon} <span size='7000' foreground='#a6e3a1'>⇣{bandwidthDownBytes}</span> <span size='7000' foreground='#89b4fa'>⇡{bandwidthUpBytes}</span>"
+        else "{icon}";
+      format-ethernet = if (netSpeedCfg.enable && netSpeedCfg.mode == "native")
+        then "<span size='11500'>󰌘</span> <span size='7000' foreground='#a6e3a1'>⇣{bandwidthDownBytes}</span> <span size='7000' foreground='#89b4fa'>⇡{bandwidthUpBytes}</span>"
+        else "<span size='11500'>󰌘</span>";
       format-disconnected = "<span size='11500' foreground='#f38ba8'>󰤮</span>";
       format-icons = [ "󰤯" "󰤟" "󰤢" "󰤥" "󰤨" ];
       tooltip-format-wifi = "Wi-Fi: {essid} ({signalStrength}%)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}";
@@ -403,6 +503,14 @@ let
       format = "";
       tooltip = false;
       on-click = cfg.commands.powerMenu;
+    };
+  } // optionalAttrs (netSpeedCfg.enable && netSpeedCfg.mode == "custom") {
+    "custom/netspeed" = {
+      exec = "${waybarNetSpeedScript}/bin/waybar-netspeed";
+      return-type = "json";
+      restart-interval = 3;
+      on-click = cfg.commands.netSpeed;
+      tooltip = true;
     };
   };
 
@@ -506,6 +614,17 @@ let
       font-size: 12px;
     }
 
+    /* 实时网速组件 (双行紧凑卡片) */
+    #custom-netspeed {
+      padding: 2px 6px;
+      margin-top: 2px;
+      margin-bottom: 2px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 10px;
+      font-family: "Maple Mono NF CN", "Geist", monospace;
+    }
+
     /* 时钟组件 (双行排版) */
     #custom-clock {
       margin-left: 4px;
@@ -544,6 +663,7 @@ let
 
     /* 基础功能模块通用样式 */
     #network,
+    #custom-netspeed,
     #bluetooth,
     #pulseaudio,
     #custom-gamemode,
@@ -643,5 +763,5 @@ in
     pkgs.jq
     pkgs.pamixer
     pkgs.pavucontrol
-  ];
+  ] ++ optional (netSpeedCfg.enable && netSpeedCfg.mode == "custom") waybarNetSpeedScript;
 }
