@@ -32,7 +32,9 @@ rec {
         nativeBuildInputs = [ pkgs.dpkg ];
         dontBuild = true;
         dontConfigure = true;
-        unpackPhase = "dpkg-deb -x $src .";
+        unpackPhase = ''
+          dpkg-deb --fsys-tarfile "$src" | tar -x --no-same-owner --no-same-permissions
+        '';
         installPhase = ''
           mkdir -p $out
           if [ -d "opt" ]; then cp -r opt $out/; fi
