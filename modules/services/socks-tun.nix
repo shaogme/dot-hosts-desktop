@@ -15,6 +15,7 @@ let
         {
           type = "local";
           tag = "dns-local";
+          detour = "direct";
         }
         {
           type = "fakeip";
@@ -25,10 +26,11 @@ let
       ];
       rules = [
         {
-          inbound = "tun-in";
+          query_type = [ "A" "AAAA" ];
           server = "dns-fakeip";
         }
       ];
+      strategy = "prefer_ipv4";
     };
     inbounds = [
       {
@@ -57,6 +59,10 @@ let
     route = {
       default_domain_resolver = "dns-local";
       rules = [
+        {
+          port = [ 53 ];
+          action = "hijack-dns";
+        }
         {
           protocol = "dns";
           action = "hijack-dns";
@@ -315,7 +321,7 @@ in
       wantedBy = lib.optional cfg.autoStart "multi-user.target";
       serviceConfig = {
         ExecStartPre = [
-          "+${pkgs.bash}/bin/bash -c 'if [ ! -f /run/socks-tun/config.json ]; then ${pkgs.gnused}/bin/sed \"s/10808/${toString cfg.defaultPort}/g\" /etc/socks-tun/config.template.json > /run/socks-tun/config.json && chown sing-box:sing-box /run/socks-tun/config.json && chmod 664 /run/socks-tun/config.json; fi'"
+          "+${pkgs.bash}/bin/bash -c 'if [ ! -f /run/socks-tun/config.json ] || [ /etc/socks-tun/config.template.json -nt /run/socks-tun/config.json ]; then ${pkgs.gnused}/bin/sed \"s/10808/${toString cfg.defaultPort}/g\" /etc/socks-tun/config.template.json > /run/socks-tun/config.json && chown sing-box:sing-box /run/socks-tun/config.json && chmod 664 /run/socks-tun/config.json; fi'"
           "+${pkgs.bash}/bin/bash -c '${pkgs.iproute2}/bin/ip rule show | ${pkgs.gnugrep}/bin/grep -qw \"0x55\" || ${pkgs.iproute2}/bin/ip rule add fwmark 0x55 table main priority 100'"
         ];
         ExecStart = "${pkgs.sing-box}/bin/sing-box run -c /run/socks-tun/config.json";
