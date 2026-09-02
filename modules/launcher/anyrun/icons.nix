@@ -1,6 +1,6 @@
 { pkgs }:
 
-pkgs.runCommandLocal "wlogout-modern-svg-icons" { } ''
+pkgs.runCommandLocal "anyrun-svg-icons" { } ''
   mkdir -p $out/icons
 
   # 1. 锁屏 (Lock)

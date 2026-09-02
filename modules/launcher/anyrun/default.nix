@@ -12,6 +12,40 @@ let
   cfg = config.desktop.launcher.anyrun;
   inline = lib.generators.mkLuaInline;
   themes = import ./themes.nix;
+  svgIcons = import ./icons.nix { inherit pkgs; };
+
+  # 专用电源管理菜单包装脚本（纯净文本，无 emoji）
+  anyrunPowerScript = pkgs.writeShellScriptBin "anyrun-power" ''
+    OPTIONS="锁定屏幕 (Lock)
+注销登录 (Logout)
+睡眠挂起 (Suspend)
+休眠挂起 (Hibernate)
+重启系统 (Reboot)
+关闭计算机 (Shutdown)"
+
+    CHOICE=$(echo "$OPTIONS" | ${cfg.package}/bin/anyrun --plugins libstdin.so)
+
+    case "$CHOICE" in
+      *"锁定屏幕"*)
+        hyprlock || loginctl lock-session
+        ;;
+      *"注销登录"*)
+        hyprctl dispatch exit || loginctl terminate-user $USER
+        ;;
+      *"睡眠挂起"*)
+        systemctl suspend
+        ;;
+      *"休眠挂起"*)
+        systemctl hibernate
+        ;;
+      *"重启系统"*)
+        systemctl reboot
+        ;;
+      *"关闭计算机"*)
+        systemctl poweroff
+        ;;
+    esac
+  '';
 
   # 转换 numeric 位置与尺寸为 RON 格式
   renderNumeric = num:
@@ -110,6 +144,56 @@ let
     )
   '';
 
+  defaultActionsRon = ''
+    Config(
+      enable_power_actions: false,
+      custom_actions: [
+        (
+          title: "锁定屏幕",
+          command: "hyprlock || loginctl lock-session",
+          description: "锁定当前桌面会话",
+          icon: "${svgIcons}/icons/lock.svg",
+          confirm: false,
+        ),
+        (
+          title: "注销登录",
+          command: "hyprctl dispatch exit || loginctl terminate-user $USER",
+          description: "退出当前用户桌面会话",
+          icon: "${svgIcons}/icons/logout.svg",
+          confirm: true,
+        ),
+        (
+          title: "睡眠",
+          command: "systemctl suspend",
+          description: "挂起系统到内存 (RAM)",
+          icon: "${svgIcons}/icons/suspend.svg",
+          confirm: false,
+        ),
+        (
+          title: "休眠",
+          command: "systemctl hibernate",
+          description: "挂起系统到硬盘 (Disk)",
+          icon: "${svgIcons}/icons/hibernate.svg",
+          confirm: false,
+        ),
+        (
+          title: "重启系统",
+          command: "systemctl reboot",
+          description: "重新启动计算机",
+          icon: "${svgIcons}/icons/reboot.svg",
+          confirm: true,
+        ),
+        (
+          title: "关闭计算机",
+          command: "systemctl poweroff",
+          description: "关闭计算机电源",
+          icon: "${svgIcons}/icons/shutdown.svg",
+          confirm: true,
+        ),
+      ],
+    )
+  '';
+
   defaultShellRon = ''
     Config(
       prefix: ":sh",
@@ -153,6 +237,7 @@ let
     "anyrun/config.ron".text = defaultConfigRon;
     "anyrun/style.css".text = styleCss;
     "anyrun/applications.ron".text = defaultApplicationsRon;
+    "anyrun/actions.ron".text = defaultActionsRon;
     "anyrun/shell.ron".text = defaultShellRon;
     "anyrun/symbols.ron".text = defaultSymbolsRon;
     "anyrun/translate.ron".text = defaultTranslateRon;
@@ -326,6 +411,7 @@ in
       type = types.listOf (types.either types.str types.package);
       default = [
         "${cfg.package}/lib/libapplications.so"
+        "${cfg.package}/lib/libactions.so"
         "${cfg.package}/lib/libsymbols.so"
         "${cfg.package}/lib/librink.so"
         "${cfg.package}/lib/libshell.so"
@@ -358,7 +444,13 @@ in
       keybind = mkOption {
         type = types.str;
         default = "SUPER + Space";
-        description = "在 Hyprland 中唤起 Anyrun 的快捷键绑定（设为空字符串则不注册）。";
+        description = "在 Hyprland 中唤起 Anyrun 启动器的快捷键绑定（设为空字符串则不注册）。";
+      };
+
+      powerKeybinds = mkOption {
+        type = types.listOf types.str;
+        default = [ "SUPER + M" "XF86PowerOff" ];
+        description = "在 Hyprland 中唤起 Anyrun 电源管理菜单的快捷键列表。";
       };
 
       blur = mkOption {
@@ -381,6 +473,7 @@ in
     {
       environment.systemPackages = [
         cfg.package
+        anyrunPowerScript
       ];
 
       # 配置 XDG 默认终端规范 (xdg-terminal-exec)，确保 GLib/GIO 及 Anyrun drun/applications 模式正常拉起终端
@@ -420,9 +513,13 @@ in
             ignore_alpha = 0;
           }
         ];
-        extraBinds = mkIf (cfg.hyprland.keybind != "") [
-          { _args = [ (inline ''"${cfg.hyprland.keybind}"'') (inline ''hl.dsp.exec_cmd("anyrun")'') ]; }
-        ];
+        extraBinds =
+          (optional (cfg.hyprland.keybind != "") {
+            _args = [ (inline ''"${cfg.hyprland.keybind}"'') (inline ''hl.dsp.exec_cmd("anyrun")'') ];
+          })
+          ++ (map (bindStr: {
+            _args = [ (inline ''"${bindStr}"'') (inline ''hl.dsp.exec_cmd("anyrun-power")'') ];
+          }) cfg.hyprland.powerKeybinds);
       };
     }
 
@@ -430,7 +527,7 @@ in
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
           ({ ... }: {
-            home.packages = [ cfg.package ];
+            home.packages = [ cfg.package anyrunPowerScript ];
 
             systemd.user.services.anyrun = mkIf cfg.daemon.enable {
               Unit = {

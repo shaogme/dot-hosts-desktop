@@ -123,12 +123,9 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/xdg/hyprland-xdg-terminals.list")
           server.succeed("grep -q 'kitty.desktop' /etc/xdg/hyprland-xdg-terminals.list")
 
-      # 验证电源中心 (wlogout)
-      if ${if (serverCfg.desktop ? powerMenu && serverCfg.desktop.powerMenu ? wlogout && serverCfg.desktop.powerMenu.wlogout.enable) then "True" else "False"}:
-          server.succeed("which wlogout")
-          server.succeed("which wlogout-menu")
-          server.succeed("test -f /etc/wlogout/layout")
-          server.succeed("test -f /etc/wlogout/style.css")
+          server.succeed("which anyrun-power")
+          server.succeed("test -f /etc/xdg/anyrun/actions.ron")
+          server.succeed("test -f /etc/anyrun/actions.ron")
 
       # 验证状态栏 (Waybar)
       if ${if (serverCfg.desktop ? bar && serverCfg.desktop.bar ? waybar && serverCfg.desktop.bar.waybar.enable) then "True" else "False"}:

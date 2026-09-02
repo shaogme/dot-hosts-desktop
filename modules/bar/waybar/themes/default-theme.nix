@@ -379,7 +379,7 @@ let
       format-icons = [ "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹" ];
       tooltip-format = "{timeTo}, 功率: {power:>1.0f}W";
       interval = 5;
-      on-click = "wlogout-menu";
+      on-click = "anyrun-power";
     };
 
     tray = {
@@ -402,7 +402,7 @@ let
     "custom/power" = {
       format = "";
       tooltip = false;
-      on-click = "wlogout-menu";
+      on-click = "anyrun-power";
     };
   };
 

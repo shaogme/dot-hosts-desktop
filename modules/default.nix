@@ -11,7 +11,6 @@
     ./loginManager
     ./notification
     ./packages
-    ./powerMenu
     ./terminal
     ./theme
     ./wallpaper

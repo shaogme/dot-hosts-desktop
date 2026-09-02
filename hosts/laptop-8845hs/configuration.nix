@@ -115,9 +115,6 @@ in
     enable = true;
   };
 
-  desktop.powerMenu.wlogout = {
-    enable = true;
-  };
 
   desktop.notification.swaync = {
     enable = true;
@@ -322,10 +319,7 @@ in
       assertion = config.desktop.launcher.anyrun.enable == true;
       message = "桌面启动器配置错误：Anyrun 未启用";
     }
-    {
-      assertion = config.desktop.powerMenu.wlogout.enable == true;
-      message = "桌面电源管理配置错误：wlogout 电源中心 (powerMenu.wlogout) 未启用";
-    }
+
     {
       assertion = config.desktop.theme.enable == true;
       message = "桌面主题配置错误：desktop.theme 未启用";
