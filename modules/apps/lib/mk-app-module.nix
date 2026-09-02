@@ -3,7 +3,7 @@
   description,
   package,                     # 软件包路径 ./package.nix 或 Derivation 或函数
   aliases ? [],                # 模块别名列表 (如 [ "firefox-devedition" ])
-  windowRules ? [],            # 注册到 Hyprland 的专用窗口规则 (windowrulev2)
+  windowRules ? [],            # 注册到 Hyprland 的专用窗口规则 (window_rule)
   hyprlandRules ? [],          # 别名: 等同于 windowRules
   extraOptions ? {},           # 附加的 NixOS options
   extraConfig ? (cfg: {}),     # 附加的 NixOS config 逻辑
@@ -56,9 +56,9 @@ let
       };
 
       windowRules = mkOption {
-        type = types.listOf types.str;
+        type = types.listOf (types.attrsOf types.anything);
         default = effectiveWindowRules;
-        description = "该应用程序在 Hyprland 下生效的专用窗口规则 (windowrulev2)。";
+        description = "该应用程序在 Hyprland 下生效的专用窗口规则 (window_rule)。";
       };
     } // extraOptions;
   };
@@ -89,7 +89,7 @@ in
       ];
     }
     (mkIf (cfg.windowRules != [ ] && config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland) {
-      desktop.windowManager.hyprland.settings.windowrulev2 = cfg.windowRules;
+      desktop.windowManager.hyprland.settings.window_rule = cfg.windowRules;
     })
     (extraConfig cfg)
   ]);

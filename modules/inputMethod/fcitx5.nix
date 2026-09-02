@@ -532,10 +532,15 @@ in
           "fcitx5 -d --replace"
         ];
         settings = mkIf cfg.hyprland.windowRules {
-          windowrulev2 = [
-            "float, class:^(org.fcitx.fcitx5-config-qt)$"
-            "center, class:^(org.fcitx.fcitx5-config-qt)$"
-            "size 800 600, class:^(org.fcitx.fcitx5-config-qt)$"
+          window_rule = [
+            {
+              match = {
+                class = "^(org.fcitx.fcitx5-config-qt)$";
+              };
+              float = true;
+              center = true;
+              size = "800 600";
+            }
           ];
         };
       };

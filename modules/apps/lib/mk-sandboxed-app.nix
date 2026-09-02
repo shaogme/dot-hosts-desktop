@@ -32,7 +32,7 @@ in
   customPostBuild ? "",          # symlinkJoin 的自定义 postBuild 逻辑
   aliases ? [],                  # 可执行命令别名列表 (如 [ "firefox-devedition" ])
   postUnpack ? "",               # 解包后的自定义处理逻辑
-  windowRules ? [],              # 该应用的 Hyprland 专用窗口规则列表 (windowrulev2)
+  windowRules ? [],              # 该应用的 Hyprland 专用窗口规则列表 (window_rule)
   hyprlandRules ? [],            # 别名: 等同于 windowRules
 }:
 

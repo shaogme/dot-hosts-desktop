@@ -199,7 +199,7 @@ in
       enable = mkOption {
         type = types.bool;
         default = true;
-        description = "是否自动向 Hyprland 注册 wlogout 的 layerrule 背景毛玻璃模糊。";
+        description = "是否自动向 Hyprland 注册 wlogout 的 layer_rule 背景毛玻璃模糊。";
       };
     };
 
@@ -240,11 +240,16 @@ in
         "xdg/wlogout/style.css".text = wlogoutStyleText;
       };
 
-      # 联动向 Hyprland 注册 layerrule 和快捷键
+      # 联动向 Hyprland 注册 layer_rule 和快捷键
       desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable) {
         layerRules = optionals cfg.blur.enable [
-          "blur, wlogout"
-          "ignorezero, wlogout"
+          {
+            match = {
+              namespace = "wlogout";
+            };
+            blur = true;
+            ignore_alpha = 0;
+          }
         ];
         extraBinds = map (bindStr: {
           _args = [ (inline ''"${bindStr}"'') (inline ''hl.dsp.exec_cmd("wlogout-menu")'') ];

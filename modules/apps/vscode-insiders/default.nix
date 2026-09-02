@@ -4,6 +4,12 @@ import ../lib/mk-app-module.nix {
   package = ./package.nix;
   aliases = [ "code-insiders" "vscode-insider" "code-insider" ];
   windowRules = [
-    "float, class:^(code-insiders|Code - Insiders|vscode-insiders)$, title:^(Open Folder|Open File|Save As|Extension:.*)$"
+    {
+      match = {
+        class = "^(code-insiders|Code - Insiders|vscode-insiders)$";
+        title = "^(Open Folder|Open File|Save As|Extension:.*)$";
+      };
+      float = true;
+    }
   ];
 }

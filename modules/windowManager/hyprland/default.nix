@@ -56,11 +56,11 @@ let
   finalSettings = mergedSettings // {
     bind = (mergedSettings.bind or [ ]) ++ normalizedExtraBinds;
     on = (mergedSettings.on or [ ]) ++ autostartOn;
-    layerrule = (mergedSettings.layerrule or [ ]) ++ cfg.layerRules;
-    windowrulev2 = unique (
+    layer_rule = (mergedSettings.layer_rule or [ ]) ++ cfg.layerRules;
+    window_rule = unique (
       (optionals cfg.windowRules.enable defaultWindowRules)
-      ++ (mergedSettings.windowrulev2 or [ ])
-      ++ (cfg.settings.windowrulev2 or [ ])
+      ++ (mergedSettings.window_rule or [ ])
+      ++ (cfg.settings.window_rule or [ ])
       ++ cfg.extraRules
       ++ cfg.windowRules.extraRules
     );
@@ -106,22 +106,22 @@ in
       };
 
       extraRules = mkOption {
-        type = types.listOf types.str;
+        type = types.listOf (types.attrsOf types.anything);
         default = [ ];
-        description = "附加的自定义窗口规则列表（追加写入 windowrulev2）。";
+        description = "附加的自定义窗口规则列表（追加写入 window_rule）。";
       };
     };
 
     extraRules = mkOption {
-      type = types.listOf types.str;
+      type = types.listOf (types.attrsOf types.anything);
       default = [ ];
-      description = "快捷注册的自定义窗口规则列表（追加写入 windowrulev2）。";
+      description = "快捷注册的自定义窗口规则列表（追加写入 window_rule）。";
     };
 
     layerRules = mkOption {
-      type = types.listOf types.str;
+      type = types.listOf (types.attrsOf types.anything);
       default = [ ];
-      description = "附加的图层规则列表（追加写入 layerrule）。";
+      description = "附加的图层规则列表（追加写入 layer_rule）。";
     };
 
     autostart = mkOption {

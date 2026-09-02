@@ -1,10 +1,21 @@
 [
-  "noblur, class:^()$, title:^()$"
-  "noshadow, class:^()$, title:^()$"
-  "noborder, class:^()$, title:^()$"
-  "float, class:^(xwaylandvideobridge)$"
-  "opacity 0.0 override, class:^(xwaylandvideobridge)$"
-  "noanim, class:^(xwaylandvideobridge)$"
-  "noinitialfocus, class:^(xwaylandvideobridge)$"
-  "maxsize 1 1, class:^(xwaylandvideobridge)$"
+  {
+    match = {
+      class = "^()$";
+      title = "^()$";
+    };
+    no_blur = true;
+    no_shadow = true;
+    border_size = 0;
+  }
+  {
+    match = {
+      class = "^(xwaylandvideobridge)$";
+    };
+    float = true;
+    opacity = "0.0 override";
+    no_anim = true;
+    no_initial_focus = true;
+    max_size = "1 1";
+  }
 ]
