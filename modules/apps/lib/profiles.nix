@@ -178,17 +178,52 @@ rec {
     dbus ? true,
     inputMethod ? true,
     bypassProxy ? false,
+    shareDownloads ? true,        # 是否与宿主机共享 ~/Downloads (读写)
+    shareUserDirs ? false,       # 是否与宿主机共享常用用户目录 (只读: Documents, Pictures, Desktop 等)
+    sharedDirs ? [],             # 额外的读写共享目录 (相对 $HOME 或绝对路径)
+    roSharedDirs ? [],           # 额外的只读共享目录 (相对 $HOME 或绝对路径)
     customBinds ? [],
     customRoBinds ? [],
     extraBwrapArgs ? [],
   }:
     let
       sandboxHome = "\${XDG_DATA_HOME:-$HOME}/.sandboxes/${sandboxName}";
+
+      # 常用 XDG 用户目录（中英文双语兼容，支持 --ro-bind-try 自动忽略不存在的目录）
+      defaultUserDirs = [
+        "Desktop" "桌面"
+        "Documents" "文档"
+        "Pictures" "图片"
+        "Videos" "视频"
+        "Music" "音乐"
+      ];
+
+      defaultDownloadsDirs = [
+        "Downloads" "下载"
+      ];
+
+      effectiveSharedDirs = lib.unique (
+        (lib.optionals shareDownloads defaultDownloadsDirs)
+        ++ sharedDirs
+      );
+
+      effectiveRoSharedDirs = lib.unique (
+        (lib.optionals shareUserDirs defaultUserDirs)
+        ++ roSharedDirs
+      );
+
+      formatBindArg = dir:
+        if lib.hasPrefix "/" dir then [ dir dir ]
+        else [ "\$HOME/${dir}" "\$HOME/${dir}" ];
     in
     lib.optionals isolatedHome [
       "--tmpfs" "$HOME"
       "--bind" sandboxHome "$HOME"
     ]
+    ++ lib.optionals isolatedHome (
+      (lib.concatMap (dir: [ "--bind-try" ] ++ (formatBindArg dir)) effectiveSharedDirs)
+      ++ (lib.concatMap (dir: [ "--ro-bind-try" ] ++ (formatBindArg dir)) effectiveRoSharedDirs)
+    )
     ++ lib.optionals bypassProxy [
       "--unshare-user"
       "--gid" "1992"

@@ -21,6 +21,12 @@ mkSandboxedApp {
   hostDirs = [ "Downloads" ".mozilla" ];
   iconStrategy = "firefox-sizes";
 
+  # 沙箱与文件访问隔离规则：共享宿主下载目录 (读写) 与常用用户目录 (只读)，解决文件选择器无法读取文件的问题
+  sandbox = {
+    shareDownloads = true;
+    shareUserDirs = true;
+  };
+
   environment = {
     MOZ_ENABLE_WAYLAND = "1";
   };

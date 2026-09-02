@@ -4,6 +4,7 @@ let
   profilesLib = import ./profiles.nix { inherit pkgs lib; };
   unpackersLib = import ./unpackers.nix { inherit pkgs lib; };
 in
+lib.makeOverridable (
 {
   pname,
   version,
@@ -155,6 +156,9 @@ let
     SANDBOX_HOME="''${XDG_DATA_HOME:-$HOME}/.sandboxes/${sandboxName}"
     mkdir -p "$SANDBOX_HOME"
     ${lib.concatStringsSep "\n" (map (dir: "mkdir -p \"$SANDBOX_HOME/${dir}\"") hostDirs)}
+    ${lib.optionalString (sandbox.shareDownloads or true) ''
+      mkdir -p "$HOME/Downloads"
+    ''}
 
     if [ -n "$XDG_RUNTIME_DIR" ]; then
       mkdir -p "$XDG_RUNTIME_DIR/dconf"
@@ -286,3 +290,4 @@ pkgs.symlinkJoin {
     windowRules = effectiveWindowRules;
   };
 }
+)

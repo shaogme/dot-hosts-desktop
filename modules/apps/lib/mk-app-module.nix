@@ -32,8 +32,19 @@ let
   effectivePackage =
     let
       customAliasPkg = findFirst (a: a.enable && a.package != cfg.package) null aliasConfigs;
+      basePkg = if customAliasPkg != null then customAliasPkg.package else cfg.package;
+      hasCustomDirs = (cfg ? sharedDirs && cfg.sharedDirs != [ ])
+        || (cfg ? roSharedDirs && cfg.roSharedDirs != [ ]);
     in
-    if customAliasPkg != null then customAliasPkg.package else cfg.package;
+    if hasCustomDirs && basePkg ? override then
+      basePkg.override (old: {
+        sandbox = (old.sandbox or { }) // {
+          sharedDirs = (old.sandbox.sharedDirs or [ ]) ++ (cfg.sharedDirs or [ ]);
+          roSharedDirs = (old.sandbox.roSharedDirs or [ ]) ++ (cfg.roSharedDirs or [ ]);
+        };
+      })
+    else
+      basePkg;
 
   # 汇总该应用的所有关联窗口规则 (包括直接传入规则及 package passthru 规则)
   effectiveWindowRules = unique (
@@ -53,6 +64,18 @@ let
         default = resolvedPkg;
         defaultText = literalExpression "import ./package.nix { inherit pkgs lib; }";
         description = "使用的 ${description} 软件包实例。";
+      };
+
+      sharedDirs = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "额外与宿主机共享的读写目录列表（相对于 $HOME 或绝对路径）。";
+      };
+
+      roSharedDirs = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "额外与宿主机共享的只读目录列表（相对于 $HOME 或绝对路径）。";
       };
 
       windowRules = mkOption {
