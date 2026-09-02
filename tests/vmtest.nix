@@ -135,6 +135,14 @@ pkgs.testers.nixosTest {
           server.succeed("which waybar")
           server.succeed("test -f /etc/xdg/waybar/config.jsonc")
 
+      # 验证通知中心 (SwayNC)
+      if ${if (serverCfg.desktop ? notification && serverCfg.desktop.notification ? swaync && serverCfg.desktop.notification.swaync.enable) then "True" else "False"}:
+          server.succeed("which swaync")
+          server.succeed("which swaync-client")
+          server.succeed("which notify-send")
+          server.succeed("test -f /etc/xdg/swaync/config.json")
+          server.succeed("test -f /etc/xdg/swaync/style.css")
+
       # 验证 Wi-Fi 管理支持 (Packages)
       if ${if serverCfg.desktop.packages.wifi.enable or false then "True" else "False"}:
           server.succeed("which nmcli")

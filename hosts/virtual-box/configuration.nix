@@ -109,7 +109,7 @@ in
     enable = true;
   };
 
-  desktop.notification.dunst = {
+  desktop.notification.swaync = {
     enable = true;
   };
 
@@ -301,8 +301,8 @@ in
       message = "桌面主题配置错误：desktop.theme 未启用";
     }
     {
-      assertion = config.desktop.notification.dunst.enable == true;
-      message = "通知服务配置错误：Dunst 未启用";
+      assertion = config.desktop.notification.swaync.enable == true;
+      message = "通知服务配置错误：SwayNC 未启用";
     }
     {
       assertion = config.desktop.loginManager.tuigreet.enable == true;

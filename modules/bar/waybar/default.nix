@@ -32,6 +32,7 @@ let
       "battery"
       "clock"
       "tray"
+      "custom/notification"
       "custom/power"
     ];
     "hyprland/workspaces" = {
@@ -89,6 +90,26 @@ let
     tray = {
       spacing = 10;
     };
+    "custom/notification" = {
+      tooltip = false;
+      format = "{icon}";
+      format-icons = {
+        notification = "<span foreground='red'><sup></sup></span>";
+        none = "";
+        dnd-notification = "<span foreground='red'><sup></sup></span>";
+        dnd-none = "";
+        inhibited-notification = "<span foreground='red'><sup></sup></span>";
+        inhibited-none = "";
+        dnd-inhibited-notification = "<span foreground='red'><sup></sup></span>";
+        dnd-inhibited-none = "";
+      };
+      return-type = "json";
+      exec-if = "which swaync-client";
+      exec = "swaync-client -df -p";
+      on-click = "swaync-client -t -sw";
+      on-click-right = "swaync-client -d -sw";
+      escape = true;
+    };
     "custom/power" = {
       format = "";
       tooltip = false;
@@ -128,9 +149,15 @@ let
     #workspaces button.empty {
       color: rgba(255, 255, 255, 0.4);
     }
-    #clock, #battery, #cpu, #memory, #temperature, #network, #pulseaudio, #tray, #custom-power {
+    #clock, #battery, #cpu, #memory, #temperature, #network, #pulseaudio, #tray, #custom-notification, #custom-power {
       padding: 0 10px;
       color: #ffffff;
+    }
+    #custom-notification {
+      font-size: 14px;
+    }
+    #custom-notification:hover {
+      color: #7aa2f7;
     }
     #battery.warning {
       color: #f9e2af;
