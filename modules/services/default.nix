@@ -1,0 +1,7 @@
+{ ... }:
+
+{
+  imports = [
+    ./socks-tun.nix
+  ];
+}

@@ -177,6 +177,7 @@ rec {
     audio ? true,
     dbus ? true,
     inputMethod ? true,
+    bypassProxy ? false,
     customBinds ? [],
     customRoBinds ? [],
     extraBwrapArgs ? [],
@@ -187,6 +188,10 @@ rec {
     lib.optionals isolatedHome [
       "--tmpfs" "$HOME"
       "--bind" sandboxHome "$HOME"
+    ]
+    ++ lib.optionals bypassProxy [
+      "--unshare-user"
+      "--gid" "992"
     ]
     ++ lib.optionals wayland [
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}"

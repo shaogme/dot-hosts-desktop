@@ -24,6 +24,7 @@ mkSandboxedApp {
   runInDirectory = "opt/v2rayN";
 
   profiles = [ "desktop-gui" "dotnet" ];
+  bypassProxy = true;
   postUnpack = "chmod +x $out/opt/v2rayN/v2rayN $out/opt/v2rayN/bin/*/* 2>/dev/null || true";
 
   environment = {

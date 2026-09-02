@@ -16,6 +16,9 @@ in
   profiles ? [ "desktop-gui" ],  # 依赖 Profile 列表 (如 [ "desktop-gui" "webkitgtk" ])
   extraPkgs ? (pkgs: []),        # 额外定制的 targetPkgs 依赖函数
 
+  # 透明代理防回环豁免
+  bypassProxy ? false,           # 是否豁免 TUN 代理 (绑定 GID 992 proxy-bypass 并直连出站)
+
   # 沙箱与隔离配置
   sandbox ? {},                  # 传递给 makeBwrapArgs 的参数 (如 isolatedHome, shareNet, customBinds)
   hostDirs ? [],                 # 宿主机需要初始化的目录 (相对于沙箱根目录)
@@ -69,9 +72,12 @@ let
     in
     lib.unique (profilePkgs ++ customPkgs);
 
+  effectiveBypassProxy = sandbox.bypassProxy or bypassProxy;
+
   # 4. 构造 Bubblewrap 隔离参数
   bwrapArgs = profilesLib.makeBwrapArgs ({
     inherit sandboxName;
+    bypassProxy = effectiveBypassProxy;
   } // sandbox);
 
   # 5. 生成容器内部的 Launcher 脚本
@@ -135,6 +141,7 @@ let
     targetPkgs = resolvedTargetPkgs;
     extraBwrapArgs = bwrapArgs;
     runScript = launcherScript;
+    unshareUser = effectiveBypassProxy;
   };
 
   # 7. 生成宿主机 Wrapper 包装器脚本
@@ -147,7 +154,15 @@ let
       mkdir -p "$XDG_RUNTIME_DIR/dconf"
     fi
 
-    exec "${fhs}/bin/${pname}-fhs" "$@"
+    ${if effectiveBypassProxy then ''
+      if id -nG 2>/dev/null | grep -qw proxy-bypass && command -v sg >/dev/null 2>&1; then
+        exec sg proxy-bypass -c "${fhs}/bin/${pname}-fhs \"\$@\""
+      else
+        exec "${fhs}/bin/${pname}-fhs" "$@"
+      fi
+    '' else ''
+      exec "${fhs}/bin/${pname}-fhs" "$@"
+    ''}
   '';
 
   # 8. 生成 XDG Desktop Entry

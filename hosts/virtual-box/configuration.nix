@@ -184,7 +184,7 @@ in
   users.users.${hostConfig.user} = {
     isNormalUser = true;
     description = "Shaog";
-    extraGroups = [ "wheel" "networkmanager" "video" "audio" "input" ];
+    extraGroups = [ "wheel" "networkmanager" "video" "audio" "input" "proxy-bypass" ];
     initialHashedPassword = hostConfig.auth.rootHash;
     openssh.authorizedKeys.keys = hostConfig.auth.sshKeys;
   };
@@ -242,6 +242,14 @@ in
 
   desktop.apps.vscode-insiders = {
     enable = true;
+  };
+
+  # ==========================================
+  # 透明代理服务 (sing-box SOCKS5 TUN)
+  # ==========================================
+  services.socks-tun = {
+    enable = true;
+    defaultPort = 10808;
   };
 
   # ==========================================
@@ -424,6 +432,14 @@ in
     {
       assertion = config.i18n.inputMethod.type == "fcitx5";
       message = "输入法配置错误：输入法框架类型应为 fcitx5";
+    }
+    {
+      assertion = config.services.socks-tun.enable == true;
+      message = "透明代理服务配置错误：services.socks-tun 未启用";
+    }
+    {
+      assertion = builtins.elem "proxy-bypass" config.users.users.${hostConfig.user}.extraGroups;
+      message = "用户组配置错误：用户 ${hostConfig.user} 未加入 proxy-bypass 组";
     }
   ];
 }

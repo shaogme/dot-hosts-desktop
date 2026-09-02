@@ -11,6 +11,7 @@
     ./loginManager
     ./notification
     ./packages
+    ./services
     ./terminal
     ./theme
     ./wallpaper

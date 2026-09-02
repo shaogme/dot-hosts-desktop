@@ -180,6 +180,15 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/xdg/fcitx5/conf/classicui.conf")
           server.succeed("grep -q 'Theme=' /etc/xdg/fcitx5/conf/classicui.conf")
 
+      # 验证 SOCKS5-TUN 核心服务与 CLI 工具
+      if ${if serverCfg.services.socks-tun.enable or false then "True" else "False"}:
+          server.succeed("which sing-box")
+          server.succeed("which proxy-ctl")
+          server.succeed("which socks-tun")
+          server.succeed("test -f /etc/socks-tun/config.template.json")
+          server.succeed("sing-box check -c /etc/socks-tun/config.template.json")
+          server.succeed("proxy-ctl status")
+
       print("VM 测试全部通过！")
     '';
 }

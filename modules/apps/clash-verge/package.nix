@@ -14,6 +14,7 @@ mkSandboxedApp {
   execPath = "bin/clash-verge";
 
   profiles = [ "desktop-gui" "webkitgtk" ];
+  bypassProxy = true;
   hostDirs = [ ".config/clash-verge" ".config/clash-verge-rev" ];
 
   desktop = {
