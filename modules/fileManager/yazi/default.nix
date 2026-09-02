@@ -97,8 +97,8 @@ let
     else
       cfg.package;
 
-  # 生成桌面启动项 (yazi.desktop)
-  yaziDesktopItem = pkgs.makeDesktopItem {
+  # 生成桌面启动项 (yazi.desktop)，赋予更高优先级以在 buildEnv 合并时优先选用
+  yaziDesktopItem = lib.hiPrio (pkgs.makeDesktopItem {
     name = "yazi";
     desktopName = "Yazi";
     comment = "极速现代终端文件管理器";
@@ -108,7 +108,7 @@ let
     type = "Application";
     categories = [ "Utility" "FileManager" ];
     mimeTypes = [ "inode/directory" ];
-  };
+  });
 
   # Shell 包装函数脚本 (退出时自动切换当前终端工作路径)
   shellWrapperCode = ''
@@ -409,7 +409,6 @@ in
       environment.systemPackages = [
         finalPackage
       ]
-      ++ (optional cfg.desktopEntry.enable yaziDesktopItem)
       ++ cfg.extraPackages;
 
       # 2. 系统级配置文件部署 (/etc/xdg/yazi/... 与 termfilechooser 包装脚本)
@@ -447,7 +446,6 @@ in
             home.packages = [
               finalPackage
             ]
-            ++ (optional cfg.desktopEntry.enable yaziDesktopItem)
             ++ cfg.extraPackages;
 
             xdg.configFile = allHmConfigFiles // (optionalAttrs (config ? desktop && config.desktop ? portal && config.desktop.portal ? termfilechooser && config.desktop.portal.termfilechooser.enable && cfg.termfilechooser.enable) {
