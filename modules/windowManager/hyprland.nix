@@ -88,11 +88,18 @@ let
           enabled = true;
           size = 5;
           passes = 2;
+          new_optimizations = true;
+          ignore_opacity = true;
         };
       };
 
       animations = {
         enabled = true;
+      };
+
+      xwayland = {
+        force_zero_scaling = cfg.xwayland.forceZeroScaling;
+        use_nearest_neighbor = cfg.xwayland.useNearestNeighbor;
       };
     };
 
@@ -158,6 +165,73 @@ let
     ];
   };
 
+  # 默认精细化窗口规则集合 (优化 XWayland 缩放/模糊与常见 X11/Qt/GTK 框架应用)
+  defaultWindowRules = optionals cfg.windowRules.enable [
+    # --- 1. XWayland 缩放、模糊与幽灵/透明弹窗优化 ---
+    "noblur, class:^()$, title:^()$"
+    "noshadow, class:^()$, title:^()$"
+    "noborder, class:^()$, title:^()$"
+    "float, class:^(xwaylandvideobridge)$"
+    "opacity 0.0 override, class:^(xwaylandvideobridge)$"
+    "noanim, class:^(xwaylandvideobridge)$"
+    "noinitialfocus, class:^(xwaylandvideobridge)$"
+    "maxsize 1 1, class:^(xwaylandvideobridge)$"
+
+    # --- 2. 常见 Qt / KDE / Polkit 框架应用与系统对话框微调 ---
+    "float, class:^(org.fcitx.fcitx5-config-qt)$"
+    "center, class:^(org.fcitx.fcitx5-config-qt)$"
+    "size 850 600, class:^(org.fcitx.fcitx5-config-qt)$"
+    "float, class:^(qt5ct|qt6ct|kvantummanager)$"
+    "center, class:^(qt5ct|qt6ct|kvantummanager)$"
+    "size 850 650, class:^(qt5ct|qt6ct|kvantummanager)$"
+    "float, class:^(pavucontrol|org.pulseaudio.pavucontrol)$"
+    "center, class:^(pavucontrol|org.pulseaudio.pavucontrol)$"
+    "size 800 600, class:^(pavucontrol|org.pulseaudio.pavucontrol)$"
+    "float, class:^(nm-connection-editor|nm-applet)$"
+    "center, class:^(nm-connection-editor|nm-applet)$"
+    "size 750 550, class:^(nm-connection-editor|nm-applet)$"
+    "float, class:^(blueman-manager)$"
+    "center, class:^(blueman-manager)$"
+    "size 750 550, class:^(blueman-manager)$"
+    "float, class:^(pinentry-.*|pinentry)$"
+    "center, class:^(pinentry-.*|pinentry)$"
+    "pin, class:^(pinentry-.*|pinentry)$"
+    "stayfocused, class:^(pinentry-.*|pinentry)$"
+    "float, class:^(polkit-.*|org.kde.polkit-kde-authentication-agent-1|lxqt-policykit)$"
+    "center, class:^(polkit-.*|org.kde.polkit-kde-authentication-agent-1|lxqt-policykit)$"
+    "stayfocused, class:^(polkit-.*|org.kde.polkit-kde-authentication-agent-1|lxqt-policykit)$"
+    "float, class:^(kdialog)$, title:^(.*)$"
+
+    # --- 3. 常见跨框架文件选择、保存与进度对话框 ---
+    "float, title:^(Open File|Select a File|Choose Files|Open Folder|Save As|Save File|All Files|另存为|打开文件|选择文件|打开文件夹|保存文件)$"
+    "center, title:^(Open File|Select a File|Choose Files|Open Folder|Save As|Save File|All Files|另存为|打开文件|选择文件|打开文件夹|保存文件)$"
+    "size 900 600, title:^(Open File|Select a File|Choose Files|Open Folder|Save As|Save File|All Files|另存为|打开文件|选择文件|打开文件夹|保存文件)$"
+    "float, title:^(File Upload|Upload Files|文件上传)$"
+    "float, title:^(Confirm to replace files|File Operation Progress|文件操作进度|替换文件)$"
+
+    # --- 4. 常见多媒体与浏览器画中画/弹窗微调 ---
+    "float, title:^(Picture-in-Picture|画中画)$"
+    "pin, title:^(Picture-in-Picture|画中画)$"
+    "keepaspectratio, title:^(Picture-in-Picture|画中画)$"
+    "float, class:^(firefox|firefox-developer-edition|firefox-devedition)$, title:^(Library|Opening.*|About Mozilla Firefox|关于 Mozilla Firefox)$"
+    "center, class:^(firefox|firefox-developer-edition|firefox-devedition)$, title:^(Library|Opening.*|About Mozilla Firefox|关于 Mozilla Firefox)$"
+
+    # --- 5. 常见社交与即时通讯 (Qt / Electron / X11) 应用微调 ---
+    "float, class:^(wechat|com.tencent.wechat)$, title:^(微信|WeChat|登录)$"
+    "float, class:^(wechat|com.tencent.wechat)$, title:^(图片查看|预览|设置|关于微信|意见反馈|聊天记录备份与迁移|ChatContactMenu|chat_menu)$"
+    "noblur, class:^(wechat|com.tencent.wechat)$, title:^()$"
+    "noshadow, class:^(wechat|com.tencent.wechat)$, title:^()$"
+    "stayfocused, class:^(wechat|com.tencent.wechat)$, title:^(ChatContactMenu|chat_menu)$"
+    "float, class:^(QQ|qq)$, title:^(图片查看器|音视频通话|转发|设置|关于|快捷反馈|群聊成员|音视频通话.*)$"
+    "size 800 600, class:^(QQ|qq)$, title:^(设置|关于)$"
+    "stayfocused, class:^(QQ|qq)$, title:^(图片查看器)$"
+
+    # --- 6. 常见代理与开发工具 (Avalonia / WebKit / Electron) 弹窗微调 ---
+    "float, class:^(v2rayn|v2rayN)$, title:^(Settings|设置|Add.*|Edit.*|添加.*|编辑.*|Routing.*|路由.*|Promote.*|提示.*)$"
+    "float, class:^(clash-verge|clash-verge-rev)$, title:^(Settings|设置|Logs|日志|Profiles|配置)$"
+    "float, class:^(code|Code|vscode|code-insiders)$, title:^(Open Folder|Open File|Save As|Extension:.*)$"
+  ];
+
   # 虚拟机兼容模式环境配置
   virtualizationEnv = [
     { _args = [ "WLR_NO_HARDWARE_CURSORS" "1" ]; }
@@ -213,6 +287,12 @@ let
     bind = (mergedSettings.bind or [ ]) ++ normalizedExtraBinds;
     on = (mergedSettings.on or [ ]) ++ wifiExecOnceOn ++ extraExecOnceOn;
     layerrule = (mergedSettings.layerrule or [ ]) ++ powerMenuLayerRules;
+    windowrulev2 = lib.unique (
+      defaultWindowRules
+      ++ (mergedSettings.windowrulev2 or [ ])
+      ++ (cfg.settings.windowrulev2 or [ ])
+      ++ cfg.windowRules.extraRules
+    );
   };
 
   # 高清矢量 SVG 图标包（纯净内嵌生成，零外部网络依赖）
@@ -646,6 +726,32 @@ in
         default = true;
         description = "是否启用 XWayland 兼容层支持。";
       };
+
+      forceZeroScaling = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否默认开启 XWayland 零缩放 (force_zero_scaling)，在高分屏与分数缩放下防止 XWayland 窗口字体与界面模糊。";
+      };
+
+      useNearestNeighbor = mkOption {
+        type = types.bool;
+        default = false;
+        description = "XWayland 窗口在缩放时是否使用最近邻插值（适合像素风格应用与游戏，默认为 false 以保证平滑渲染）。";
+      };
+    };
+
+    windowRules = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否启用默认的精细化窗口规则集合（优化常见 X11/Qt/GTK 框架应用、弹窗、文件选择器及对话框）。";
+      };
+
+      extraRules = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "附加的自定义窗口规则列表（追加写入 windowrulev2）。";
+      };
     };
 
     audio = {
@@ -900,6 +1006,15 @@ in
       environment.sessionVariables = mkMerge [
         {
           NIXOS_OZONE_WL = "1";
+          QT_QPA_PLATFORM = "wayland;xcb";
+          QT_AUTO_SCREEN_SCALE_FACTOR = "1";
+          QT_WAYLAND_DISABLE_WINDOWDECORATION = "1";
+          QT_SCALE_FACTOR_ROUNDING_POLICY = "PassThrough";
+          GDK_BACKEND = "wayland,x11";
+          CLUTTER_BACKEND = "wayland";
+          SDL_VIDEODRIVER = "wayland,x11,windows";
+          _JAVA_AWT_WM_NONREPARENTING = "1";
+          ELECTRON_OZONE_PLATFORM_HINT = "auto";
         }
         (mkIf cfg.iconTheme.enable {
           XCURSOR_THEME = cfg.iconTheme.name;

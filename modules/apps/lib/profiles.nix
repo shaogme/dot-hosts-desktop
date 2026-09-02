@@ -31,6 +31,10 @@ rec {
       libxcursor
       libICE
       libSM
+      libxinerama
+      libxscrnsaver
+      libxshmfence
+      libxkbfile
     ];
 
     # Wayland 显示协议支持
@@ -79,6 +83,26 @@ rec {
       dconf
       dconf.lib
     ];
+
+    # Qt5 图形框架与 Wayland 运行支持
+    qt5 = pkgs: with pkgs; [
+      qt5.qtbase
+      qt5.qtwayland
+      qt5.qtx11extras
+      qt5.qtsvg
+      qt5.qtdeclarative
+    ];
+
+    # Qt6 图形框架与 Wayland 运行支持
+    qt6 = pkgs: with pkgs; [
+      qt6.qtbase
+      qt6.qtwayland
+      qt6.qtsvg
+      qt6.qtdeclarative
+    ];
+
+    # 通用 Qt 运行时 Profile
+    qt = pkgs: pkgProfiles.qt5 pkgs ++ pkgProfiles.qt6 pkgs;
 
     # WebKitGTK 浏览器内核 (如 Clash Verge Rev)
     webkitgtk = pkgs: with pkgs; [
@@ -137,12 +161,13 @@ rec {
       ++ pkgProfiles.graphics pkgs
       ++ pkgProfiles.audio pkgs
       ++ pkgProfiles.fonts pkgs
-      ++ pkgProfiles.gtk3 pkgs;
+      ++ pkgProfiles.gtk3 pkgs
+      ++ pkgProfiles.xcb pkgs;
   };
 
-  # =========================================================================
+  # =========================================
   # 2. Bubblewrap 隔离规则参数生成器
-  # =========================================================================
+  # =========================================
   makeBwrapArgs = {
     sandboxName,
     isolatedHome ? true,
@@ -169,6 +194,12 @@ rec {
     ]
     ++ lib.optionals x11 [
       "--ro-bind-try" "/tmp/.X11-unix" "/tmp/.X11-unix"
+      "--ro-bind-try" "$XAUTHORITY" "$XAUTHORITY"
+      "--ro-bind-try" "/run/current-system/sw/share/X11" "/run/current-system/sw/share/X11"
+      "--ro-bind-try" "/run/current-system/sw/share/fonts" "/run/current-system/sw/share/fonts"
+      "--ro-bind-try" "/run/current-system/sw/share/icons" "/run/current-system/sw/share/icons"
+      "--ro-bind-try" "/etc/fonts" "/etc/fonts"
+      "--ro-bind-try" "/etc/localtime" "/etc/localtime"
     ]
     ++ lib.optionals audio [
       "--ro-bind-try" "$XDG_RUNTIME_DIR/pulse" "$XDG_RUNTIME_DIR/pulse"
@@ -177,10 +208,12 @@ rec {
     ++ lib.optionals dbus [
       "--ro-bind-try" "$XDG_RUNTIME_DIR/bus" "$XDG_RUNTIME_DIR/bus"
       "--bind-try" "$XDG_RUNTIME_DIR/dconf" "$XDG_RUNTIME_DIR/dconf"
+      "--ro-bind-try" "/var/run/dbus/system_bus_socket" "/var/run/dbus/system_bus_socket"
     ]
     ++ lib.optionals inputMethod [
       "--ro-bind-try" "$XDG_RUNTIME_DIR/fcitx5" "$XDG_RUNTIME_DIR/fcitx5"
       "--ro-bind-try" "$XDG_RUNTIME_DIR/ibus" "$XDG_RUNTIME_DIR/ibus"
+      "--ro-bind-try" "$XDG_RUNTIME_DIR/fcitx" "$XDG_RUNTIME_DIR/fcitx"
     ]
     ++ lib.optional shareNet "--share-net"
     ++ (lib.concatMap (b: [ "--bind" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) customBinds)

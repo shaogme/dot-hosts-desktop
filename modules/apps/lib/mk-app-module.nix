@@ -3,6 +3,8 @@
   description,
   package,                     # 软件包路径 ./package.nix 或 Derivation 或函数
   aliases ? [],                # 模块别名列表 (如 [ "firefox-devedition" ])
+  windowRules ? [],            # 注册到 Hyprland 的专用窗口规则 (windowrulev2)
+  hyprlandRules ? [],          # 别名: 等同于 windowRules
   extraOptions ? {},           # 附加的 NixOS options
   extraConfig ? (cfg: {}),     # 附加的 NixOS config 逻辑
 }:
@@ -33,6 +35,14 @@ let
     in
     if customAliasPkg != null then customAliasPkg.package else cfg.package;
 
+  # 汇总该应用的所有关联窗口规则 (包括直接传入规则及 package passthru 规则)
+  effectiveWindowRules = unique (
+    windowRules
+    ++ hyprlandRules
+    ++ (effectivePackage.passthru.windowRules or [ ])
+    ++ (effectivePackage.windowRules or [ ])
+  );
+
   # 构造主选项定义
   mainOptions = {
     ${name} = {
@@ -43,6 +53,12 @@ let
         default = resolvedPkg;
         defaultText = literalExpression "import ./package.nix { inherit pkgs lib; }";
         description = "使用的 ${description} 软件包实例。";
+      };
+
+      windowRules = mkOption {
+        type = types.listOf types.str;
+        default = effectiveWindowRules;
+        description = "该应用程序在 Hyprland 下生效的专用窗口规则 (windowrulev2)。";
       };
     } // extraOptions;
   };
@@ -72,6 +88,9 @@ in
         effectivePackage
       ];
     }
+    (mkIf (cfg.windowRules != [ ] && config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland) {
+      desktop.windowManager.hyprland.settings.windowrulev2 = cfg.windowRules;
+    })
     (extraConfig cfg)
   ]);
 }

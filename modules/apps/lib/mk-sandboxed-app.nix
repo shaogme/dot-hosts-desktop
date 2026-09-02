@@ -32,10 +32,13 @@ in
   customPostBuild ? "",          # symlinkJoin 的自定义 postBuild 逻辑
   aliases ? [],                  # 可执行命令别名列表 (如 [ "firefox-devedition" ])
   postUnpack ? "",               # 解包后的自定义处理逻辑
+  windowRules ? [],              # 该应用的 Hyprland 专用窗口规则列表 (windowrulev2)
+  hyprlandRules ? [],            # 别名: 等同于 windowRules
 }:
 
 let
   sandboxName = sandbox.name or pname;
+  effectiveWindowRules = lib.unique (windowRules ++ hyprlandRules);
 
   # 1. 解包上游二进制资源
   unpacked = unpackersLib.mkUnpackedDerivation {
@@ -73,10 +76,26 @@ let
 
   # 5. 生成容器内部的 Launcher 脚本
   launcherScript = pkgs.writeShellScript "${pname}-launcher" ''
-    # 自动 Wayland 环境适配
+    # 自动 Wayland 与 XWayland / X11 环境适配
     if [ -n "$WAYLAND_DISPLAY" ]; then
       export GDK_BACKEND=wayland,x11
+      export QT_QPA_PLATFORM="wayland;xcb"
+      export CLUTTER_BACKEND=wayland
+      export SDL_VIDEODRIVER="wayland,x11,windows"
+      export ELECTRON_OZONE_PLATFORM_HINT="auto"
+      export NIXOS_OZONE_WL="1"
+    else
+      export GDK_BACKEND=x11
+      export QT_QPA_PLATFORM=xcb
     fi
+
+    # Qt 框架高分屏缩放与渲染清晰度优化 (避免分数缩放模糊与双重标题栏)
+    export QT_AUTO_SCREEN_SCALE_FACTOR="1"
+    export QT_WAYLAND_DISABLE_WINDOWDECORATION="1"
+    export QT_SCALE_FACTOR_ROUNDING_POLICY="PassThrough"
+
+    # Java / AWT 窗口管理器无父重定优化 (避免平铺 WM 窗口白屏/灰屏)
+    export _JAVA_AWT_WM_NONREPARENTING="1"
 
     # 自动输入法环境适配
     if [ -z "''${XMODIFIERS:-}" ]; then
@@ -228,5 +247,6 @@ pkgs.symlinkJoin {
   '';
   passthru = {
     inherit unpacked fhs;
+    windowRules = effectiveWindowRules;
   };
 }

@@ -3,4 +3,11 @@ import ../lib/mk-app-module.nix {
   description = "Firefox Developer Edition 开发者版浏览器";
   package = ./package.nix;
   aliases = [ "firefox-devedition" ];
+  windowRules = [
+    "float, class:^(firefox-developer-edition|firefox-devedition)$, title:^(Picture-in-Picture|画中画)$"
+    "pin, class:^(firefox-developer-edition|firefox-devedition)$, title:^(Picture-in-Picture|画中画)$"
+    "keepaspectratio, class:^(firefox-developer-edition|firefox-devedition)$, title:^(Picture-in-Picture|画中画)$"
+    "float, class:^(firefox-developer-edition|firefox-devedition)$, title:^(Library|Opening.*|About Mozilla Firefox|关于 Mozilla Firefox)$"
+    "center, class:^(firefox-developer-edition|firefox-devedition)$, title:^(Library|Opening.*|About Mozilla Firefox|关于 Mozilla Firefox)$"
+  ];
 }
