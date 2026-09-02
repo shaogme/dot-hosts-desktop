@@ -90,6 +90,7 @@ in
   # ==========================================
   desktop.windowManager.hyprland = {
     enable = true;
+    terminal = "ghostty";
     virtualization.enable = true;
   };
 
@@ -99,10 +100,21 @@ in
 
   desktop.bar.waybar = {
     enable = true;
+    commands = {
+      terminal = "ghostty";
+      cpu = "ghostty -e btop";
+      memory = "ghostty -e btop";
+      network = "ghostty -e nmtui";
+      bluetooth = "ghostty -e bluetuith";
+    };
   };
 
   desktop.launcher.anyrun = {
     enable = true;
+    terminal = {
+      command = "ghostty";
+      args = "-e {}";
+    };
   };
 
 
@@ -175,6 +187,21 @@ in
     extraGroups = [ "wheel" "networkmanager" "video" "audio" "input" ];
     initialHashedPassword = hostConfig.auth.rootHash;
     openssh.authorizedKeys.keys = hostConfig.auth.sshKeys;
+  };
+
+  # ==========================================
+  # 终端与 Shell 环境 (Terminal & Ghostty & Zsh & Starship)
+  # ==========================================
+  desktop.terminal.ghostty = {
+    enable = true;
+  };
+
+  desktop.terminal.zsh = {
+    enable = true;
+  };
+
+  desktop.terminal.starship = {
+    enable = true;
   };
 
   # ==========================================
@@ -266,6 +293,10 @@ in
       message = "窗口管理器配置错误：Hyprland 未启用";
     }
     {
+      assertion = config.desktop.windowManager.hyprland.terminal == "ghostty";
+      message = "Hyprland 终端命令行配置错误：应当配置为 ghostty";
+    }
+    {
       assertion = config.desktop.windowManager.hyprland.virtualization.enable == true;
       message = "窗口管理器配置错误：虚拟化兼容模式未启用";
     }
@@ -282,8 +313,16 @@ in
       message = "状态栏配置错误：Waybar 未启用";
     }
     {
+      assertion = config.desktop.bar.waybar.commands.terminal == "ghostty";
+      message = "Waybar 终端命令行配置错误：应当配置为 ghostty";
+    }
+    {
       assertion = config.desktop.launcher.anyrun.enable == true;
       message = "桌面启动器配置错误：Anyrun 未启用";
+    }
+    {
+      assertion = config.desktop.launcher.anyrun.terminal.command == "ghostty";
+      message = "Anyrun 终端命令行配置错误：应当配置为 ghostty";
     }
 
     {
@@ -353,6 +392,18 @@ in
     {
       assertion = config.fonts.fontconfig.enable == true;
       message = "字体配置错误：Fontconfig 未启用";
+    }
+    {
+      assertion = config.desktop.terminal.ghostty.enable == true;
+      message = "终端配置错误：Ghostty 未启用";
+    }
+    {
+      assertion = config.desktop.terminal.zsh.enable == true;
+      message = "终端配置错误：Zsh 未启用";
+    }
+    {
+      assertion = config.desktop.terminal.starship.enable == true;
+      message = "终端配置错误：Starship 未启用";
     }
     {
       assertion = config.desktop.inputMethod.fcitx5.enable == true;

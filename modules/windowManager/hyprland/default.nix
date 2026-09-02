@@ -78,6 +78,12 @@ in
 
     package = mkPackageOption pkgs "hyprland" { };
 
+    terminal = mkOption {
+      type = types.str;
+      default = "ghostty";
+      description = "Hyprland 默认快捷键 (SUPER + Return) 启动的终端命令或可执行程序名称。";
+    };
+
     xwayland = {
       enable = mkOption {
         type = types.bool;
@@ -216,9 +222,8 @@ in
         xwayland.enable = cfg.xwayland.enable;
       };
 
-      # 2. 基础 Wayland 桌面配套工具 (Kitty 终端、剪贴板、截图工具)
+      # 2. 基础 Wayland 桌面配套工具 (剪贴板、截图工具)
       environment.systemPackages = with pkgs; [
-        kitty
         wl-clipboard
         grim
         slurp
@@ -270,7 +275,6 @@ in
               extraConfig = cfg.extraConfig;
             };
             home.packages = with pkgs; [
-              kitty
               wl-clipboard
               grim
               slurp

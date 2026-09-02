@@ -1,10 +1,10 @@
-{ lib }:
+{ cfg, lib }:
 
 let
   inline = lib.generators.mkLuaInline;
 in
 [
-  { _args = [ (inline ''"SUPER + Return"'') (inline ''hl.dsp.exec_cmd("kitty")'') ]; }
+  { _args = [ (inline ''"SUPER + Return"'') (inline ''hl.dsp.exec_cmd("${cfg.terminal}")'') ]; }
   { _args = [ (inline ''"SUPER + Q"'') (inline ''hl.dsp.window.close()'') ]; }
   { _args = [ (inline ''"SUPER + V"'') (inline ''hl.dsp.window.float({ action = "toggle" })'') ]; }
   { _args = [ (inline ''"SUPER + F"'') (inline ''hl.dsp.window.fullscreen()'') ]; }

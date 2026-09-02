@@ -138,8 +138,8 @@ let
       max_entries: 5,
       hide_description: false,
       terminal: Some(Terminal(
-        command: "${pkgs.kitty}/bin/kitty",
-        args: "-e {}",
+        command: "${cfg.terminal.command}",
+        args: "${cfg.terminal.args}",
       )),
     )
   '';
@@ -266,6 +266,20 @@ in
     };
 
     package = mkPackageOption pkgs "anyrun" { };
+
+    terminal = {
+      command = mkOption {
+        type = types.str;
+        default = "ghostty";
+        description = "Anyrun 运行终端应用时调用的终端命令行或可执行文件路径。";
+      };
+
+      args = mkOption {
+        type = types.str;
+        default = "-e {}";
+        description = "Anyrun 调用终端时传递的参数模板。";
+      };
+    };
 
     daemon = {
       enable = mkOption {
@@ -480,9 +494,18 @@ in
       xdg.terminal-exec = {
         enable = true;
         settings = {
-          default = [ "kitty.desktop" ];
-          Hyprland = [ "kitty.desktop" ];
-          hyprland = [ "kitty.desktop" ];
+          default = [
+            "com.mitchellh.ghostty.desktop"
+            "ghostty.desktop"
+          ];
+          Hyprland = [
+            "com.mitchellh.ghostty.desktop"
+            "ghostty.desktop"
+          ];
+          hyprland = [
+            "com.mitchellh.ghostty.desktop"
+            "ghostty.desktop"
+          ];
         };
       };
 
@@ -547,8 +570,8 @@ in
             };
 
             xdg.configFile = allConfigFiles // {
-              "xdg-terminals.list".text = "kitty.desktop\n";
-              "hyprland-xdg-terminals.list".text = "kitty.desktop\n";
+              "xdg-terminals.list".text = "com.mitchellh.ghostty.desktop\nghostty.desktop\n";
+              "hyprland-xdg-terminals.list".text = "com.mitchellh.ghostty.desktop\nghostty.desktop\n";
             };
           })
         ];

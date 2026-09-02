@@ -62,6 +62,62 @@ in
       description = "追加到 Waybar 样式表的自定义 CSS 规则。";
     };
 
+    commands = {
+      menu = mkOption {
+        type = types.str;
+        default = "anyrun";
+        description = "点击菜单图标执行的应用启动器命令行。";
+      };
+
+      terminal = mkOption {
+        type = types.str;
+        default = "ghostty";
+        description = "右键菜单图标执行的终端命令行。";
+      };
+
+      cpu = mkOption {
+        type = types.str;
+        default = "ghostty -e btop";
+        description = "点击 CPU 监控模块执行的性能监控命令行。";
+      };
+
+      memory = mkOption {
+        type = types.str;
+        default = "ghostty -e btop";
+        description = "点击内存监控模块执行的性能监控命令行。";
+      };
+
+      network = mkOption {
+        type = types.str;
+        default = "ghostty -e nmtui";
+        description = "点击网络状态模块执行的网络配置命令行。";
+      };
+
+      bluetooth = mkOption {
+        type = types.str;
+        default = "ghostty -e bluetuith";
+        description = "点击蓝牙状态模块执行的蓝牙管理命令行。";
+      };
+
+      audioControl = mkOption {
+        type = types.str;
+        default = "pavucontrol";
+        description = "点击音量控制模块执行的音频控制台命令行。";
+      };
+
+      audioMuteToggle = mkOption {
+        type = types.str;
+        default = "pamixer -t";
+        description = "右键音量控制模块执行的静音切换命令行。";
+      };
+
+      powerMenu = mkOption {
+        type = types.str;
+        default = "anyrun-power";
+        description = "点击电源管理按钮执行的电源菜单命令行。";
+      };
+    };
+
     hyprland = {
       autostart = mkOption {
         type = types.bool;

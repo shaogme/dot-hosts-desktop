@@ -101,6 +101,7 @@ in
   # ==========================================
   desktop.windowManager.hyprland = {
     enable = true;
+    terminal = "ghostty";
   };
 
   desktop.audio.pipewire = {
@@ -109,10 +110,21 @@ in
 
   desktop.bar.waybar = {
     enable = true;
+    commands = {
+      terminal = "ghostty";
+      cpu = "ghostty -e btop";
+      memory = "ghostty -e btop";
+      network = "ghostty -e nmtui";
+      bluetooth = "ghostty -e bluetuith";
+    };
   };
 
   desktop.launcher.anyrun = {
     enable = true;
+    terminal = {
+      command = "ghostty";
+      args = "-e {}";
+    };
   };
 
 
@@ -189,8 +201,12 @@ in
   };
 
   # ==========================================
-  # 终端与 Shell 环境 (Terminal & Zsh & Starship)
+  # 终端与 Shell 环境 (Terminal & Ghostty & Zsh & Starship)
   # ==========================================
+  desktop.terminal.ghostty = {
+    enable = true;
+  };
+
   desktop.terminal.zsh = {
     enable = true;
   };
@@ -304,6 +320,10 @@ in
       message = "窗口管理器配置错误：Hyprland 未启用";
     }
     {
+      assertion = config.desktop.windowManager.hyprland.terminal == "ghostty";
+      message = "Hyprland 终端命令行配置错误：应当配置为 ghostty";
+    }
+    {
       assertion = config.programs.hyprland.enable == true;
       message = "桌面环境配置错误：Hyprland 未启用";
     }
@@ -316,8 +336,16 @@ in
       message = "状态栏配置错误：Waybar 未启用";
     }
     {
+      assertion = config.desktop.bar.waybar.commands.terminal == "ghostty";
+      message = "Waybar 终端命令行配置错误：应当配置为 ghostty";
+    }
+    {
       assertion = config.desktop.launcher.anyrun.enable == true;
       message = "桌面启动器配置错误：Anyrun 未启用";
+    }
+    {
+      assertion = config.desktop.launcher.anyrun.terminal.command == "ghostty";
+      message = "Anyrun 终端命令行配置错误：应当配置为 ghostty";
     }
 
     {
@@ -407,6 +435,10 @@ in
     {
       assertion = config.programs.virt-manager.enable == true;
       message = "虚拟机管理工具配置错误：virt-manager 未启用";
+    }
+    {
+      assertion = config.desktop.terminal.ghostty.enable == true;
+      message = "终端配置错误：Ghostty 未启用";
     }
     {
       assertion = config.desktop.terminal.zsh.enable == true;

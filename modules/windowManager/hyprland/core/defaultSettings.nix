@@ -1,7 +1,7 @@
 { cfg, lib }:
 
 let
-  binds = import ./binds.nix { inherit lib; };
+  binds = import ./binds.nix { inherit cfg lib; };
 in
 {
   monitor = [

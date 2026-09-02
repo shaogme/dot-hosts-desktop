@@ -25,8 +25,14 @@ let
 
   failuresBash = pkgs.lib.concatStringsSep "\n" (pkgs.lib.imap0 generateFailure failedAssertions);
   failedCount = builtins.length failedAssertions;
+
+  # Ghostty 配置静态语法与有效性验证
+  ghosttyEnabled = cfg.desktop.terminal.ghostty.enable or false;
+  ghosttyConfigText = cfg.environment.etc."xdg/ghostty/config".text or "";
+  ghosttyConfigFile = pkgs.writeText "${name}-ghostty-config" ghosttyConfigText;
 in
 pkgs.runCommand "${name}-static-check" {
+  nativeBuildInputs = [ pkgs.ghostty ];
   # 增加元数据输出，方便调试
   passthru = { inherit eval; };
 } ''
@@ -38,6 +44,12 @@ pkgs.runCommand "${name}-static-check" {
   '' else ''
     echo "[${name}] 所有静态断言检查通过！"
   ''}
+
+  ${if ghosttyEnabled then ''
+    echo "[${name}] 正在使用 ghostty +validate-config 验证 Ghostty 终端配置..."
+    ghostty +validate-config --config-file=${ghosttyConfigFile}
+    echo "[${name}] Ghostty 终端配置合法性验证通过！"
+  '' else ""}
 
   echo "静态检查通过！"
   touch $out

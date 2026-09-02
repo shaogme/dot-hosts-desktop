@@ -246,8 +246,8 @@ let
       format = "<span size='11500'></span>";
       tooltip = true;
       tooltip-format = "应用启动器 (Anyrun)\n• 左键：搜索并启动应用\n• 右键：打开终端";
-      on-click = "anyrun";
-      on-click-right = "kitty";
+      on-click = cfg.commands.menu;
+      on-click-right = cfg.commands.terminal;
     };
 
     "custom/active_window" = {
@@ -319,7 +319,7 @@ let
       format-icons = [ "󰪞" "󰪟" "󰪠" "󰪡" "󰪢" "󰪣" "󰪤" "󰪥" ];
       tooltip = true;
       tooltip-format = "CPU 使用率: {usage}%";
-      on-click = "kitty -e btop";
+      on-click = cfg.commands.cpu;
     };
 
     memory = {
@@ -328,7 +328,7 @@ let
       format-icons = [ "󰪞" "󰪟" "󰪠" "󰪡" "󰪢" "󰪣" "󰪤" "󰪥" ];
       tooltip = true;
       tooltip-format = "内存使用率: {percentage}% ({used:0.1f}G/{total:0.1f}G)";
-      on-click = "kitty -e btop";
+      on-click = cfg.commands.memory;
     };
 
     network = {
@@ -341,7 +341,7 @@ let
       tooltip-format-wifi = "Wi-Fi: {essid} ({signalStrength}%)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}";
       tooltip-format-ethernet = "以太网: {ipaddr}/{cidr}\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}";
       tooltip-format-disconnected = "网络已断开";
-      on-click = "kitty -e nmtui";
+      on-click = cfg.commands.network;
     };
 
     bluetooth = {
@@ -351,7 +351,7 @@ let
       format-no-controller = "";
       tooltip-format = "蓝牙设备已连接: {num_connections}";
       tooltip-format-disabled = "蓝牙已关闭";
-      on-click = "kitty -e bluetuith";
+      on-click = cfg.commands.bluetooth;
     };
 
     pulseaudio = {
@@ -362,8 +362,8 @@ let
       };
       tooltip-format = "音量: {volume}%";
       scroll-step = 5;
-      on-click = "pavucontrol";
-      on-click-right = "pamixer -t";
+      on-click = cfg.commands.audioControl;
+      on-click-right = cfg.commands.audioMuteToggle;
     };
 
     battery = {
@@ -379,7 +379,7 @@ let
       format-icons = [ "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹" ];
       tooltip-format = "{timeTo}, 功率: {power:>1.0f}W";
       interval = 5;
-      on-click = "anyrun-power";
+      on-click = cfg.commands.powerMenu;
     };
 
     tray = {
@@ -402,7 +402,7 @@ let
     "custom/power" = {
       format = "";
       tooltip = false;
-      on-click = "anyrun-power";
+      on-click = cfg.commands.powerMenu;
     };
   };
 
