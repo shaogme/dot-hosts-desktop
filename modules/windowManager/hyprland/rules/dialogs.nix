@@ -86,4 +86,31 @@
     };
     float = true;
   }
+
+  # 终端文件选择器 (xdg-desktop-portal-termfilechooser) 与终端文件管理器 (yazi)
+  {
+    match = {
+      class = "^(termfilechooser)$";
+    };
+    float = true;
+    center = true;
+    size = "1100 700";
+    stay_focused = true;
+  }
+  {
+    match = {
+      title = "^(termfilechooser|yazi-filechooser)$";
+    };
+    float = true;
+    center = true;
+    size = "1100 700";
+  }
+  {
+    match = {
+      class = "^(yazi)$";
+    };
+    float = true;
+    center = true;
+    size = "1200 750";
+  }
 ]

@@ -148,6 +148,20 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/xdg/swaync/config.json")
           server.succeed("test -f /etc/xdg/swaync/style.css")
 
+      # 验证文件管理器 (Yazi)
+      if ${if (serverCfg.desktop ? fileManager && serverCfg.desktop.fileManager ? yazi && serverCfg.desktop.fileManager.yazi.enable) then "True" else "False"}:
+          server.succeed("which yazi")
+          server.succeed("test -f /etc/xdg/yazi/yazi.toml")
+          server.succeed("test -f /etc/xdg/yazi/keymap.toml")
+          server.succeed("test -f /etc/xdg/yazi/theme.toml")
+          server.succeed("test -f /run/current-system/sw/share/applications/yazi.desktop")
+
+      # 验证桌面门户 (termfilechooser)
+      if ${if (serverCfg.desktop ? portal && serverCfg.desktop.portal ? termfilechooser && serverCfg.desktop.portal.termfilechooser.enable) then "True" else "False"}:
+          server.succeed("test -f /etc/xdg/xdg-desktop-portal-termfilechooser/config")
+          server.succeed("test -f /etc/xdg/xdg-desktop-portal-termfilechooser/yazi-wrapper.sh")
+          server.succeed("test -x /etc/xdg/xdg-desktop-portal-termfilechooser/yazi-wrapper.sh")
+
       # 验证 Wi-Fi 管理支持 (Packages)
       if ${if serverCfg.desktop.packages.wifi.enable or false then "True" else "False"}:
           server.succeed("which nmcli")

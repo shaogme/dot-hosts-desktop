@@ -73,6 +73,11 @@ let
     + optionalString (cfg.extraConfig != "") "\n${cfg.extraConfig}";
 in
 {
+  imports = [
+    ../../fileManager
+    ../../portal
+  ];
+
   options.desktop.windowManager.hyprland = {
     enable = mkEnableOption "Hyprland 现代化动态平铺 Wayland 合成器核心";
 
@@ -82,6 +87,60 @@ in
       type = types.str;
       default = "ghostty";
       description = "Hyprland 默认快捷键 (SUPER + Return) 启动的终端命令或可执行程序名称。";
+    };
+
+    fileManager = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否在 Hyprland 中启用默认文件管理器快捷键联动。";
+      };
+
+      command = mkOption {
+        type = types.str;
+        default =
+          if config ? desktop && config.desktop ? fileManager && config.desktop.fileManager ? yazi && config.desktop.fileManager.yazi.enable then
+            "${cfg.terminal} -e yazi"
+          else
+            "${cfg.terminal} -e yazi";
+        description = "Hyprland 启动文件管理器的命令行（默认按键 SUPER + E 唤起）。";
+      };
+
+      keybind = mkOption {
+        type = types.str;
+        default = "SUPER + E";
+        description = "在 Hyprland 中唤起文件管理器的快捷键绑定（设为空字符串则不注册）。";
+      };
+    };
+
+    portal = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否启用 Hyprland 桌面门户 (XDG Desktop Portal) 整合与配置。";
+      };
+
+      extraPortals = mkOption {
+        type = types.listOf types.package;
+        default = [ ];
+        description = "附加注册至 Hyprland 会话的 XDG Desktop Portal 后端列表。";
+      };
+
+      filechooser = mkOption {
+        type = types.enum [ "termfilechooser" "gtk" "hyprland" "none" ];
+        default =
+          if config ? desktop && config.desktop ? portal && config.desktop.portal ? termfilechooser && config.desktop.portal.termfilechooser.enable then
+            "termfilechooser"
+          else
+            "gtk";
+        description = "Hyprland 会话中默认处理文件选择接口 (org.freedesktop.impl.portal.FileChooser) 的门户后端。";
+      };
+
+      config = mkOption {
+        type = types.attrsOf types.anything;
+        default = { };
+        description = "附加至 xdg.portal.config.hyprland 的自定义门户映射配置。";
+      };
     };
 
     xwayland = {
@@ -255,9 +314,23 @@ in
         "hypr/hyprland.lua".text = generatedText;
         "xdg/hypr/hyprland.lua".text = generatedText;
       };
+
+      # 5. XDG Desktop Portal 桌面门户集成配置
+      xdg.portal = mkIf cfg.portal.enable {
+        enable = true;
+        extraPortals = cfg.portal.extraPortals;
+        config = {
+          hyprland = mkMerge [
+            (optionalAttrs (cfg.portal.filechooser != "none") {
+              "org.freedesktop.impl.portal.FileChooser" = cfg.portal.filechooser;
+            })
+            cfg.portal.config
+          ];
+        };
+      };
     }
 
-    # 5. Home Manager 自动联动
+    # 6. Home Manager 自动联动
     (optionalAttrs (options ? home-manager) {
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [

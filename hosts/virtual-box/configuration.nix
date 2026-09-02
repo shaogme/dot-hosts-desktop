@@ -117,6 +117,14 @@ in
     };
   };
 
+  # 文件管理器与桌面门户 (Yazi & termfilechooser)
+  desktop.fileManager.yazi = {
+    enable = true;
+  };
+
+  desktop.portal.termfilechooser = {
+    enable = true;
+  };
 
   desktop.notification.swaync = {
     enable = true;
@@ -440,6 +448,22 @@ in
     {
       assertion = builtins.elem "proxy-bypass" config.users.users.${hostConfig.user}.extraGroups;
       message = "用户组配置错误：用户 ${hostConfig.user} 未加入 proxy-bypass 组";
+    }
+    {
+      assertion = config.desktop.fileManager.yazi.enable == true;
+      message = "文件管理器配置错误：Yazi 未启用";
+    }
+    {
+      assertion = config.desktop.portal.termfilechooser.enable == true;
+      message = "桌面门户配置错误：termfilechooser 未启用";
+    }
+    {
+      assertion = config.desktop.windowManager.hyprland.fileManager.enable == true;
+      message = "Hyprland 文件管理器联动配置错误：应当启用文件管理器支持";
+    }
+    {
+      assertion = config.desktop.windowManager.hyprland.portal.filechooser == "termfilechooser";
+      message = "Hyprland 桌面门户配置错误：FileChooser 接口应当配置为 termfilechooser";
     }
   ];
 }
