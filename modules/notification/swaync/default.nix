@@ -76,116 +76,361 @@ let
   swayncConfText = builtins.toJSON mergedSettings;
 
   defaultSwayncStyle = ''
+    @define-color background rgba(20, 20, 28, 0.85);
+    @define-color background-card rgba(30, 30, 42, 0.88);
+    @define-color foreground #cdd6f4;
+    @define-color foreground-muted #a6adc8;
+    @define-color foreground-dim #6c7086;
+    @define-color border-color rgba(255, 255, 255, 0.08);
+    @define-color active-border #89b4fa;
+    @define-color hover-bg rgba(255, 255, 255, 0.08);
+    @define-color hover-bg-light rgba(255, 255, 255, 0.12);
+    @define-color selected-bg rgba(137, 180, 250, 0.15);
+    @define-color warning #f9e2af;
+    @define-color critical #f38ba8;
+    @define-color accent #89b4fa;
+
     * {
       all: unset;
-      font-family: inherit;
-      transition: 200ms ease;
+      font-family: "Geist", "TsangerJinKai04", "Maple Mono NF CN", "Symbols Nerd Font", sans-serif;
+      transition: all 0.2s ease;
+    }
+
+    /* 浮动通知卡片 (Toasts / Floating Notifications) */
+    .floating-notifications.background {
+      background: transparent;
+    }
+
+    .floating-notifications.background .notification-row {
+      outline: none;
+      margin: 0;
+      padding: 0;
     }
 
     .floating-notifications.background .notification-row .notification-background {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-      background: rgba(26, 27, 38, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 12px;
-      margin: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      background: @background;
+      border: 1px solid @border-color;
+      border-radius: 14px;
+      margin: 10px 14px;
       padding: 0;
     }
 
     .floating-notifications.background .notification-row .notification-background .notification {
-      padding: 12px;
-      border-radius: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: transparent;
+    }
+
+    .floating-notifications.background .notification-row .notification-background .notification.low,
+    .floating-notifications.background .notification-row .notification-background .notification.normal {
+      border-left: 3px solid @accent;
     }
 
     .floating-notifications.background .notification-row .notification-background .notification.critical {
-      border: 2px solid #ff5555;
+      border-left: 4px solid @critical;
+      background: rgba(243, 139, 168, 0.06);
     }
 
     .floating-notifications.background .notification-row .notification-background .notification .notification-content {
-      margin: 6px;
+      margin: 4px 6px;
     }
 
     .floating-notifications.background .notification-row .notification-background .notification .notification-content .summary {
-      color: #c0caf5;
-      font-weight: bold;
-      font-size: 14px;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 13px;
     }
 
     .floating-notifications.background .notification-row .notification-background .notification .notification-content .time {
-      color: #565f89;
-      font-size: 12px;
+      color: @foreground-muted;
+      font-size: 11px;
       font-weight: 500;
-      margin-right: 12px;
+      margin-right: 8px;
     }
 
     .floating-notifications.background .notification-row .notification-background .notification .notification-content .body {
-      color: #a9b1d6;
-      font-size: 13px;
+      color: @foreground;
+      font-size: 12px;
+      line-height: 1.4;
       margin-top: 4px;
     }
 
+    .floating-notifications.background .notification-row .notification-background .notification .notification-content .body-image {
+      border-radius: 8px;
+      margin-top: 6px;
+    }
+
+    /* 通知交互按钮 (Action Buttons & Close Button) */
+    .notification-action-buttons {
+      margin-top: 8px;
+    }
+
+    .notification-action-buttons button,
+    .notification-action-buttons .notification-action {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid @border-color;
+      border-radius: 8px;
+      color: @foreground;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      margin: 2px 4px;
+    }
+
+    .notification-action-buttons button:hover,
+    .notification-action-buttons .notification-action:hover {
+      background: @hover-bg-light;
+      color: #ffffff;
+      border-color: @accent;
+    }
+
+    .close-button {
+      background: transparent;
+      border-radius: 6px;
+      color: @foreground-muted;
+      padding: 2px 6px;
+      margin: 4px;
+    }
+
+    .close-button:hover {
+      background: rgba(243, 139, 168, 0.2);
+      color: @critical;
+    }
+
+    /* 内联快速回复 */
+    .notification-inline-reply {
+      margin-top: 6px;
+    }
+
+    .notification-inline-reply-entry {
+      background: @background-card;
+      border: 1px solid @border-color;
+      border-radius: 8px;
+      color: @foreground;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    .notification-inline-reply-entry:focus {
+      border-color: @accent;
+      box-shadow: 0 0 8px rgba(137, 180, 250, 0.3);
+    }
+
+    .notification-inline-reply-button {
+      background: @accent;
+      color: #1e1e2e;
+      font-weight: bold;
+      border-radius: 8px;
+      padding: 4px 10px;
+      margin-left: 4px;
+    }
+
+    /* 通知中心主面板 (Control Center) */
     .control-center {
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
       border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(26, 27, 38, 0.95);
-      color: #c0caf5;
+      border: 1px solid @border-color;
+      background: @background;
+      color: @foreground;
       padding: 14px;
     }
 
+    .control-center-list {
+      background: transparent;
+    }
+
+    .control-center .notification-row .notification-background {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      background: @background-card;
+      border: 1px solid @border-color;
+      border-radius: 12px;
+      margin: 6px 0;
+      padding: 0;
+    }
+
+    .control-center .notification-row .notification-background:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      background: rgba(35, 35, 50, 0.92);
+    }
+
+    .control-center .notification-row .notification-background .notification {
+      padding: 10px 12px;
+      border-radius: 12px;
+    }
+
+    .control-center .notification-row .notification-background .notification.critical {
+      border-left: 3px solid @critical;
+    }
+
+    .control-center .notification-row .notification-background .notification .notification-content .summary {
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .control-center .notification-row .notification-background .notification .notification-content .body {
+      color: @foreground;
+      font-size: 12px;
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+
+    .control-center .notification-row .notification-background .notification .notification-content .time {
+      color: @foreground-muted;
+      font-size: 11px;
+    }
+
+    /* 标题与清空栏 */
     .control-center .widget-title {
-      color: #7aa2f7;
-      font-size: 16px;
-      font-weight: bold;
-      padding: 8px;
+      color: @accent;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 6px 4px 10px 4px;
     }
 
     .control-center .widget-title > button {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid @border-color;
       border-radius: 8px;
-      padding: 4px 12px;
-      color: #c0caf5;
+      padding: 4px 10px;
+      color: @foreground;
+      font-size: 12px;
+      font-weight: 500;
     }
 
     .control-center .widget-title > button:hover {
-      background: rgba(255, 85, 85, 0.25);
-      border-color: #ff5555;
-      color: #ff7777;
+      background: rgba(243, 139, 168, 0.18);
+      border-color: @critical;
+      color: @critical;
     }
 
-    .control-center .widget-dnd {
-      background: rgba(255, 255, 255, 0.04);
-      border-radius: 10px;
+    /* 应用抑制组件 */
+    .widget-inhibitors {
+      background: @background-card;
+      border: 1px solid @border-color;
+      border-radius: 12px;
       padding: 8px 12px;
+      margin: 4px 0;
+    }
+
+    .widget-inhibitors > button {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid @border-color;
+      border-radius: 8px;
+      padding: 4px 10px;
+      color: @foreground;
+      font-size: 12px;
+    }
+
+    .widget-inhibitors > button:hover {
+      background: rgba(243, 139, 168, 0.18);
+      border-color: @critical;
+      color: @critical;
+    }
+
+    /* 勿扰模式组件 (DND) */
+    .control-center .widget-dnd {
+      background: @background-card;
+      border: 1px solid @border-color;
+      border-radius: 12px;
+      padding: 10px 14px;
       margin: 6px 0;
+      color: @foreground;
+      font-weight: 600;
+      font-size: 13px;
     }
 
     .control-center .widget-dnd > switch {
       background: rgba(255, 255, 255, 0.1);
+      border: 1px solid @border-color;
       border-radius: 12px;
+      min-width: 44px;
+      min-height: 22px;
     }
 
     .control-center .widget-dnd > switch:checked {
-      background: #7aa2f7;
+      background: @accent;
+      border-color: @accent;
     }
 
+    .control-center .widget-dnd > switch slider {
+      background: #ffffff;
+      border-radius: 10px;
+      min-width: 18px;
+      min-height: 18px;
+      margin: 2px;
+    }
+
+    /* 媒体播放控制组件 (MPRIS) */
     .widget-mpris {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
-      padding: 10px;
+      background: @background-card;
+      border: 1px solid @border-color;
+      border-radius: 14px;
+      padding: 12px;
       margin: 8px 0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    .widget-mpris-player {
+      padding: 4px;
+    }
+
+    .widget-mpris-album-art {
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     .widget-mpris-title {
-      font-weight: bold;
-      font-size: 14px;
-      color: #c0caf5;
+      font-weight: 700;
+      font-size: 13px;
+      color: #ffffff;
     }
 
     .widget-mpris-subtitle {
       font-size: 12px;
-      color: #565f89;
+      color: @foreground-muted;
+    }
+
+    .widget-mpris button,
+    .widget-mpris-button {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid @border-color;
+      border-radius: 8px;
+      color: @foreground;
+      padding: 6px 12px;
+      margin: 0 3px;
+    }
+
+    .widget-mpris button:hover,
+    .widget-mpris-button:hover {
+      background: @hover-bg-light;
+      color: @accent;
+      border-color: @accent;
+    }
+
+    /* 空状态提示 */
+    .blank,
+    .text-empty {
+      color: @foreground-dim;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 30px;
+    }
+
+    /* 滚动条 */
+    scrollbar {
+      background: transparent;
+    }
+
+    scrollbar slider {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      min-width: 4px;
+    }
+
+    scrollbar slider:hover {
+      background: rgba(255, 255, 255, 0.2);
     }
   '';
 

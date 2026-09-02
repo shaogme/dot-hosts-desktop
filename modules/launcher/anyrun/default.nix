@@ -276,9 +276,9 @@ in
     };
 
     theme = mkOption {
-      type = types.enum [ "catppuccin-mocha" "tokyo-night" "nord" ];
-      default = "catppuccin-mocha";
-      description = "Anyrun 启动器视觉主题配色方案。";
+      type = types.enum [ "default-theme" "catppuccin-mocha" "tokyo-night" "nord" ];
+      default = "default-theme";
+      description = "Anyrun 启动器视觉主题配色方案。默认使用 default-theme（与 Waybar default-theme 风格统一）。";
     };
 
     position = {
