@@ -189,12 +189,12 @@ rec {
       "--bind" sandboxHome "$HOME"
     ]
     ++ lib.optionals wayland [
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/wayland-0" "$XDG_RUNTIME_DIR/wayland-0"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/wayland-0" "\${XDG_RUNTIME_DIR:-/run/user/1000}/wayland-0"
     ]
     ++ lib.optionals x11 [
       "--ro-bind-try" "/tmp/.X11-unix" "/tmp/.X11-unix"
-      "--ro-bind-try" "$XAUTHORITY" "$XAUTHORITY"
+      "--ro-bind-try" "\${XAUTHORITY:-\$HOME/.Xauthority}" "\${XAUTHORITY:-\$HOME/.Xauthority}"
       "--ro-bind-try" "/run/current-system/sw/share/X11" "/run/current-system/sw/share/X11"
       "--ro-bind-try" "/run/current-system/sw/share/fonts" "/run/current-system/sw/share/fonts"
       "--ro-bind-try" "/run/current-system/sw/share/icons" "/run/current-system/sw/share/icons"
@@ -202,18 +202,18 @@ rec {
       "--ro-bind-try" "/etc/localtime" "/etc/localtime"
     ]
     ++ lib.optionals audio [
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/pulse" "$XDG_RUNTIME_DIR/pulse"
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/pipewire-0" "$XDG_RUNTIME_DIR/pipewire-0"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/pulse" "\${XDG_RUNTIME_DIR:-/run/user/1000}/pulse"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/pipewire-0" "\${XDG_RUNTIME_DIR:-/run/user/1000}/pipewire-0"
     ]
     ++ lib.optionals dbus [
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/bus" "$XDG_RUNTIME_DIR/bus"
-      "--bind-try" "$XDG_RUNTIME_DIR/dconf" "$XDG_RUNTIME_DIR/dconf"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/bus" "\${XDG_RUNTIME_DIR:-/run/user/1000}/bus"
+      "--bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/dconf" "\${XDG_RUNTIME_DIR:-/run/user/1000}/dconf"
       "--ro-bind-try" "/var/run/dbus/system_bus_socket" "/var/run/dbus/system_bus_socket"
     ]
     ++ lib.optionals inputMethod [
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/fcitx5" "$XDG_RUNTIME_DIR/fcitx5"
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/ibus" "$XDG_RUNTIME_DIR/ibus"
-      "--ro-bind-try" "$XDG_RUNTIME_DIR/fcitx" "$XDG_RUNTIME_DIR/fcitx"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx5" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx5"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/ibus" "\${XDG_RUNTIME_DIR:-/run/user/1000}/ibus"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx"
     ]
     ++ lib.optional shareNet "--share-net"
     ++ (lib.concatMap (b: [ "--bind" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) customBinds)
