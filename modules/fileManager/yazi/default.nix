@@ -126,6 +126,9 @@ let
   yaziWrapperPkg = pkgs.writeShellScriptBin "yazi-wrapper.sh" ''
     set -e
 
+    # 保证终端模拟器与基础命令行工具在 PATH 中可寻址
+    export PATH="/run/wrappers/bin:/run/current-system/sw/bin:/etc/profiles/per-user/''${USER:-$(id -un)}/bin:$HOME/.nix-profile/bin:$PATH"
+
     multiple="$1"
     directory="$2"
     save="$3"

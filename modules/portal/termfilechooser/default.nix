@@ -24,9 +24,9 @@ let
     else
       "";
 
-  # 生成额外的环境变量配置行
+  # 生成额外的环境变量配置行 (标准 INI 格式，多行 env= 避免解析截断)
   customEnvLines = concatStringsSep "\n" (
-    mapAttrsToList (name: val: "    ${name}=${val}") cfg.env
+    mapAttrsToList (name: val: "env=${name}=${val}") cfg.env
   );
 
   # 生成 termfilechooser 主配置文件文本 (INI 格式)
@@ -38,9 +38,7 @@ let
     open_mode=${cfg.openMode}
     save_mode=${cfg.saveMode}
     env=TERMCMD=${cfg.termcmd}
-        PATH=${lib.makeBinPath [ pkgs.coreutils pkgs.gnused pkgs.bash ]}:/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin
-    ${optionalString (customEnvLines != "") customEnvLines}
-    ${optionalString (cfg.extraConfig != "") cfg.extraConfig}
+    ${optionalString (customEnvLines != "") "${customEnvLines}\n"}${optionalString (cfg.extraConfig != "") cfg.extraConfig}
   '';
 in
 {
@@ -51,7 +49,17 @@ in
       description = "是否启用 xdg-desktop-portal-termfilechooser 终端文件选择器门户后端。";
     };
 
-    package = mkPackageOption pkgs "xdg-desktop-portal-termfilechooser" { };
+    package = mkOption {
+      type = types.package;
+      default = pkgs.xdg-desktop-portal-termfilechooser.overrideAttrs (old: {
+        mesonFlags = [
+          "--sysconfdir=/etc"
+          "-Dsd-bus-provider=libsystemd"
+        ];
+      });
+      defaultText = literalExpression "pkgs.xdg-desktop-portal-termfilechooser.overrideAttrs (...)";
+      description = "xdg-desktop-portal-termfilechooser 软件包。";
+    };
 
     cmd = mkOption {
       type = types.nullOr types.str;
@@ -144,10 +152,8 @@ in
         }
       ];
 
-      # 1. 注册 Portal 软件包与包装脚本包
-      environment.systemPackages = [
-        cfg.package
-      ] ++ optional (cfg.wrapperScript != null && isDerivation cfg.wrapperScript) cfg.wrapperScript;
+      # 1. 注册包装脚本包（如果为 derivation）
+      environment.systemPackages = optional (cfg.wrapperScript != null && isDerivation cfg.wrapperScript) cfg.wrapperScript;
 
       # 2. 系统级配置文件部署 (/etc/xdg/xdg-desktop-portal-termfilechooser/config)
       environment.etc = {
@@ -165,7 +171,14 @@ in
         };
       };
 
-      # 4. 联动向 Hyprland 声明使用 termfilechooser
+      # 4. 配置 systemd user 服务的环境变量 PATH，确保能找到系统与用户终端（如 ghostty）
+      systemd.user.services.xdg-desktop-portal-termfilechooser = {
+        environment = {
+          PATH = mkDefault "/run/wrappers/bin:/run/current-system/sw/bin:/etc/profiles/per-user/%u/bin";
+        };
+      };
+
+      # 5. 联动向 Hyprland 声明使用 termfilechooser
       desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable && cfg.setAsDefaultFileChooser) {
         portal = {
           filechooser = mkDefault "termfilechooser";
@@ -173,14 +186,12 @@ in
       };
     }
 
-    # 5. Home Manager 自动联动
+    # 6. Home Manager 自动联动
     (optionalAttrs (options ? home-manager) {
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
           ({ ... }: {
-            home.packages = [
-              cfg.package
-            ] ++ optional (cfg.wrapperScript != null && isDerivation cfg.wrapperScript) cfg.wrapperScript;
+            home.packages = optional (cfg.wrapperScript != null && isDerivation cfg.wrapperScript) cfg.wrapperScript;
 
             xdg.configFile = {
               "xdg-desktop-portal-termfilechooser/config".text = configContent;
