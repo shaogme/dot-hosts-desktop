@@ -20,26 +20,30 @@ let
           type = "fakeip";
           tag = "dns-fakeip";
           inet4_range = "198.18.0.0/15";
+          inet6_range = "fc00::/18";
         }
       ];
       rules = [
         {
-          query_type = [ "A" ];
+          query_type = [ "A" "AAAA" ];
           server = "dns-fakeip";
         }
         {
-          query_type = [ "AAAA" "HTTPS" ];
+          query_type = [ "HTTPS" ];
           action = "reject";
         }
       ];
-      strategy = "ipv4_only";
+      strategy = "prefer_ipv4";
     };
     inbounds = [
       {
         type = "tun";
         tag = "tun-in";
         interface_name = "tun0";
-        address = [ "172.19.0.1/30" ];
+        address = [
+          "172.19.0.1/30"
+          "fdfe:dcba:9876::1/126"
+        ];
         auto_route = true;
         strict_route = true;
         stack = "system";
@@ -135,9 +139,12 @@ HELP
       $SUDO chmod 775 "$RUN_DIR"
       $SUDO chmod 664 "$CONFIG_FILE"
 
-      # 3. 补充系统策略路由规则 (确保带有 0x55 标记的豁免流量走 main 表)
+      # 3. 补充系统策略路由规则 (确保带有 0x55 标记的豁免流量走 main 表，支持 IPv4 与 IPv6)
       if ! ip rule list | grep -qw "0x55"; then
         $SUDO ip rule add fwmark 0x55 table main priority 100
+      fi
+      if ! ip -6 rule list 2>/dev/null | grep -qw "0x55"; then
+        $SUDO ip -6 rule add fwmark 0x55 table main priority 100 2>/dev/null || true
       fi
 
       # 4. 启动 / 重启 systemd 服务
@@ -149,6 +156,7 @@ HELP
       echo "正在关闭 TUN 透明代理..."
       $SUDO systemctl stop socks-tun.service
       $SUDO ip rule del fwmark 0x55 table main 2>/dev/null || true
+      $SUDO ip -6 rule del fwmark 0x55 table main 2>/dev/null || true
       echo "TUN 透明代理已关闭，网络已恢复直连。"
     }
 
@@ -325,10 +333,12 @@ in
         ExecStartPre = [
           "+${pkgs.bash}/bin/bash -c 'if [ ! -f /run/socks-tun/config.json ] || [ /etc/socks-tun/config.template.json -nt /run/socks-tun/config.json ]; then ${pkgs.gnused}/bin/sed \"s/10808/${toString cfg.defaultPort}/g\" /etc/socks-tun/config.template.json > /run/socks-tun/config.json && chown sing-box:sing-box /run/socks-tun/config.json && chmod 664 /run/socks-tun/config.json; fi'"
           "+${pkgs.bash}/bin/bash -c '${pkgs.iproute2}/bin/ip rule show | ${pkgs.gnugrep}/bin/grep -qw \"0x55\" || ${pkgs.iproute2}/bin/ip rule add fwmark 0x55 table main priority 100'"
+          "+${pkgs.bash}/bin/bash -c '${pkgs.iproute2}/bin/ip -6 rule show | ${pkgs.gnugrep}/bin/grep -qw \"0x55\" || ${pkgs.iproute2}/bin/ip -6 rule add fwmark 0x55 table main priority 100'"
         ];
         ExecStart = "${pkgs.sing-box}/bin/sing-box run -c /run/socks-tun/config.json";
         ExecStopPost = [
           "+${pkgs.bash}/bin/bash -c '${pkgs.iproute2}/bin/ip rule del fwmark 0x55 table main 2>/dev/null || true'"
+          "+${pkgs.bash}/bin/bash -c '${pkgs.iproute2}/bin/ip -6 rule del fwmark 0x55 table main 2>/dev/null || true'"
         ];
         RuntimeDirectory = "socks-tun";
         RuntimeDirectoryMode = "0775";
@@ -354,6 +364,7 @@ in
             meta skgid 1992 meta mark set 0x55 accept;
             meta skuid 991 meta mark set 0x55 accept;
             ip daddr 127.0.0.0/8 accept;
+            ip6 daddr ::1 accept;
           }
         '';
       };
@@ -418,6 +429,10 @@ in
             options = [ "NOPASSWD" ];
           }
           {
+            command = "${pkgs.iproute2}/bin/ip -6 rule *";
+            options = [ "NOPASSWD" ];
+          }
+          {
             command = "/run/current-system/sw/bin/systemctl start socks-tun.service";
             options = [ "NOPASSWD" ];
           }
@@ -435,6 +450,10 @@ in
           }
           {
             command = "/run/current-system/sw/bin/ip rule *";
+            options = [ "NOPASSWD" ];
+          }
+          {
+            command = "/run/current-system/sw/bin/ip -6 rule *";
             options = [ "NOPASSWD" ];
           }
         ];
