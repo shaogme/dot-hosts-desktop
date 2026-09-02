@@ -123,6 +123,52 @@ let
     ${optionalString cfg.shellIntegration.enableAliasYy "alias yy=${cfg.shellIntegration.shellWrapperName}"}
   '';
 
+  # 生成供 termfilechooser 等桌面门户使用的 Yazi 文件选择器包装脚本
+  yaziWrapperPkg = pkgs.writeShellScriptBin "yazi-wrapper.sh" ''
+    set -e
+
+    multiple="$1"
+    directory="$2"
+    save="$3"
+    path="$4"
+    out="$5"
+    debug="$6"
+
+    if [ "$debug" = "1" ]; then
+        set -x
+    fi
+
+    cmd="${finalPackage}/bin/yazi"
+    termcmd="''${TERMCMD:-${cfg.terminal} --class=termfilechooser --title=termfilechooser -e}"
+
+    if [ "$save" = "1" ]; then
+        set -- --chooser-file="$out" "$path"
+    elif [ "$directory" = "1" ]; then
+        set -- --chooser-file="$out" --cwd-file="$out.1" "$path"
+    elif [ "$multiple" = "1" ]; then
+        set -- --chooser-file="$out" "$path"
+    else
+        set -- --chooser-file="$out" "$path"
+    fi
+
+    command="$termcmd $cmd"
+    for arg in "$@"; do
+        escaped=$(printf "%s" "$arg" | ${pkgs.gnused}/bin/sed 's/"/\\"/g')
+        command="$command \"$escaped\""
+    done
+
+    eval "$command"
+
+    if [ "$directory" = "1" ]; then
+        if [ ! -s "$out" ] && [ -s "$out.1" ]; then
+            ${pkgs.coreutils}/bin/cat "$out.1" > "$out"
+            ${pkgs.coreutils}/bin/rm -f "$out.1"
+        else
+            ${pkgs.coreutils}/bin/rm -f "$out.1"
+        fi
+    fi
+  '';
+
   # 组织所有需要写入 /etc/xdg/yazi 的文件列表
   baseEtcFiles = {
     "xdg/yazi/yazi.toml".source = yaziTomlFile;
@@ -318,6 +364,28 @@ in
       description = "写入 yazi 配置目录的额外自定义配置文件集合。";
     };
 
+    hyprland = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否自动联动注册为 Hyprland 默认文件管理器。";
+      };
+
+      keybind = mkOption {
+        type = types.str;
+        default = "SUPER + E";
+        description = "在 Hyprland 中唤起 Yazi 的快捷键绑定（设为空字符串则不注册）。";
+      };
+    };
+
+    termfilechooser = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否自动为 xdg-desktop-portal-termfilechooser 提供 Yazi 包装脚本作为文件选择器后端。";
+      };
+    };
+
     desktopEntry = {
       enable = mkOption {
         type = types.bool;
@@ -344,23 +412,34 @@ in
       ++ (optional cfg.desktopEntry.enable yaziDesktopItem)
       ++ cfg.extraPackages;
 
-      # 2. 系统级配置文件部署 (/etc/xdg/yazi/...)
-      environment.etc = allEtcFiles;
+      # 2. 系统级配置文件部署 (/etc/xdg/yazi/... 与 termfilechooser 包装脚本)
+      environment.etc = allEtcFiles // (optionalAttrs (config ? desktop && config.desktop ? portal && config.desktop.portal ? termfilechooser && config.desktop.portal.termfilechooser.enable && cfg.termfilechooser.enable) {
+        "xdg/xdg-desktop-portal-termfilechooser/yazi-wrapper.sh" = {
+          source = "${yaziWrapperPkg}/bin/yazi-wrapper.sh";
+          mode = "0755";
+        };
+      });
 
       # 3. Shell 环境变量与集成函数
       programs.zsh.interactiveShellInit = mkIf cfg.shellIntegration.enableZsh shellWrapperCode;
       programs.bash.interactiveShellInit = mkIf cfg.shellIntegration.enableBash shellWrapperCode;
 
       # 4. 联动向 Hyprland 注册默认文件管理器启动命令
-      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable) {
+      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable && cfg.hyprland.enable) {
         fileManager = {
           enable = mkDefault true;
           command = mkDefault "${cfg.terminal} -e yazi";
+          keybind = mkDefault cfg.hyprland.keybind;
         };
+      };
+
+      # 5. 联动向 termfilechooser 注册 Yazi 文件选择器包装脚本
+      desktop.portal.termfilechooser = mkIf (config ? desktop && config.desktop ? portal && config.desktop.portal ? termfilechooser && config.desktop.portal.termfilechooser.enable && cfg.termfilechooser.enable) {
+        wrapperScript = mkDefault yaziWrapperPkg;
       };
     }
 
-    # 5. Home Manager 自动联动
+    # 6. Home Manager 自动联动
     (optionalAttrs (options ? home-manager) {
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
@@ -371,7 +450,12 @@ in
             ++ (optional cfg.desktopEntry.enable yaziDesktopItem)
             ++ cfg.extraPackages;
 
-            xdg.configFile = allHmConfigFiles;
+            xdg.configFile = allHmConfigFiles // (optionalAttrs (config ? desktop && config.desktop ? portal && config.desktop.portal ? termfilechooser && config.desktop.portal.termfilechooser.enable && cfg.termfilechooser.enable) {
+              "xdg-desktop-portal-termfilechooser/yazi-wrapper.sh" = {
+                source = "${yaziWrapperPkg}/bin/yazi-wrapper.sh";
+                executable = true;
+              };
+            });
 
             programs.zsh.initContent = mkIf cfg.shellIntegration.enableZsh shellWrapperCode;
             programs.bash.initExtra = mkIf cfg.shellIntegration.enableBash shellWrapperCode;

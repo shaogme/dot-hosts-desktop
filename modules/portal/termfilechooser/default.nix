@@ -11,66 +11,18 @@ with lib;
 let
   cfg = config.desktop.portal.termfilechooser;
 
-  yaziBin =
-    if config ? desktop && config.desktop ? fileManager && config.desktop.fileManager ? yazi && config.desktop.fileManager.yazi ? finalPackage then
-      "${config.desktop.fileManager.yazi.finalPackage}/bin/yazi"
+  activeWrapperExecutable =
+    if cfg.cmd != null then
+      cfg.cmd
+    else if cfg.wrapperScript != null then
+      if isDerivation cfg.wrapperScript then
+        lib.getExe cfg.wrapperScript
+      else if isPath cfg.wrapperScript then
+        lib.getExe (pkgs.writeShellScriptBin "custom-wrapper.sh" (builtins.readFile cfg.wrapperScript))
+      else
+        toString cfg.wrapperScript
     else
-      "${pkgs.yazi}/bin/yazi";
-
-  # 内置优化的 Yazi 专用包装脚本
-  defaultYaziWrapperPkg = pkgs.writeShellScriptBin "yazi-wrapper.sh" ''
-    set -e
-
-    multiple="$1"
-    directory="$2"
-    save="$3"
-    path="$4"
-    out="$5"
-    debug="$6"
-
-    if [ "$debug" = "1" ]; then
-        set -x
-    fi
-
-    cmd="${yaziBin}"
-    termcmd="''${TERMCMD:-${cfg.termcmd}}"
-
-    if [ "$save" = "1" ]; then
-        set -- --chooser-file="$out" "$path"
-    elif [ "$directory" = "1" ]; then
-        set -- --chooser-file="$out" --cwd-file="$out.1" "$path"
-    elif [ "$multiple" = "1" ]; then
-        set -- --chooser-file="$out" "$path"
-    else
-        set -- --chooser-file="$out" "$path"
-    fi
-
-    command="$termcmd $cmd"
-    for arg in "$@"; do
-        escaped=$(printf "%s" "$arg" | ${pkgs.gnused}/bin/sed 's/"/\\"/g')
-        command="$command \"$escaped\""
-    done
-
-    eval "$command"
-
-    if [ "$directory" = "1" ]; then
-        if [ ! -s "$out" ] && [ -s "$out.1" ]; then
-            ${pkgs.coreutils}/bin/cat "$out.1" > "$out"
-            ${pkgs.coreutils}/bin/rm -f "$out.1"
-        else
-            ${pkgs.coreutils}/bin/rm -f "$out.1"
-        fi
-    fi
-  '';
-
-  # 选定的生效包装脚本 Package
-  activeWrapperPkg =
-    if cfg.wrapperScript != null then
-      (if isDerivation cfg.wrapperScript then cfg.wrapperScript else pkgs.writeShellScriptBin "custom-wrapper.sh" (builtins.readFile cfg.wrapperScript))
-    else
-      defaultYaziWrapperPkg;
-
-  activeWrapperExecutable = "${activeWrapperPkg}/bin/${if cfg.wrapperScript != null then "custom-wrapper.sh" else "yazi-wrapper.sh"}";
+      "";
 
   # 生成额外的环境变量配置行
   customEnvLines = concatStringsSep "\n" (
@@ -86,7 +38,7 @@ let
     open_mode=${cfg.openMode}
     save_mode=${cfg.saveMode}
     env=TERMCMD=${cfg.termcmd}
-        PATH=${lib.makeBinPath [ pkgs.coreutils pkgs.gnused pkgs.bash pkgs.yazi ]}:/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin
+        PATH=${lib.makeBinPath [ pkgs.coreutils pkgs.gnused pkgs.bash ]}:/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin
     ${optionalString (customEnvLines != "") customEnvLines}
     ${optionalString (cfg.extraConfig != "") cfg.extraConfig}
   '';
@@ -101,10 +53,16 @@ in
 
     package = mkPackageOption pkgs "xdg-desktop-portal-termfilechooser" { };
 
-    fileManager = mkOption {
-      type = types.enum [ "yazi" "custom" ];
-      default = "yazi";
-      description = "终端文件选择器所使用的文件管理器后端（默认使用极速终端文件管理器 Yazi）。";
+    cmd = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "直接指定文件选择器包装脚本的可执行命令或路径。若设置则优先于 wrapperScript。";
+    };
+
+    wrapperScript = mkOption {
+      type = types.nullOr (types.either types.path types.package);
+      default = null;
+      description = "自定义文件选择器包装脚本（Package 或文件路径）。";
     };
 
     terminal = mkOption {
@@ -116,7 +74,7 @@ in
     termcmd = mkOption {
       type = types.str;
       default = "${cfg.terminal} --class=termfilechooser --title=termfilechooser -e";
-      description = "执行文件管理器所使用的终端命令行模板（注入 TERMCMD 环境变量，配合 Hyprland 浮动居中规则）。";
+      description = "执行文件选择器所使用的终端命令行模板（注入 TERMCMD 环境变量，配合窗口规则）。";
     };
 
     defaultDir = mkOption {
@@ -140,7 +98,7 @@ in
     createHelpFile = mkOption {
       type = types.bool;
       default = true;
-      description = "保存文件时是否预先在目标路径创建占位文件，以便在终端文件管理器中直接选中并确认保存。";
+      description = "保存文件时是否预先在目标路径创建占位文件，以便在终端中直接选中并确认保存。";
     };
 
     env = mkOption {
@@ -153,12 +111,6 @@ in
           LANG = "zh_CN.UTF-8";
         }
       '';
-    };
-
-    wrapperScript = mkOption {
-      type = types.nullOr (types.either types.path types.package);
-      default = null;
-      description = "自定义文件选择器包装脚本。若为 null 则自动使用内置优化版 Yazi 包装脚本。";
     };
 
     setAsDefaultFileChooser = mkOption {
@@ -184,19 +136,22 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
-      # 1. 注册 Portal 软件包与包装脚本
-      environment.systemPackages = [
-        cfg.package
-        activeWrapperPkg
+      # 校验：必须配置有效的包装脚本或执行命令
+      assertions = [
+        {
+          assertion = cfg.cmd != null || cfg.wrapperScript != null;
+          message = "桌面门户配置错误：xdg-desktop-portal-termfilechooser 需要配置 cmd 或 wrapperScript。请提供有效的文件选择器命令或包装脚本。";
+        }
       ];
 
-      # 2. 系统级配置文件部署 (/etc/xdg/xdg-desktop-portal-termfilechooser/...)
+      # 1. 注册 Portal 软件包与包装脚本包
+      environment.systemPackages = [
+        cfg.package
+      ] ++ optional (cfg.wrapperScript != null && isDerivation cfg.wrapperScript) cfg.wrapperScript;
+
+      # 2. 系统级配置文件部署 (/etc/xdg/xdg-desktop-portal-termfilechooser/config)
       environment.etc = {
         "xdg/xdg-desktop-portal-termfilechooser/config".text = configContent;
-        "xdg/xdg-desktop-portal-termfilechooser/yazi-wrapper.sh" = {
-          source = "${defaultYaziWrapperPkg}/bin/yazi-wrapper.sh";
-          mode = "0755";
-        };
       };
 
       # 3. 注册 XDG Desktop Portal 路由规则与后端
@@ -204,9 +159,6 @@ in
         enable = true;
         extraPortals = [ cfg.package ];
         config = mkIf cfg.setAsDefaultFileChooser {
-          hyprland = {
-            "org.freedesktop.impl.portal.FileChooser" = "termfilechooser";
-          };
           common = {
             "org.freedesktop.impl.portal.FileChooser" = "termfilechooser";
           };
@@ -214,7 +166,7 @@ in
       };
 
       # 4. 联动向 Hyprland 声明使用 termfilechooser
-      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable) {
+      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable && cfg.setAsDefaultFileChooser) {
         portal = {
           filechooser = mkDefault "termfilechooser";
         };
@@ -228,15 +180,10 @@ in
           ({ ... }: {
             home.packages = [
               cfg.package
-              activeWrapperPkg
-            ];
+            ] ++ optional (cfg.wrapperScript != null && isDerivation cfg.wrapperScript) cfg.wrapperScript;
 
             xdg.configFile = {
               "xdg-desktop-portal-termfilechooser/config".text = configContent;
-              "xdg-desktop-portal-termfilechooser/yazi-wrapper.sh" = {
-                source = "${defaultYaziWrapperPkg}/bin/yazi-wrapper.sh";
-                executable = true;
-              };
             };
           })
         ];

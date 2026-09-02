@@ -4,13 +4,8 @@ let
   inline = lib.generators.mkLuaInline;
 in
 [
-  # 常用核心应用快捷键 (终端、文件管理器)
+  # 常用核心应用快捷键 (终端)
   { _args = [ (inline ''"SUPER + Return"'') (inline ''hl.dsp.exec_cmd("${cfg.terminal}")'') ]; }
-]
-++ lib.optional (cfg ? fileManager && cfg.fileManager.enable && cfg.fileManager.keybind != "") {
-  _args = [ (inline ''"${cfg.fileManager.keybind}"'') (inline ''hl.dsp.exec_cmd("${cfg.fileManager.command}")'') ];
-}
-++ [
   { _args = [ (inline ''"SUPER + Q"'') (inline ''hl.dsp.window.close()'') ]; }
   { _args = [ (inline ''"SUPER + V"'') (inline ''hl.dsp.window.float({ action = "toggle" })'') ]; }
   { _args = [ (inline ''"SUPER + F"'') (inline ''hl.dsp.window.fullscreen()'') ]; }

@@ -53,8 +53,15 @@ let
 
   mergedSettings = recursiveUpdate rawSettings cfg.settings;
 
+  fileManagerBind = optional (cfg.fileManager.enable && cfg.fileManager.keybind != "" && cfg.fileManager.command != "") {
+    _args = [
+      (inline ''"${cfg.fileManager.keybind}"'')
+      (inline ''hl.dsp.exec_cmd("${cfg.fileManager.command}")'')
+    ];
+  };
+
   finalSettings = mergedSettings // {
-    bind = (mergedSettings.bind or [ ]) ++ normalizedExtraBinds;
+    bind = (mergedSettings.bind or [ ]) ++ fileManagerBind ++ normalizedExtraBinds;
     on = (mergedSettings.on or [ ]) ++ autostartOn;
     layer_rule = (mergedSettings.layer_rule or [ ]) ++ cfg.layerRules;
     window_rule = unique (
@@ -73,11 +80,6 @@ let
     + optionalString (cfg.extraConfig != "") "\n${cfg.extraConfig}";
 in
 {
-  imports = [
-    ../../fileManager
-    ../../portal
-  ];
-
   options.desktop.windowManager.hyprland = {
     enable = mkEnableOption "Hyprland 现代化动态平铺 Wayland 合成器核心";
 
@@ -92,17 +94,13 @@ in
     fileManager = {
       enable = mkOption {
         type = types.bool;
-        default = true;
+        default = false;
         description = "是否在 Hyprland 中启用默认文件管理器快捷键联动。";
       };
 
       command = mkOption {
         type = types.str;
-        default =
-          if config ? desktop && config.desktop ? fileManager && config.desktop.fileManager ? yazi && config.desktop.fileManager.yazi.enable then
-            "${cfg.terminal} -e yazi"
-          else
-            "${cfg.terminal} -e yazi";
+        default = "";
         description = "Hyprland 启动文件管理器的命令行（默认按键 SUPER + E 唤起）。";
       };
 
@@ -128,11 +126,7 @@ in
 
       filechooser = mkOption {
         type = types.enum [ "termfilechooser" "gtk" "hyprland" "none" ];
-        default =
-          if config ? desktop && config.desktop ? portal && config.desktop.portal ? termfilechooser && config.desktop.portal.termfilechooser.enable then
-            "termfilechooser"
-          else
-            "gtk";
+        default = "gtk";
         description = "Hyprland 会话中默认处理文件选择接口 (org.freedesktop.impl.portal.FileChooser) 的门户后端。";
       };
 
