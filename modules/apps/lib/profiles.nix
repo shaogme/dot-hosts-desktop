@@ -191,7 +191,7 @@ rec {
     ]
     ++ lib.optionals bypassProxy [
       "--unshare-user"
-      "--gid" "992"
+      "--gid" "1992"
     ]
     ++ lib.optionals wayland [
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}"

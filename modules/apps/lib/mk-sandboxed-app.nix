@@ -17,7 +17,7 @@ in
   extraPkgs ? (pkgs: []),        # 额外定制的 targetPkgs 依赖函数
 
   # 透明代理防回环豁免
-  bypassProxy ? false,           # 是否豁免 TUN 代理 (绑定 GID 992 proxy-bypass 并直连出站)
+  bypassProxy ? false,           # 是否豁免 TUN 代理 (绑定 GID 1992 proxy-bypass 并直连出站)
 
   # 沙箱与隔离配置
   sandbox ? {},                  # 传递给 makeBwrapArgs 的参数 (如 isolatedHome, shareNet, customBinds)
@@ -155,8 +155,21 @@ let
     fi
 
     ${if effectiveBypassProxy then ''
-      if id -nG 2>/dev/null | grep -qw proxy-bypass && command -v sg >/dev/null 2>&1; then
-        exec sg proxy-bypass -c "${fhs}/bin/${pname}-fhs \"\$@\""
+      SG_BIN="$(command -v sg 2>/dev/null || true)"
+      if [ -z "$SG_BIN" ] && [ -x "/run/wrappers/bin/sg" ]; then
+        SG_BIN="/run/wrappers/bin/sg"
+      fi
+
+      USER_NAME="$(whoami 2>/dev/null || echo "$USER")"
+      IS_MEMBER=0
+      if id -G 2>/dev/null | grep -qw 1992 || id -nG 2>/dev/null | grep -qw proxy-bypass; then
+        IS_MEMBER=1
+      elif [ -f /etc/group ] && grep -E "^proxy-bypass:.*[ :,]$USER_NAME($|,)" /etc/group >/dev/null 2>&1; then
+        IS_MEMBER=1
+      fi
+
+      if [ "$IS_MEMBER" = "1" ] && [ -n "$SG_BIN" ]; then
+        exec "$SG_BIN" proxy-bypass -c "${fhs}/bin/${pname}-fhs \"\$@\""
       else
         exec "${fhs}/bin/${pname}-fhs" "$@"
       fi

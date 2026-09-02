@@ -288,7 +288,7 @@ in
 
     # 3. 创建专用系统组
     users.groups.proxy-bypass = {
-      gid = 992;
+      gid = 1992;
       members = cfg.bypassUsers;
     };
 
@@ -342,7 +342,7 @@ in
         content = ''
           chain output {
             type route hook output priority -150;
-            meta skgid 992 meta mark set 0x55 accept;
+            meta skgid 1992 meta mark set 0x55 accept;
             meta skuid 991 meta mark set 0x55 accept;
             ip daddr 127.0.0.0/8 accept;
           }
