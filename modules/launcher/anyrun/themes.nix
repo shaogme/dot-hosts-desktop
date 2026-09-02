@@ -73,7 +73,6 @@ let
 
       * {
         font-family: "Geist", "TsangerJinKai04", "Maple Mono NF CN", "Symbols Nerd Font", sans-serif;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
       window {
@@ -82,17 +81,23 @@ let
 
       box.main,
       #main {
-        padding: 12px;
-        margin: 10px;
+        padding: 10px 12px;
+        margin: 0px;
         border-radius: 16px;
         border: 1px solid @border-color;
         background-color: @bg-color;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.15),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+          0 0 0 1px rgba(255, 255, 255, 0.05),
+          0 4px 16px rgba(0, 0, 0, 0.2),
+          0 12px 32px rgba(0, 0, 0, 0.35),
+          0 24px 64px rgba(0, 0, 0, 0.5);
       }
 
       text,
       entry {
-        min-height: 42px;
+        min-height: 40px;
         padding: 8px 14px;
         border-radius: 12px;
         background-color: @card-bg;
@@ -100,6 +105,7 @@ let
         color: @fg-color;
         font-size: 14px;
         box-shadow: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
       }
 
       text:focus,
@@ -109,14 +115,15 @@ let
       }
 
       .matches,
+      box.matches,
       list.matches {
         background-color: transparent;
         border-radius: 12px;
-        margin-top: 8px;
+        margin-top: 6px;
       }
 
       box.plugin {
-        margin-top: 6px;
+        margin-top: 4px;
       }
 
       box.plugin:first-child {
@@ -124,24 +131,38 @@ let
       }
 
       box.plugin.info {
-        min-width: 130px;
-        padding: 4px 8px;
+        min-width: 100px;
+        padding: 2px 6px;
       }
 
       list.plugin {
         background-color: transparent;
       }
 
-      label.match {
+      /* 重置内部容器多余间距，防止 Anyrun 嵌套类名叠加 padding/margin */
+      box.match,
+      box.text-fields,
+      image.match {
+        padding: 0px;
+        margin: 0px;
+      }
+
+      label.match.title,
+      label.title {
         color: @fg-color;
         font-size: 13px;
         font-weight: 600;
+        margin-bottom: 1px;
+        padding: 0px;
       }
 
       label.match.description,
-      label.match.desc {
+      label.match.desc,
+      label.description,
+      label.desc {
         font-size: 11px;
         color: @desc-color;
+        padding: 0px;
       }
 
       label.plugin.info {
@@ -150,36 +171,45 @@ let
         color: @accent;
       }
 
-      .match,
+      /* 仅在 ListBoxRow 层面施加单层 padding/margin 与交互动画 */
       row.match,
-      list.match {
-        padding: 8px 12px;
+      list.plugin > row,
+      list.matches > row {
+        padding: 6px 10px;
         border-radius: 10px;
         background: transparent;
-        margin: 2px 0;
+        margin: 1px 0;
         border: 1px solid transparent;
+        min-height: 38px;
+        transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
       }
 
-      .match:hover,
-      row.match:hover {
+      row.match:hover,
+      list.plugin > row:hover,
+      list.matches > row:hover {
         background: @hover-bg;
       }
 
-      .match:selected,
       row.match:selected,
-      .match:focus {
+      list.plugin > row:selected,
+      list.matches > row:selected,
+      row.match:focus {
         border-left: 3px solid @accent;
         background: @selected-bg;
         color: #ffffff;
       }
 
-      .match:selected label.match,
-      row.match:selected label.match {
+      row.match:selected label.match,
+      list.plugin > row:selected label.match,
+      row.match:selected label.title,
+      list.plugin > row:selected label.title {
         color: #ffffff;
       }
 
-      .match:selected label.match.description,
-      row.match:selected label.match.description {
+      row.match:selected label.match.description,
+      list.plugin > row:selected label.match.description,
+      row.match:selected label.desc,
+      list.plugin > row:selected label.desc {
         color: @fg-color;
       }
 
@@ -192,6 +222,7 @@ let
         border-radius: 6px;
         min-width: 6px;
         min-height: 6px;
+        transition: background-color 0.15s ease;
       }
 
       scrollbar slider:hover {

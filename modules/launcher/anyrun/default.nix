@@ -135,7 +135,7 @@ let
   defaultApplicationsRon = ''
     Config(
       desktop_actions: true,
-      max_entries: 5,
+      max_entries: 6,
       hide_description: false,
       terminal: Some(Terminal(
         command: "${cfg.terminal.command}",
@@ -205,7 +205,7 @@ let
     Config(
       prefix: ":sym",
       symbols: {},
-      max_entries: 5,
+      max_entries: 6,
     )
   '';
 
@@ -220,7 +220,7 @@ let
   defaultStdinRon = ''
     Config(
       allow_invalid: false,
-      max_entries: 10,
+      max_entries: 8,
       preserve_order: false,
     )
   '';
@@ -320,8 +320,8 @@ in
           options = {
             fraction = mkOption {
               type = types.nullOr types.float;
-              default = 0.3;
-              description = "垂直位置屏幕占比 (0.0 - 1.0)。";
+              default = 0.28;
+              description = "垂直位置屏幕占比 (0.0 - 1.0)。默认 0.28（约屏幕上部 28% 处），自适应各种屏幕分辨率，为搜索结果展开保留充足纵向空间。";
             };
             absolute = mkOption {
               type = types.nullOr types.int;
@@ -330,7 +330,7 @@ in
             };
           };
         };
-        default = { fraction = 0.3; };
+        default = { fraction = 0.28; };
         description = "Anyrun 窗口的垂直位置。";
       };
 
@@ -344,12 +344,12 @@ in
             };
             absolute = mkOption {
               type = types.nullOr types.int;
-              default = 800;
+              default = 760;
               description = "窗口绝对像素宽度。";
             };
           };
         };
-        default = { absolute = 800; };
+        default = { absolute = 760; };
         description = "Anyrun 窗口的宽度。";
       };
 
@@ -364,12 +364,12 @@ in
             absolute = mkOption {
               type = types.nullOr types.int;
               default = 1;
-              description = "窗口最小绝对像素高度（设为 1 则按内容自适应高度）。";
+              description = "窗口最小绝对像素高度（设为 1 则完全按搜索结果数量动态自适应高度，无搜索项或搜索项少时紧凑贴合，不留空白）。";
             };
           };
         };
         default = { absolute = 1; };
-        description = "Anyrun 窗口的最小高度。";
+        description = "Anyrun 窗口的最小高度基准。";
       };
     };
 
@@ -405,8 +405,8 @@ in
 
     maxEntries = mkOption {
       type = types.nullOr types.int;
-      default = null;
-      description = "限制搜索结果最大展示条目数量（null 表示不限制）。";
+      default = 8;
+      description = "限制搜索结果最大展示条目数量（自适应屏幕空间上限，搜索项多时自动限制 Y 轴最大高度并阻止继续增加，防止超出屏幕外侧；设为 null 则不限制）。";
     };
 
     layer = mkOption {
@@ -472,6 +472,18 @@ in
         default = true;
         description = "是否自动向 Hyprland 注册 anyrun layer_rule 背景毛玻璃模糊。";
       };
+
+      dimAround = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否在唤起 Anyrun 时向 Hyprland 注册 dim_around 背景环境暗化，提升视觉聚焦度并消除边缘生硬对比。";
+      };
+
+      ignoreAlpha = mkOption {
+        type = types.float;
+        default = 0.65;
+        description = "向 Hyprland 注册的 ignore_alpha 阈值（默认 0.65，过滤微弱半透明渐变阴影，避免阴影外圈产生毛玻璃脏边与断层）。";
+      };
     };
 
     homeManager = {
@@ -533,7 +545,8 @@ in
               namespace = "anyrun";
             };
             blur = true;
-            ignore_alpha = 0;
+            ignore_alpha = cfg.hyprland.ignoreAlpha;
+            dim_around = cfg.hyprland.dimAround;
           }
         ];
         extraBinds =
