@@ -347,8 +347,8 @@ in
 
       package = mkOption {
         type = types.package;
-        default = pkgs.fcitx5-chinese-addons;
-        defaultText = literalExpression "pkgs.fcitx5-chinese-addons";
+        default = pkgs.qt6Packages.fcitx5-chinese-addons;
+        defaultText = literalExpression "pkgs.qt6Packages.fcitx5-chinese-addons";
         description = "fcitx5-chinese-addons 软件包。";
       };
 
@@ -512,9 +512,9 @@ in
       };
 
       # 2. 系统环境软件包（提供 GUI 配置工具与控制命令）
-      environment.systemPackages = with pkgs; [
-        fcitx5
-        fcitx5-configtool
+      environment.systemPackages = [
+        pkgs.fcitx5
+        pkgs.qt6Packages.fcitx5-configtool
       ];
 
       # 3. 会话环境变量（确保 X11 / Wayland / GTK / Qt / SDL / Electron / Java 全平台中文输入就绪）
