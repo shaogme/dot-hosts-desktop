@@ -356,6 +356,283 @@ EOF
       renderWofiVal = v: if builtins.isBool v then (if v then "true" else "false") else toString v;
     in
     lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "${k}=${renderWofiVal v}") mergedWofi) + "\n";
+
+  generatedText =
+    toHyprlua {
+      attrs = finalSettings;
+    }
+    + optionalString (cfg.extraConfig != "") "\n${cfg.extraConfig}";
+
+  waybarConfText = builtins.toJSON {
+    layer = "top";
+    position = "top";
+    height = 32;
+    spacing = 4;
+    modules-left = [
+      "hyprland/workspaces"
+    ];
+    modules-center = [
+      "hyprland/window"
+    ];
+    modules-right = [
+      "pulseaudio"
+      "network"
+      "cpu"
+      "memory"
+      "temperature"
+      "battery"
+      "clock"
+      "tray"
+      "custom/power"
+    ];
+    "hyprland/workspaces" = {
+      format = "{name}";
+      on-click = "activate";
+      sort-by = "number";
+      persistent-workspaces = {
+        "*" = 5;
+      };
+    };
+    "hyprland/window" = {
+      max-length = 50;
+      separate-outputs = true;
+    };
+    clock = {
+      format = "  {:%Y-%m-%d %H:%M}";
+      tooltip-format = "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>";
+    };
+    cpu = {
+      format = "  {usage}%";
+      tooltip = false;
+    };
+    memory = {
+      format = "󰍛  {}%";
+    };
+    temperature = {
+      critical-threshold = 80;
+      format = "  {temperatureC}°C";
+    };
+    battery = {
+      states = {
+        warning = 30;
+        critical = 15;
+      };
+      format = "{icon}  {capacity}%";
+      format-charging = "󰂄  {capacity}%";
+      format-plugged = "󰚥  {capacity}%";
+      format-icons = [ "󰂎" "󰁺" "󰁼" "󰁾" "󰂀" "󰂂" "󰁹" ];
+    };
+    network = {
+      interval = 5;
+      format-wifi = "{icon}  {essid} ({signalStrength}%)";
+      format-ethernet = "󰈀  {ipaddr}/{cidr}";
+      format-disconnected = "<span color='#ff5555'>󰤮</span>  Disconnected";
+      format-icons = [ "󰤯" "󰤟" "󰤢" "󰤥" "󰤨" ];
+    };
+    pulseaudio = {
+      format = "{icon}  {volume}%";
+      format-muted = "<span color='#888888'>󰝟</span>  Muted";
+      format-icons = {
+        default = [ "󰕿" "󰖀" "󰕾" ];
+      };
+      on-click = "pavucontrol";
+    };
+    tray = {
+      spacing = 10;
+    };
+    "custom/power" = {
+      format = "";
+      tooltip = false;
+      on-click = "wlogout-menu";
+    };
+  };
+
+  waybarStyleText = ''
+    * {
+      border: none;
+      border-radius: 0;
+      font-family: inherit;
+      font-size: 13px;
+      min-height: 0;
+    }
+    window#waybar {
+      background-color: rgba(20, 20, 25, 0.85);
+      border-bottom: 2px solid rgba(100, 100, 120, 0.3);
+      color: #ffffff;
+    }
+    #workspaces button {
+      padding: 0 6px;
+      background-color: transparent;
+      color: #ffffff;
+      border-bottom: 2px solid transparent;
+    }
+    #workspaces button:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    #workspaces button.active {
+      background-color: rgba(100, 150, 255, 0.3);
+      border-bottom: 2px solid #5294e2;
+    }
+    #workspaces button.empty {
+      color: rgba(255, 255, 255, 0.4);
+    }
+    #clock, #battery, #cpu, #memory, #temperature, #network, #pulseaudio, #tray, #custom-power {
+      padding: 0 10px;
+      color: #ffffff;
+    }
+    #battery.warning {
+      color: #f9e2af;
+    }
+    #battery.critical {
+      color: #ff5555;
+    }
+    #temperature.critical {
+      color: #ff5555;
+    }
+    #custom-power {
+      color: #ff5555;
+      font-weight: bold;
+      margin-right: 6px;
+    }
+    #custom-power:hover {
+      color: #ff7777;
+      background-color: rgba(255, 85, 85, 0.2);
+      border-radius: 4px;
+    }
+  '';
+
+  wlogoutLayoutText = builtins.toJSON [
+    {
+      label = "lock";
+      action = "hyprlock || loginctl lock-session";
+      text = "锁定 [L]";
+      keybind = "l";
+    }
+    {
+      label = "logout";
+      action = "hyprctl dispatch exit || loginctl terminate-user $USER";
+      text = "注销 [E]";
+      keybind = "e";
+    }
+    {
+      label = "suspend";
+      action = "systemctl suspend";
+      text = "睡眠 [U]";
+      keybind = "u";
+    }
+    {
+      label = "hibernate";
+      action = "systemctl hibernate";
+      text = "休眠 [H]";
+      keybind = "h";
+    }
+    {
+      label = "reboot";
+      action = "systemctl reboot";
+      text = "重启 [R]";
+      keybind = "r";
+    }
+    {
+      label = "shutdown";
+      action = "systemctl poweroff";
+      text = "关机 [S]";
+      keybind = "s";
+    }
+  ];
+
+  wlogoutStyleText = ''
+    * {
+      background-image: none;
+      box-shadow: none;
+      font-family: "Geist", "TsangerJinKai04", "Maple Mono NF CN", "Noto Sans CJK SC", sans-serif;
+    }
+
+    window {
+      background-color: ${currentTheme.bg};
+    }
+
+    button {
+      border-radius: 18px;
+      border: 1px solid ${currentTheme.cardBorder};
+      color: ${currentTheme.text};
+      background-color: ${currentTheme.cardBg};
+      background-repeat: no-repeat;
+      background-position: center 32%;
+      background-size: 54px;
+      margin: 10px;
+      padding: 16px 12px;
+      font-size: 15px;
+      font-weight: 500;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+      transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    button:focus, button:active, button:hover {
+      outline-style: none;
+    }
+
+    #lock {
+      background-image: image(url("${powerIcons}/icons/lock.svg"));
+    }
+    #lock:hover, #lock:focus {
+      background-color: rgba(${currentTheme.lock.rgb}, 0.16);
+      border-color: ${currentTheme.lock.hex};
+      color: #ffffff;
+      box-shadow: 0 0 24px rgba(${currentTheme.lock.rgb}, 0.40);
+    }
+
+    #logout {
+      background-image: image(url("${powerIcons}/icons/logout.svg"));
+    }
+    #logout:hover, #logout:focus {
+      background-color: rgba(${currentTheme.logout.rgb}, 0.16);
+      border-color: ${currentTheme.logout.hex};
+      color: #ffffff;
+      box-shadow: 0 0 24px rgba(${currentTheme.logout.rgb}, 0.40);
+    }
+
+    #suspend {
+      background-image: image(url("${powerIcons}/icons/suspend.svg"));
+    }
+    #suspend:hover, #suspend:focus {
+      background-color: rgba(${currentTheme.suspend.rgb}, 0.16);
+      border-color: ${currentTheme.suspend.hex};
+      color: #ffffff;
+      box-shadow: 0 0 24px rgba(${currentTheme.suspend.rgb}, 0.40);
+    }
+
+    #hibernate {
+      background-image: image(url("${powerIcons}/icons/hibernate.svg"));
+    }
+    #hibernate:hover, #hibernate:focus {
+      background-color: rgba(${currentTheme.hibernate.rgb}, 0.16);
+      border-color: ${currentTheme.hibernate.hex};
+      color: #ffffff;
+      box-shadow: 0 0 24px rgba(${currentTheme.hibernate.rgb}, 0.40);
+    }
+
+    #reboot {
+      background-image: image(url("${powerIcons}/icons/reboot.svg"));
+    }
+    #reboot:hover, #reboot:focus {
+      background-color: rgba(${currentTheme.reboot.rgb}, 0.16);
+      border-color: ${currentTheme.reboot.hex};
+      color: #ffffff;
+      box-shadow: 0 0 24px rgba(${currentTheme.reboot.rgb}, 0.40);
+    }
+
+    #shutdown {
+      background-image: image(url("${powerIcons}/icons/shutdown.svg"));
+    }
+    #shutdown:hover, #shutdown:focus {
+      background-color: rgba(${currentTheme.shutdown.rgb}, 0.18);
+      border-color: ${currentTheme.shutdown.hex};
+      color: #ffffff;
+      box-shadow: 0 0 24px rgba(${currentTheme.shutdown.rgb}, 0.45);
+    }
+
+    ${cfg.powerMenu.extraStyle}
+  '';
 in
 {
   options.desktop.windowManager.hyprland = {
@@ -646,284 +923,6 @@ in
 
       # 7. 系统级 Hyprland, Wofi, Waybar 与 Wlogout 配置文件部署
       environment.etc =
-        let
-          generatedText =
-            toHyprlua {
-              attrs = finalSettings;
-            }
-            + optionalString (cfg.extraConfig != "") "\n${cfg.extraConfig}";
-
-          waybarConfText = builtins.toJSON {
-            layer = "top";
-            position = "top";
-            height = 32;
-            spacing = 4;
-            modules-left = [
-              "hyprland/workspaces"
-            ];
-            modules-center = [
-              "hyprland/window"
-            ];
-            modules-right = [
-              "pulseaudio"
-              "network"
-              "cpu"
-              "memory"
-              "temperature"
-              "battery"
-              "clock"
-              "tray"
-              "custom/power"
-            ];
-            "hyprland/workspaces" = {
-              format = "{name}";
-              on-click = "activate";
-              sort-by = "number";
-              persistent-workspaces = {
-                "*" = 5;
-              };
-            };
-            "hyprland/window" = {
-              max-length = 50;
-              separate-outputs = true;
-            };
-            clock = {
-              format = "  {:%Y-%m-%d %H:%M}";
-              tooltip-format = "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>";
-            };
-            cpu = {
-              format = "  {usage}%";
-              tooltip = false;
-            };
-            memory = {
-              format = "󰍛  {}%";
-            };
-            temperature = {
-              critical-threshold = 80;
-              format = "  {temperatureC}°C";
-            };
-            battery = {
-              states = {
-                warning = 30;
-                critical = 15;
-              };
-              format = "{icon}  {capacity}%";
-              format-charging = "󰂄  {capacity}%";
-              format-plugged = "󰚥  {capacity}%";
-              format-icons = [ "󰂎" "󰁺" "󰁼" "󰁾" "󰂀" "󰂂" "󰁹" ];
-            };
-            network = {
-              interval = 5;
-              format-wifi = "{icon}  {essid} ({signalStrength}%)";
-              format-ethernet = "󰈀  {ipaddr}/{cidr}";
-              format-disconnected = "<span color='#ff5555'>󰤮</span>  Disconnected";
-              format-icons = [ "󰤯" "󰤟" "󰤢" "󰤥" "󰤨" ];
-            };
-            pulseaudio = {
-              format = "{icon}  {volume}%";
-              format-muted = "<span color='#888888'>󰝟</span>  Muted";
-              format-icons = {
-                default = [ "󰕿" "󰖀" "󰕾" ];
-              };
-              on-click = "pavucontrol";
-            };
-            tray = {
-              spacing = 10;
-            };
-            "custom/power" = {
-              format = "";
-              tooltip = false;
-              on-click = "wlogout-menu";
-            };
-          };
-
-          waybarStyleText = ''
-            * {
-              border: none;
-              border-radius: 0;
-              font-family: inherit;
-              font-size: 13px;
-              min-height: 0;
-            }
-            window#waybar {
-              background-color: rgba(20, 20, 25, 0.85);
-              border-bottom: 2px solid rgba(100, 100, 120, 0.3);
-              color: #ffffff;
-            }
-            #workspaces button {
-              padding: 0 6px;
-              background-color: transparent;
-              color: #ffffff;
-              border-bottom: 2px solid transparent;
-            }
-            #workspaces button:hover {
-              background: rgba(255, 255, 255, 0.1);
-            }
-            #workspaces button.active {
-              background-color: rgba(100, 150, 255, 0.3);
-              border-bottom: 2px solid #5294e2;
-            }
-            #workspaces button.empty {
-              color: rgba(255, 255, 255, 0.4);
-            }
-            #clock, #battery, #cpu, #memory, #temperature, #network, #pulseaudio, #tray, #custom-power {
-              padding: 0 10px;
-              color: #ffffff;
-            }
-            #battery.warning {
-              color: #f9e2af;
-            }
-            #battery.critical {
-              color: #ff5555;
-            }
-            #temperature.critical {
-              color: #ff5555;
-            }
-            #custom-power {
-              color: #ff5555;
-              font-weight: bold;
-              margin-right: 6px;
-            }
-            #custom-power:hover {
-              color: #ff7777;
-              background-color: rgba(255, 85, 85, 0.2);
-              border-radius: 4px;
-            }
-          '';
-
-          wlogoutLayoutText = builtins.toJSON [
-            {
-              label = "lock";
-              action = "hyprlock || loginctl lock-session";
-              text = "锁定 [L]";
-              keybind = "l";
-            }
-            {
-              label = "logout";
-              action = "hyprctl dispatch exit || loginctl terminate-user $USER";
-              text = "注销 [E]";
-              keybind = "e";
-            }
-            {
-              label = "suspend";
-              action = "systemctl suspend";
-              text = "睡眠 [U]";
-              keybind = "u";
-            }
-            {
-              label = "hibernate";
-              action = "systemctl hibernate";
-              text = "休眠 [H]";
-              keybind = "h";
-            }
-            {
-              label = "reboot";
-              action = "systemctl reboot";
-              text = "重启 [R]";
-              keybind = "r";
-            }
-            {
-              label = "shutdown";
-              action = "systemctl poweroff";
-              text = "关机 [S]";
-              keybind = "s";
-            }
-          ];
-
-          wlogoutStyleText = ''
-            * {
-              background-image: none;
-              box-shadow: none;
-              font-family: "Geist", "TsangerJinKai04", "Maple Mono NF CN", "Noto Sans CJK SC", sans-serif;
-            }
-
-            window {
-              background-color: ${currentTheme.bg};
-            }
-
-            button {
-              border-radius: 18px;
-              border: 1px solid ${currentTheme.cardBorder};
-              color: ${currentTheme.text};
-              background-color: ${currentTheme.cardBg};
-              background-repeat: no-repeat;
-              background-position: center 32%;
-              background-size: 54px;
-              margin: 10px;
-              padding: 16px 12px;
-              font-size: 15px;
-              font-weight: 500;
-              box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
-              transition: all 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-            }
-
-            button:focus, button:active, button:hover {
-              outline-style: none;
-            }
-
-            #lock {
-              background-image: image(url("${powerIcons}/icons/lock.svg"));
-            }
-            #lock:hover, #lock:focus {
-              background-color: rgba(${currentTheme.lock.rgb}, 0.16);
-              border-color: ${currentTheme.lock.hex};
-              color: #ffffff;
-              box-shadow: 0 0 24px rgba(${currentTheme.lock.rgb}, 0.40);
-            }
-
-            #logout {
-              background-image: image(url("${powerIcons}/icons/logout.svg"));
-            }
-            #logout:hover, #logout:focus {
-              background-color: rgba(${currentTheme.logout.rgb}, 0.16);
-              border-color: ${currentTheme.logout.hex};
-              color: #ffffff;
-              box-shadow: 0 0 24px rgba(${currentTheme.logout.rgb}, 0.40);
-            }
-
-            #suspend {
-              background-image: image(url("${powerIcons}/icons/suspend.svg"));
-            }
-            #suspend:hover, #suspend:focus {
-              background-color: rgba(${currentTheme.suspend.rgb}, 0.16);
-              border-color: ${currentTheme.suspend.hex};
-              color: #ffffff;
-              box-shadow: 0 0 24px rgba(${currentTheme.suspend.rgb}, 0.40);
-            }
-
-            #hibernate {
-              background-image: image(url("${powerIcons}/icons/hibernate.svg"));
-            }
-            #hibernate:hover, #hibernate:focus {
-              background-color: rgba(${currentTheme.hibernate.rgb}, 0.16);
-              border-color: ${currentTheme.hibernate.hex};
-              color: #ffffff;
-              box-shadow: 0 0 24px rgba(${currentTheme.hibernate.rgb}, 0.40);
-            }
-
-            #reboot {
-              background-image: image(url("${powerIcons}/icons/reboot.svg"));
-            }
-            #reboot:hover, #reboot:focus {
-              background-color: rgba(${currentTheme.reboot.rgb}, 0.16);
-              border-color: ${currentTheme.reboot.hex};
-              color: #ffffff;
-              box-shadow: 0 0 24px rgba(${currentTheme.reboot.rgb}, 0.40);
-            }
-
-            #shutdown {
-              background-image: image(url("${powerIcons}/icons/shutdown.svg"));
-            }
-            #shutdown:hover, #shutdown:focus {
-              background-color: rgba(${currentTheme.shutdown.rgb}, 0.18);
-              border-color: ${currentTheme.shutdown.hex};
-              color: #ffffff;
-              box-shadow: 0 0 24px rgba(${currentTheme.shutdown.rgb}, 0.45);
-            }
-
-            ${cfg.powerMenu.extraStyle}
-          '';
-        in
         {
           "hypr/hyprland.lua".text = generatedText;
           "xdg/hypr/hyprland.lua".text = generatedText;
