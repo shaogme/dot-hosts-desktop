@@ -327,8 +327,9 @@ in
         User = "sing-box";
         Group = "sing-box";
         SupplementaryGroups = [ "proxy-bypass" ];
-        AmbientCapabilities = [ "CAP_NET_ADMIN" "CAP_NET_BIND_SERVICE" ];
-        CapabilityBoundingSet = [ "CAP_NET_ADMIN" "CAP_NET_BIND_SERVICE" ];
+        AmbientCapabilities = [ "CAP_NET_ADMIN" "CAP_NET_BIND_SERVICE" "CAP_NET_RAW" ];
+        CapabilityBoundingSet = [ "CAP_NET_ADMIN" "CAP_NET_BIND_SERVICE" "CAP_NET_RAW" ];
+        LimitNOFILE = 1048576;
         Restart = "on-failure";
         RestartSec = 3;
       };
