@@ -249,17 +249,113 @@ jobs:
             fi
           fi
 
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ steps.rel_meta.outputs.tag_name }}
-          target_commitish: ${{ inputs.ref || github.sha }}
-          name: ${{ steps.rel_meta.outputs.release_name }}
-          body_path: release_body.md
-          files: |
-            *.tar.zst
-            *.tar.zst.part*
-            *.7z
-            *.7z.*
-          prerelease: ${{ steps.rel_meta.outputs.is_prerelease == 'true' }}
-          generate_release_notes: ${{ !inputs.is_nightly }}
+      - name: Create or Update Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ steps.rel_meta.outputs.tag_name }}"
+          RELEASE_NAME="${{ steps.rel_meta.outputs.release_name }}"
+          TARGET_REF="${{ inputs.ref || github.sha }}"
+          IS_PRERELEASE="${{ steps.rel_meta.outputs.is_prerelease }}"
+          IS_NIGHTLY="${{ inputs.is_nightly }}"
+
+          CREATE_FLAGS=()
+          [ "$IS_PRERELEASE" = "true" ] && CREATE_FLAGS+=(--prerelease)
+          [ "$IS_NIGHTLY" != "true" ] && CREATE_FLAGS+=(--generate-notes)
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists, editing metadata..."
+            EDIT_FLAGS=()
+            [ "$IS_PRERELEASE" = "true" ] && EDIT_FLAGS+=(--prerelease)
+            gh release edit "$TAG_NAME" \
+              --title "$RELEASE_NAME" \
+              --notes-file release_body.md \
+              --target "$TARGET_REF" \
+              "${EDIT_FLAGS[@]}"
+          else
+            echo "Creating release $TAG_NAME..."
+            gh release create "$TAG_NAME" \
+              --title "$RELEASE_NAME" \
+              --notes-file release_body.md \
+              --target "$TARGET_REF" \
+              "${CREATE_FLAGS[@]}"
+          fi
+
+      - name: Upload Release Assets in Batches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ steps.rel_meta.outputs.tag_name }}"
+          BATCH_SIZE=3
+
+          # 收集所有符合规则的产物文件
+          mapfile -t FILES < <(find . -maxdepth 1 -type f \( -name "*.tar.zst" -o -name "*.tar.zst.part*" -o -name "*.7z" -o -name "*.7z.*" \) -printf "%f\n" | sort -u)
+
+          TOTAL_FILES=${#FILES[@]}
+          if [ "$TOTAL_FILES" -eq 0 ]; then
+            echo "Warning: No release asset files found to upload."
+            exit 0
+          fi
+
+          echo "Found $TOTAL_FILES asset file(s) to upload:"
+          for f in "${FILES[@]}"; do
+            echo "  - $f ($(du -h "$f" | cut -f1))"
+          done
+
+          upload_file() {
+            local file="$1"
+            local max_retries=3
+            local attempt=1
+            local delay=5
+
+            while [ "$attempt" -le "$max_retries" ]; do
+              echo "[$(date -u +'%H:%M:%S')] Uploading $file (Attempt $attempt/$max_retries)..."
+              if gh release upload "$TAG_NAME" "$file" --clobber; then
+                echo "[$(date -u +'%H:%M:%S')] Successfully uploaded: $file"
+                return 0
+              else
+                echo "[$(date -u +'%H:%M:%S')] Warning: Upload failed for $file (Attempt $attempt/$max_retries)"
+                if [ "$attempt" -lt "$max_retries" ]; then
+                  sleep "$delay"
+                  delay=$((delay * 2))
+                fi
+                attempt=$((attempt + 1))
+              fi
+            done
+
+            echo "[$(date -u +'%H:%M:%S')] ERROR: Failed to upload $file after $max_retries attempts."
+            return 1
+          }
+
+          TOTAL_BATCHES=$(( (TOTAL_FILES + BATCH_SIZE - 1) / BATCH_SIZE ))
+
+          for ((i=0; i<TOTAL_FILES; i+=BATCH_SIZE)); do
+            batch=("${FILES[@]:i:BATCH_SIZE}")
+            BATCH_NUM=$(( (i / BATCH_SIZE) + 1 ))
+
+            echo "=========================================="
+            echo "Starting Batch $BATCH_NUM / $TOTAL_BATCHES (${#batch[@]} files concurrently)"
+            echo "=========================================="
+
+            pids=()
+            for file in "${batch[@]}"; do
+              upload_file "$file" &
+              pids+=($!)
+            done
+
+            failed=0
+            for pid in "${pids[@]}"; do
+              if ! wait "$pid"; then
+                failed=1
+              fi
+            done
+
+            if [ "$failed" -ne 0 ]; then
+              echo "ERROR: Batch $BATCH_NUM upload failed!"
+              exit 1
+            fi
+
+            echo "Batch $BATCH_NUM completed successfully."
+          done
+
+          echo "All release assets uploaded successfully."
