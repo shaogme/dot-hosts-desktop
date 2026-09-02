@@ -8,5 +8,6 @@
     ./windowManager
     ./fonts
     ./terminal
+    ./inputMethod
   ];
 }

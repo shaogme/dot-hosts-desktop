@@ -220,6 +220,13 @@ in
   };
 
   # ==========================================
+  # 输入法配置 (Fcitx5 + Rime 雾凇拼音)
+  # ==========================================
+  desktop.inputMethod.fcitx5 = {
+    enable = true;
+  };
+
+  # ==========================================
   # 虚拟化与虚拟机管理 (KVM / QEMU / Libvirt)
   # ==========================================
   virtualisation = {
@@ -387,6 +394,26 @@ in
     {
       assertion = config.users.defaultUserShell == pkgs.zsh || config.users.users.${hostConfig.user}.shell == pkgs.zsh;
       message = "默认 Shell 配置错误：用户默认 Shell 应当为 Zsh";
+    }
+    {
+      assertion = config.desktop.inputMethod.fcitx5.enable == true;
+      message = "输入法配置错误：Fcitx5 输入法未启用";
+    }
+    {
+      assertion = config.desktop.inputMethod.fcitx5.rime.enable == true;
+      message = "输入法配置错误：Rime 引擎未启用";
+    }
+    {
+      assertion = config.desktop.inputMethod.fcitx5.rime.defaultSchema == "rime_ice";
+      message = "输入法配置错误：Rime 默认方案应为 rime_ice 雾凇拼音";
+    }
+    {
+      assertion = config.i18n.inputMethod.enable == true;
+      message = "输入法配置错误：i18n.inputMethod 未启用";
+    }
+    {
+      assertion = config.i18n.inputMethod.type == "fcitx5";
+      message = "输入法配置错误：输入法框架类型应为 fcitx5";
     }
   ];
 }

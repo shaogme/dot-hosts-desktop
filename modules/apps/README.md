@@ -367,6 +367,7 @@ fi
 | **数据持久化路径** | `--bind $SANDBOX_HOME $HOME` | 映射至 `~/.sandboxes/<app-name>`，重启或升级配置不丢失 |
 | **图形显示** | `--ro-bind-try $WAYLAND_DISPLAY` / `/tmp/.X11-unix` | 仅只读穿透 Wayland / X11 显示协议通道 |
 | **音频服务** | `--ro-bind-try $XDG_RUNTIME_DIR/pipewire-0` | 仅只读穿透 PipeWire / PulseAudio Socket |
+| **输入法服务** | `--ro-bind-try $XDG_RUNTIME_DIR/fcitx5` / `bus` | 仅只读穿透 Fcitx5 与 DBus 通信通道，支持中文输入 |
 | **网络通道** | `--share-net` | 允许正常的网络通信 |
 
 ---

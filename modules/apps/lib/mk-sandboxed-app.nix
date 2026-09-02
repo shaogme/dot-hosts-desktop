@@ -78,6 +78,23 @@ let
       export GDK_BACKEND=wayland,x11
     fi
 
+    # 自动输入法环境适配
+    if [ -z "''${XMODIFIERS:-}" ]; then
+      export XMODIFIERS="@im=fcitx"
+    fi
+    if [ -z "''${GTK_IM_MODULE:-}" ]; then
+      export GTK_IM_MODULE="fcitx"
+    fi
+    if [ -z "''${QT_IM_MODULE:-}" ]; then
+      export QT_IM_MODULE="fcitx"
+    fi
+    if [ -z "''${SDL_IM_MODULE:-}" ]; then
+      export SDL_IM_MODULE="fcitx"
+    fi
+    if [ -z "''${GLFW_IM_MODULE:-}" ]; then
+      export GLFW_IM_MODULE="ibus"
+    fi
+
     # 导出自定义环境变量
     ${lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "export ${k}=\"${toString v}\"") environment)}
 

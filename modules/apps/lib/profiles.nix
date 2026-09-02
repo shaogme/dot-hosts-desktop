@@ -151,6 +151,7 @@ rec {
     x11 ? true,
     audio ? true,
     dbus ? true,
+    inputMethod ? true,
     customBinds ? [],
     customRoBinds ? [],
     extraBwrapArgs ? [],
@@ -176,6 +177,10 @@ rec {
     ++ lib.optionals dbus [
       "--ro-bind-try" "$XDG_RUNTIME_DIR/bus" "$XDG_RUNTIME_DIR/bus"
       "--bind-try" "$XDG_RUNTIME_DIR/dconf" "$XDG_RUNTIME_DIR/dconf"
+    ]
+    ++ lib.optionals inputMethod [
+      "--ro-bind-try" "$XDG_RUNTIME_DIR/fcitx5" "$XDG_RUNTIME_DIR/fcitx5"
+      "--ro-bind-try" "$XDG_RUNTIME_DIR/ibus" "$XDG_RUNTIME_DIR/ibus"
     ]
     ++ lib.optional shareNet "--share-net"
     ++ (lib.concatMap (b: [ "--bind" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) customBinds)

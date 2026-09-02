@@ -147,8 +147,16 @@ pkgs.testers.nixosTest {
           user_shell = server.succeed("getent passwd shaog | cut -d: -f7").strip()
           assert "zsh" in user_shell, f"User shell mismatch: expected zsh in path, got {user_shell}"
 
-      if ${if serverCfg.desktop.terminal.starship.enable or false then "True" else "False"}:
-          server.succeed("which starship")
+      # 验证输入法框架 (Fcitx5) 与 Rime 引擎
+      if ${if serverCfg.desktop.inputMethod.fcitx5.enable or false then "True" else "False"}:
+          server.succeed("which fcitx5")
+          server.succeed("which fcitx5-remote")
+          server.succeed("which fcitx5-configtool")
+          server.succeed("test -f /etc/xdg/fcitx5/config")
+          server.succeed("test -f /etc/xdg/fcitx5/profile")
+          server.succeed("grep -q 'Name=rime' /etc/xdg/fcitx5/profile")
+          server.succeed("test -f /etc/xdg/fcitx5/conf/classicui.conf")
+          server.succeed("grep -q 'Theme=' /etc/xdg/fcitx5/conf/classicui.conf")
 
       print("VM 测试全部通过！")
     '';
