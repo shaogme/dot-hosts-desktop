@@ -32,27 +32,26 @@ let
       max_height = 1500;
       image_filter = "triangle";
       image_quality = 85;
-      sixel_fraction = 15;
     };
     opener = {
       edit = [
-        { run = "\${EDITOR:-nano} \"$@\""; block = true; desc = "Edit"; }
+        { run = "\${EDITOR:-nano} %s"; block = true; desc = "Edit"; }
       ];
       open = [
-        { run = "xdg-open \"$@\""; desc = "Open"; }
+        { run = "xdg-open %s1"; desc = "Open"; }
       ];
       reveal = [
-        { run = "xdg-open \"$(dirname \"$1\")\""; desc = "Reveal"; }
+        { run = "xdg-open %d1"; desc = "Reveal"; }
       ];
     };
     open = {
       rules = [
-        { name = "*/"; use = [ "edit" "open" "reveal" ]; }
+        { url = "*/"; use = [ "edit" "open" "reveal" ]; }
         { mime = "text/*"; use = [ "edit" "reveal" ]; }
         { mime = "image/*"; use = [ "open" "reveal" ]; }
         { mime = "video/*"; use = [ "open" "reveal" ]; }
         { mime = "audio/*"; use = [ "open" "reveal" ]; }
-        { mime = "*"; use = [ "open" "reveal" ]; }
+        { url = "*"; use = [ "open" "reveal" ]; }
       ];
     };
   };
