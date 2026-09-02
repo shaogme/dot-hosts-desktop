@@ -1,0 +1,648 @@
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
+
+with lib;
+
+let
+  cfg = config.desktop.bar.waybar;
+
+  waybarClockScript = pkgs.writeShellScriptBin "waybar-clock" ''
+    time=$(date +"%I:%M %p")
+    date_str=$(date +"%A, %d/%m")
+    tooltip=$(date +"%Y年%m月%d日 %A")
+    ${pkgs.jq}/bin/jq -nc \
+      --arg text "$time"$'\n'"$date_str" \
+      --arg tooltip "$tooltip" \
+      '{ text: $text, tooltip: $tooltip }'
+  '';
+
+  waybarWindowScript = pkgs.writeShellScriptBin "waybar-window" ''
+    set -u
+
+    MAX_TITLE_LEN=22
+
+    print_status() {
+      window=$(${pkgs.hyprland}/bin/hyprctl activewindow -j 2>/dev/null || echo "{}")
+      address=$(${pkgs.jq}/bin/jq -r '.address // empty' <<< "$window" 2>/dev/null || echo "")
+
+      # 无活动窗口时显示 Desktop 与工作区
+      if [[ -z "$address" || "$address" == "null" ]]; then
+        ws=$(${pkgs.hyprland}/bin/hyprctl activeworkspace -j 2>/dev/null | ${pkgs.jq}/bin/jq -r '.id // "1"' 2>/dev/null || echo "1")
+
+        top_line="Desktop"
+        bottom_line="Workspace $ws"
+
+        esc_top=$(${pkgs.gnused}/bin/sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g' <<< "$top_line")
+        esc_bottom=$(${pkgs.gnused}/bin/sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g' <<< "$bottom_line")
+
+        text="<span size='7500' foreground='#a6adc8' rise='-2000'>$esc_top</span>
+<span size='9000' weight='bold' foreground='#ffffff'>$esc_bottom</span>"
+
+        ${pkgs.jq}/bin/jq -nc \
+          --arg text "$text" \
+          --arg tooltip "$bottom_line" \
+          '{ text: $text, class: "custom-window", tooltip: $tooltip }'
+        return
+      fi
+
+      class=$(${pkgs.jq}/bin/jq -r '.class // "Unknown"' <<< "$window" 2>/dev/null || echo "Unknown")
+      title=$(${pkgs.jq}/bin/jq -r '.title // ""' <<< "$window" 2>/dev/null || echo "")
+
+      app_class="''${class,,}"
+
+      # 对常见应用标题精简
+      if [[ "$app_class" == *discord* || "$app_class" == *vesktop* ]]; then
+        title=$(${pkgs.gnused}/bin/sed -E 's/^\([0-9]+\)[[:space:]]*//; s/^Discord[[:space:]]*\|[[:space:]]*//' <<< "$title")
+      fi
+
+      # 截断过长标题
+      if (( ''${#title} > MAX_TITLE_LEN )); then
+        title="''${title:0:$((MAX_TITLE_LEN-3))}..."
+      fi
+
+      esc_top=$(${pkgs.gnused}/bin/sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g' <<< "$class")
+      esc_bottom=$(${pkgs.gnused}/bin/sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g' <<< "$title")
+
+      text="<span size='7500' foreground='#a6adc8' rise='-2000'>$esc_top</span>
+<span size='9000' weight='bold' foreground='#ffffff'>$esc_bottom</span>"
+
+      tooltip="$class: $title"
+
+      ${pkgs.jq}/bin/jq -nc \
+        --arg text "$text" \
+        --arg tooltip "$tooltip" \
+        '{ text: $text, class: "custom-window", tooltip: $tooltip }'
+    }
+
+    # 初始输出
+    print_status
+
+    last=""
+
+    # 监听状态变更并更新
+    while true; do
+      current_window=$(${pkgs.hyprland}/bin/hyprctl activewindow -j 2>/dev/null || echo "{}")
+      current_ws=$(${pkgs.hyprland}/bin/hyprctl activeworkspace -j 2>/dev/null || echo "{}")
+
+      current="$current_window$current_ws"
+
+      if [[ "$current" != "$last" ]]; then
+        print_status
+        last="$current"
+      fi
+
+      sleep 0.5
+    done
+  '';
+
+  waybarGamemodeStatusScript = pkgs.writeShellScriptBin "waybar-gamemode-status" ''
+    CACHE_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/hypr_gamemode"
+    if [ -f "$CACHE_FILE" ]; then
+      echo '{"text":"","class":"active","tooltip":"游戏模式：已开启（动画、阴影与模糊已禁用）"}'
+    else
+      echo '{"text":"","class":"inactive","tooltip":"游戏模式：已关闭（点击开启）"}'
+    fi
+  '';
+
+  waybarGamemodeToggleScript = pkgs.writeShellScriptBin "waybar-gamemode-toggle" ''
+    CACHE_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/hypr_gamemode"
+    if [ -f "$CACHE_FILE" ]; then
+      rm -f "$CACHE_FILE"
+      ${pkgs.hyprland}/bin/hyprctl --batch "keyword animations:enabled 1; keyword decoration:blur:enabled 1; keyword decoration:shadow:enabled 1" >/dev/null 2>&1 || true
+    else
+      mkdir -p "$(dirname "$CACHE_FILE")"
+      touch "$CACHE_FILE"
+      ${pkgs.hyprland}/bin/hyprctl --batch "keyword animations:enabled 0; keyword decoration:blur:enabled 0; keyword decoration:shadow:enabled 0" >/dev/null 2>&1 || true
+    fi
+    ${pkgs.procps}/bin/pkill -SIGRTMIN+8 waybar 2>/dev/null || true
+  '';
+
+  waybarMediaScript = pkgs.writeShellScriptBin "waybar-media" ''
+    if ! command -v ${pkgs.playerctl}/bin/playerctl >/dev/null 2>&1; then
+      echo '{"text":" No media","tooltip":"未找到 playerctl"}'
+      exit 0
+    fi
+
+    status=$(${pkgs.playerctl}/bin/playerctl status 2>/dev/null || echo "Stopped")
+    if [ "$status" = "Stopped" ] || [ -z "$status" ]; then
+      echo '{"text":" No media","tooltip":"暂无正在播放的媒体"}'
+      exit 0
+    fi
+
+    title=$(${pkgs.playerctl}/bin/playerctl metadata --format '{{title}}' 2>/dev/null || echo "")
+    artist=$(${pkgs.playerctl}/bin/playerctl metadata --format '{{artist}}' 2>/dev/null || echo "")
+
+    if [ -z "$title" ]; then
+      echo '{"text":" No media","tooltip":"暂无正在播放的媒体"}'
+      exit 0
+    fi
+
+    display_title="$title"
+    if (( ''${#display_title} > 20 )); then
+      display_title="''${display_title:0:17}..."
+    fi
+
+    icon=""
+    if [ "$status" = "Playing" ]; then
+      icon="󰎈"
+    elif [ "$status" = "Paused" ]; then
+      icon="󰏤"
+    fi
+
+    text="$icon $display_title"
+    tooltip="媒体：$title"
+    if [ -n "$artist" ]; then
+      tooltip="$tooltip ($artist)"
+    fi
+    tooltip="$tooltip\n状态：$status\n• 左键：播放/暂停\n• 右键：下一曲\n• 中键：上一曲"
+
+    ${pkgs.jq}/bin/jq -nc \
+      --arg text "$text" \
+      --arg tooltip "$tooltip" \
+      --arg class "$status" \
+      '{ text: $text, tooltip: $tooltip, class: $class }'
+  '';
+
+  settings = {
+    reload_style_on_change = true;
+    layer = "top";
+    position = cfg.position;
+    spacing = 0;
+    height = 42;
+    margin-top = 4;
+    margin-left = 10;
+    margin-right = 10;
+    modules-left = [ ];
+    modules-center = [
+      "group/center4"
+      "group/center3"
+      "hyprland/workspaces"
+      "group/center2"
+    ];
+    modules-right = [ ];
+
+    "group/center4" = {
+      orientation = "inherit";
+      modules = [
+        "custom/menu"
+        "custom/active_window"
+        "custom/separator#blank"
+        "custom/separator#dot"
+        "tray"
+        "network"
+        "bluetooth"
+      ];
+    };
+
+    "group/center3" = {
+      orientation = "inherit";
+      modules = [
+        "custom/separator#blank"
+        "custom/gamemode"
+        "custom/notification"
+        "custom/wallpaper"
+        "custom/media"
+      ];
+    };
+
+    "hyprland/workspaces" = {
+      on-click = "activate";
+      format = "{icon}";
+      format-icons = {
+        default = "";
+        "1" = "<span size='13500'>󰲠</span>";
+        "2" = "<span size='13500'>󰲢</span>";
+        "3" = "<span size='13500'>󰲤</span>";
+        "4" = "<span size='13500'>󰲦</span>";
+        "5" = "<span size='13500'>󰲨</span>";
+        "6" = "<span size='13500'>󰲪</span>";
+        "7" = "<span size='13500'>󰲬</span>";
+        "8" = "<span size='13500'>󰲮</span>";
+        "9" = "<span size='13500'>󰲰</span>";
+        "10" = "<span size='13500'>󰿬</span>";
+      };
+      persistent-workspaces = {
+        "*" = 5;
+      };
+    };
+
+    "group/center2" = {
+      orientation = "inherit";
+      modules = [
+        "custom/clock"
+        "pulseaudio"
+        "battery"
+        "cpu"
+        "memory"
+        "custom/power"
+      ];
+    };
+
+    "custom/menu" = {
+      format = "<span size='11500'></span>";
+      tooltip = true;
+      tooltip-format = "应用启动器 (Wofi)\n• 左键：搜索并启动应用\n• 右键：打开终端";
+      on-click = "wofi --show drun --allow-images";
+      on-click-right = "kitty";
+    };
+
+    "custom/active_window" = {
+      exec = "${waybarWindowScript}/bin/waybar-window";
+      return-type = "json";
+      markup = true;
+      restart-interval = 3;
+    };
+
+    "custom/gamemode" = {
+      exec = "${waybarGamemodeStatusScript}/bin/waybar-gamemode-status";
+      on-click = "${waybarGamemodeToggleScript}/bin/waybar-gamemode-toggle";
+      signal = 8;
+      interval = 2;
+      return-type = "json";
+      tooltip = true;
+    };
+
+    "custom/notification" = {
+      tooltip = false;
+      format = "{icon}";
+      format-icons = {
+        notification = "<span foreground='#f38ba8'><sup></sup></span>";
+        none = "";
+        dnd-notification = "<span foreground='#f38ba8'><sup></sup></span>";
+        dnd-none = "";
+        inhibited-notification = "<span foreground='#f38ba8'><sup></sup></span>";
+        inhibited-none = "";
+        dnd-inhibited-notification = "<span foreground='#f38ba8'><sup></sup></span>";
+        dnd-inhibited-none = "";
+      };
+      return-type = "json";
+      exec-if = "which swaync-client";
+      exec = "swaync-client -df -p";
+      on-click = "swaync-client -t -sw";
+      on-click-right = "swaync-client -d -sw";
+      escape = true;
+    };
+
+    "custom/wallpaper" = {
+      format = "󰸉";
+      tooltip = true;
+      tooltip-format = "桌面壁纸管理\n• 左键：随机换壁纸\n• 右键：选择壁纸\n• 中键：恢复上次壁纸";
+      on-click = "awww-random";
+      on-click-right = "awww-switch";
+      on-click-middle = "awww-restore";
+    };
+
+    "custom/media" = {
+      exec = "${waybarMediaScript}/bin/waybar-media";
+      interval = 2;
+      return-type = "json";
+      on-click = "${pkgs.playerctl}/bin/playerctl play-pause";
+      on-click-right = "${pkgs.playerctl}/bin/playerctl next";
+      on-click-middle = "${pkgs.playerctl}/bin/playerctl previous";
+      tooltip = true;
+    };
+
+    "custom/clock" = {
+      exec = "${waybarClockScript}/bin/waybar-clock";
+      interval = 1;
+      return-type = "json";
+      tooltip = true;
+    };
+
+    cpu = {
+      interval = 2;
+      format = "{icon} {usage}%";
+      format-icons = [ "󰪞" "󰪟" "󰪠" "󰪡" "󰪢" "󰪣" "󰪤" "󰪥" ];
+      tooltip = true;
+      tooltip-format = "CPU 使用率: {usage}%";
+      on-click = "kitty -e btop";
+    };
+
+    memory = {
+      interval = 2;
+      format = "{icon} {percentage}%";
+      format-icons = [ "󰪞" "󰪟" "󰪠" "󰪡" "󰪢" "󰪣" "󰪤" "󰪥" ];
+      tooltip = true;
+      tooltip-format = "内存使用率: {percentage}% ({used:0.1f}G/{total:0.1f}G)";
+      on-click = "kitty -e btop";
+    };
+
+    network = {
+      interval = 3;
+      format = "{icon}";
+      format-wifi = "{icon}";
+      format-ethernet = "<span size='11500'>󰌘</span>";
+      format-disconnected = "<span size='11500' foreground='#f38ba8'>󰤮</span>";
+      format-icons = [ "󰤯" "󰤟" "󰤢" "󰤥" "󰤨" ];
+      tooltip-format-wifi = "Wi-Fi: {essid} ({signalStrength}%)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}";
+      tooltip-format-ethernet = "以太网: {ipaddr}/{cidr}\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}";
+      tooltip-format-disconnected = "网络已断开";
+      on-click = "kitty -e nmtui";
+    };
+
+    bluetooth = {
+      format = "<span size='11500'>󰂯</span>";
+      format-disabled = "<span size='11500' foreground='#6c7086'>󰂲</span>";
+      format-connected = "<span size='11500' foreground='#89b4fa'></span>";
+      format-no-controller = "";
+      tooltip-format = "蓝牙设备已连接: {num_connections}";
+      tooltip-format-disabled = "蓝牙已关闭";
+      on-click = "kitty -e bluetuith";
+    };
+
+    pulseaudio = {
+      format = "{icon} {volume}%";
+      format-muted = "<span foreground='#6c7086'></span>";
+      format-icons = {
+        default = [ "" "" "" ];
+      };
+      tooltip-format = "音量: {volume}%";
+      scroll-step = 5;
+      on-click = "pavucontrol";
+      on-click-right = "pamixer -t";
+    };
+
+    battery = {
+      states = {
+        warning = 30;
+        critical = 15;
+      };
+      format = "{capacity}% {icon}";
+      format-discharging = "{capacity}% {icon}";
+      format-charging = "{capacity}% 󰂄";
+      format-plugged = "{capacity}% ";
+      format-full = "100% 󰂅";
+      format-icons = [ "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹" ];
+      tooltip-format = "{timeTo}, 功率: {power:>1.0f}W";
+      interval = 5;
+      on-click = "wlogout-menu";
+    };
+
+    tray = {
+      icon-size = 16;
+      spacing = 8;
+    };
+
+    "custom/separator#blank" = {
+      format = " ";
+      interval = "once";
+      tooltip = false;
+    };
+
+    "custom/separator#dot" = {
+      format = " ";
+      interval = "once";
+      tooltip = false;
+    };
+
+    "custom/power" = {
+      format = "";
+      tooltip = false;
+      on-click = "wlogout-menu";
+    };
+  };
+
+  style = ''
+    @define-color background rgba(20, 20, 28, 0.85);
+    @define-color background-card rgba(30, 30, 42, 0.88);
+    @define-color foreground #cdd6f4;
+    @define-color border-color rgba(255, 255, 255, 0.08);
+    @define-color active-border #89b4fa;
+    @define-color hover-bg rgba(255, 255, 255, 0.12);
+    @define-color warning #f9e2af;
+    @define-color critical #f38ba8;
+
+    * {
+      border: none;
+      border-radius: 0;
+      min-height: 0;
+      font-family: "Geist", "TsangerJinKai04", "Maple Mono NF CN", "Symbols Nerd Font", sans-serif;
+      font-size: 13px;
+    }
+
+    window#waybar {
+      background-color: transparent;
+      transition-property: background-color;
+      transition-duration: .5s;
+    }
+
+    window#waybar.empty #window {
+      background: transparent;
+      background-color: transparent;
+      border: none;
+      border-radius: 0;
+      color: transparent;
+      padding: 0;
+      margin: 0;
+    }
+
+    #waybar.empty .modules-center {
+      opacity: 0;
+    }
+
+    /* 居中胶囊岛风格分组容器 (Pills) */
+    #group-center4,
+    #group_center4,
+    #center4,
+    #group-center3,
+    #group_center3,
+    #center3,
+    #group-center2,
+    #group_center2,
+    #center2,
+    #workspaces {
+      background-color: @background;
+      border: 1px solid @border-color;
+      border-radius: 14px;
+      padding: 0 8px;
+      margin: 4px 3px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      color: @foreground;
+    }
+
+    /* 工作区指示器 */
+    #workspaces {
+      padding: 0 6px;
+    }
+
+    #workspaces button {
+      color: @foreground;
+      padding: 0 4px;
+      margin: 0 1px;
+      min-width: 14px;
+      border-radius: 8px;
+      transition: all 0.2s ease-in-out;
+    }
+
+    #workspaces button.empty {
+      color: @foreground;
+      opacity: 0.45;
+    }
+
+    #workspaces button.active {
+      transition: all 120ms ease-out;
+      border-top: 2px solid @active-border;
+      background-color: rgba(137, 180, 250, 0.15);
+      color: #ffffff;
+      opacity: 1;
+    }
+
+    #workspaces button:hover {
+      background-color: @hover-bg;
+      opacity: 1;
+    }
+
+    /* 活动窗口组件 (双行紧凑卡片) */
+    #custom-active_window {
+      padding: 2px 8px;
+      margin-top: 2px;
+      margin-bottom: 2px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 12px;
+    }
+
+    /* 时钟组件 (双行排版) */
+    #custom-clock {
+      margin-left: 4px;
+      margin-right: 6px;
+      font-weight: 700;
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    /* 启动器图标 */
+    #custom-menu {
+      margin-left: 4px;
+      margin-right: 6px;
+      font-size: 14px;
+      color: #89b4fa;
+    }
+
+    #custom-menu:hover {
+      color: #b4befe;
+    }
+
+    /* 系统托盘 */
+    #tray {
+      background: transparent;
+      padding: 0 4px;
+      margin: 0 2px;
+    }
+
+    #tray > .passive {
+      -gtk-icon-effect: dim;
+    }
+
+    #tray > .needs-attention {
+      -gtk-icon-effect: highlight;
+      background-color: @critical;
+    }
+
+    /* 基础功能模块通用样式 */
+    #network,
+    #bluetooth,
+    #pulseaudio,
+    #custom-gamemode,
+    #custom-notification,
+    #custom-wallpaper,
+    #custom-media,
+    #cpu,
+    #memory,
+    #battery,
+    #custom-power {
+      padding: 0 5px;
+      margin: 0 1px;
+      color: @foreground;
+      transition: all 0.2s ease;
+    }
+
+    #custom-gamemode.active {
+      color: @critical;
+      font-weight: bold;
+    }
+
+    #custom-wallpaper {
+      color: #cba6f7;
+    }
+
+    #custom-wallpaper:hover {
+      color: #f5c2e7;
+    }
+
+    #custom-notification {
+      font-size: 13px;
+    }
+
+    #custom-notification:hover {
+      color: #89b4fa;
+    }
+
+    #cpu, #memory {
+      font-size: 12px;
+    }
+
+    #battery.warning {
+      color: @warning;
+    }
+
+    #battery.critical {
+      color: @critical;
+      animation-name: blink;
+      animation-duration: 0.8s;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+    }
+
+    @keyframes blink {
+      to {
+        color: #ffffff;
+        background-color: @critical;
+      }
+    }
+
+    #custom-power {
+      color: @critical;
+      font-size: 14px;
+      font-weight: bold;
+      margin-right: 2px;
+    }
+
+    #custom-power:hover {
+      color: #ff7777;
+      background-color: rgba(243, 139, 168, 0.2);
+      border-radius: 6px;
+    }
+
+    tooltip {
+      background: @background-card;
+      border: 1px solid @border-color;
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    tooltip label {
+      color: @foreground;
+      padding: 4px;
+    }
+  '';
+in
+{
+  inherit settings style;
+  extraPackages = [
+    waybarWindowScript
+    waybarClockScript
+    waybarGamemodeStatusScript
+    waybarGamemodeToggleScript
+    waybarMediaScript
+    pkgs.playerctl
+    pkgs.jq
+    pkgs.pamixer
+    pkgs.pavucontrol
+  ];
+}
