@@ -150,6 +150,22 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /run/current-system/sw/share/dbus-1/services/org.freedesktop.Notifications.service")
           server.succeed("test -f /run/current-system/sw/share/dbus-1/services/org.erikreider.swaync.cc.service")
 
+      # 验证壁纸守护进程与管理脚本 (awww)
+      if ${if (serverCfg.desktop ? wallpaper && serverCfg.desktop.wallpaper ? awww && serverCfg.desktop.wallpaper.awww.enable) then "True" else "False"}:
+          server.succeed("which awww")
+          server.succeed("which awww-daemon")
+          server.succeed("which awww-set")
+          server.succeed("which awww-random")
+          server.succeed("which awww-next")
+          server.succeed("which awww-switch")
+          server.succeed("which awww-restore")
+          server.succeed("which awww-init")
+          server.succeed("test -f /run/current-system/sw/share/wallpapers/catppuccin-mocha.svg")
+          server.succeed("test -f /run/current-system/sw/share/wallpapers/tokyo-night.svg")
+          server.succeed("test -f /run/current-system/sw/share/wallpapers/nord.svg")
+          if ${if (serverCfg.desktop.wallpaper.awww.daemon.systemd.enable or false) then "True" else "False"}:
+              server.succeed("test -f /etc/systemd/user/awww-daemon.service")
+
       # 验证文件管理器 (Yazi)
       if ${if (serverCfg.desktop ? fileManager && serverCfg.desktop.fileManager ? yazi && serverCfg.desktop.fileManager.yazi.enable) then "True" else "False"}:
           server.succeed("which yazi")

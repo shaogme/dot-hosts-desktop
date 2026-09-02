@@ -370,10 +370,14 @@ in
         partOf = [ "graphical-session.target" ];
         after = [ "graphical-session.target" ];
         wantedBy = [ "graphical-session.target" ];
+        unitConfig = {
+          ConditionEnvironment = "WAYLAND_DISPLAY";
+        };
         serviceConfig = {
-          Type = "simple";
+          Type = "notify";
           ExecStart = "${cfg.package}/bin/awww-daemon ${scripts.daemonArgsStr}";
-          ExecStop = "${cfg.package}/bin/awww kill";
+          ExecStartPost = "${scripts.awwwInitScript}/bin/awww-init --apply-only";
+          ExecStop = "${cfg.package}/bin/awww ${optionalString (cfg.daemon.namespace != "") "--namespace ${cfg.daemon.namespace}"} kill";
           Restart = "on-failure";
           RestartSec = 1;
         };
@@ -407,7 +411,8 @@ in
 
       # 5. 联动 Hyprland 注册自启动与快捷键
       desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable) {
-        autostart = mkIf cfg.hyprland.autostart [
+        # 仅在未启用 systemd 服务管理时通过 Hyprland 命令行拉起，避免同时启动产生竞态导致 "There is an awww-daemon instance already running on this socket!" 崩溃
+        autostart = mkIf (cfg.hyprland.autostart && !cfg.daemon.systemd.enable) [
           "${scripts.awwwInitScript}/bin/awww-init"
         ];
         extraBinds = (optionals (cfg.hyprland.keybinds.randomWallpaper != "") [
@@ -425,64 +430,10 @@ in
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
           ({ ... }: {
-            home.packages = allPackages;
+            # 系统级环境已通过 environment.systemPackages 提供了全局可用的二进制及壁纸资源，
+            # 并通过系统级 systemd.user.services 与 timers 统一管理生命周期。
+            # 此处注入环境变量，确保用户终端与子进程均可继承。
             home.sessionVariables = sessionVars;
-            systemd.user.services = mkMerge [
-              (mkIf cfg.daemon.systemd.enable {
-                awww-daemon = {
-                  Unit = {
-                    Description = "awww - High-performance Wayland Wallpaper Daemon";
-                    Documentation = "man:awww-daemon(1)";
-                    PartOf = [ "graphical-session.target" ];
-                    After = [ "graphical-session.target" ];
-                  };
-                  Service = {
-                    Type = "simple";
-                    ExecStart = "${cfg.package}/bin/awww-daemon ${scripts.daemonArgsStr}";
-                    ExecStop = "${cfg.package}/bin/awww kill";
-                    Restart = "on-failure";
-                    RestartSec = 1;
-                  };
-                  Install = {
-                    WantedBy = [ "graphical-session.target" ];
-                  };
-                };
-              })
-              (mkIf (cfg.slideshow.enable && cfg.slideshow.systemdTimer.enable) {
-                awww-slideshow = {
-                  Unit = {
-                    Description = "awww - Automatic Wallpaper Slideshow Rotator";
-                    PartOf = [ "graphical-session.target" ];
-                    After = [ "awww-daemon.service" ];
-                  };
-                  Service = {
-                    Type = "oneshot";
-                    ExecStart =
-                      if cfg.slideshow.random then
-                        "${scripts.awwwRandomScript}/bin/awww-random"
-                      else
-                        "${scripts.awwwNextScript}/bin/awww-next";
-                  };
-                };
-              })
-            ];
-
-            systemd.user.timers = mkIf (cfg.slideshow.enable && cfg.slideshow.systemdTimer.enable) {
-              awww-slideshow = {
-                Unit = {
-                  Description = "awww - Wallpaper Slideshow Timer";
-                  PartOf = [ "graphical-session.target" ];
-                };
-                Timer = {
-                  OnUnitActiveSec = "${toString cfg.slideshow.interval}s";
-                  OnBootSec = "15s";
-                  Persistent = true;
-                };
-                Install = {
-                  WantedBy = [ "timers.target" "graphical-session.target" ];
-                };
-              };
-            };
           })
         ];
       };
