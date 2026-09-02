@@ -87,7 +87,6 @@ in
       enable = true;
       timer.enable = false;
       type = "legacy";
-      allowReboot = true;
     };
     sync = {
       enable = true;

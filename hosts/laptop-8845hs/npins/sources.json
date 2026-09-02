@@ -9,9 +9,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "a1a3a346bbbcb8f442c1210e229416440d29c962",
-      "url": "https://github.com/shaogme/dot-base/archive/a1a3a346bbbcb8f442c1210e229416440d29c962.tar.gz",
-      "hash": "sha256-kuX1SMAHvH7jgMT8uB0alzbrJlM9kGiVvsk7lcb66MU="
+      "revision": "1c6ed90bcbb60cc286ef12b4876306a7ce3b1952",
+      "url": "https://github.com/shaogme/dot-base/archive/1c6ed90bcbb60cc286ef12b4876306a7ce3b1952.tar.gz",
+      "hash": "sha256-hS061VtL9+332vb3mR3G3ExZs1rOUDfqDpes9Hv7BWY="
     },
     "dot-exts": {
       "type": "Git",
