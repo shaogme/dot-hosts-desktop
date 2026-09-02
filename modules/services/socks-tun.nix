@@ -15,7 +15,6 @@ let
         {
           type = "local";
           tag = "dns-local";
-          detour = "direct";
         }
         {
           type = "fakeip";
@@ -28,6 +27,10 @@ let
         {
           query_type = [ "A" "AAAA" ];
           server = "dns-fakeip";
+        }
+        {
+          query_type = [ "HTTPS" ];
+          action = "reject";
         }
       ];
       strategy = "prefer_ipv4";
