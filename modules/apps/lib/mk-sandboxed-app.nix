@@ -101,7 +101,9 @@ let
     if [ -z "''${XMODIFIERS:-}" ]; then
       export XMODIFIERS="@im=fcitx"
     fi
-    if [ -z "''${GTK_IM_MODULE:-}" ]; then
+    if [ -n "$WAYLAND_DISPLAY" ]; then
+      unset GTK_IM_MODULE
+    elif [ -z "''${GTK_IM_MODULE:-}" ]; then
       export GTK_IM_MODULE="fcitx"
     fi
     if [ -z "''${QT_IM_MODULE:-}" ]; then

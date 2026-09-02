@@ -158,8 +158,8 @@ in
 
     waylandFrontend = mkOption {
       type = types.bool;
-      default = false;
-      description = "是否仅使用 Wayland 原生输入法前端协议（默认为 false 以同时导出环境变量，确保各类 XWayland / GTK / Qt / Electron 应用无缝兼容）。";
+      default = true;
+      description = "是否启用 Wayland 原生输入法前端协议（默认为 true，推荐取消设置 GTK_IM_MODULE 以使用 Wayland 原生 text-input 前端，避免桌面诊断告警）。";
     };
 
     theme = {
@@ -521,9 +521,10 @@ in
       environment.sessionVariables = {
         XMODIFIERS = "@im=fcitx";
         QT_IM_MODULE = "fcitx";
-        GTK_IM_MODULE = "fcitx";
         SDL_IM_MODULE = "fcitx";
         GLFW_IM_MODULE = "ibus";
+      } // optionalAttrs (!cfg.waylandFrontend) {
+        GTK_IM_MODULE = "fcitx";
       };
 
       # 4. Hyprland 桌面联动（自启动与窗口浮动规则）

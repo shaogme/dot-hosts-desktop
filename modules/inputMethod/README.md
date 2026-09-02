@@ -6,12 +6,12 @@
 
 ## 核心特性
 
-- 🎯 **开箱即用 雾凇拼音（rime-ice）**：默认启用优质开源全拼词库与拼音方案，支持双拼（小鹤双拼、微软双拼、自然码等）一键切换。
-- 🎨 **深度主题与 UI 定制**：内建支持 Catppuccin（Mocha / Macchiato / Frappe / Latte）、TokyoNight、Nord、Material-Color 等精致主题，横排/竖排候选框自由定制。
-- 📚 **大词库与云拼音增强**：集成 `rime-zhwiki` 维基词库、`fcitx5-pinyin-zhwiki` 与百度云拼音增强联想。
-- 🚀 **Wayland / Hyprland 深度融合**：自动处理会话环境变量（`XMODIFIERS`, `GTK_IM_MODULE`, `QT_IM_MODULE`, `SDL_IM_MODULE`, `GLFW_IM_MODULE`），支持 Hyprland 自动启动与配置窗口居中浮动规则。
-- 🛡️ **Bubblewrap 沙箱无缝穿透**：底层沙箱工具库（`mk-sandboxed-app` 与 `profiles.nix`）自动穿透输入法套接字通道，保障 QQ、微信、VSCode、Firefox 等隔离应用即开即打。
-- 🔄 **系统与 Home Manager 双重联动**：全局声明式统一部署，自动同步至用户级别。
+- **开箱即用 雾凇拼音（rime-ice）**：默认启用优质开源全拼词库与拼音方案，支持双拼（小鹤双拼、微软双拼、自然码等）一键切换。
+- **深度主题与 UI 定制**：内建支持 Catppuccin（Mocha / Macchiato / Frappe / Latte）、TokyoNight、Nord、Material-Color 等精致主题，横排/竖排候选框自由定制。
+- **大词库与云拼音增强**：集成 `rime-zhwiki` 维基词库、`fcitx5-pinyin-zhwiki` 与百度云拼音增强联想。
+- **Wayland / Hyprland 深度融合**：默认启用 Wayland 原生输入法前端（text-input 协议），自动优化会话环境变量（`XMODIFIERS`, `QT_IM_MODULE`, `SDL_IM_MODULE`, `GLFW_IM_MODULE`，并在 Wayland 下按官方规范不设置 `GTK_IM_MODULE` 避免桌面诊断告警），支持 Hyprland 自动启动与配置窗口居中浮动规则。
+- **Bubblewrap 沙箱无缝穿透**：底层沙箱工具库（`mk-sandboxed-app` 与 `profiles.nix`）自动穿透输入法套接字通道，保障 QQ、微信、VSCode、Firefox 等隔离应用即开即打。
+- **系统与 Home Manager 双重联动**：全局声明式统一部署，自动同步至用户级别。
 
 ---
 
@@ -28,6 +28,7 @@ desktop.inputMethod.fcitx5 = {
 ```
 
 无需任何额外配置，系统将默认应用：
+
 - 默认输入法：Rime（雾凇拼音 `rime_ice`）
 - 默认快捷键：`Ctrl + Space` / `Shift_L` 激活与切换
 - 默认候选词：横排显示，每页 5 个词
@@ -105,6 +106,7 @@ desktop.inputMethod.fcitx5 = {
 | 选项路径 | 类型 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
 | `desktop.inputMethod.fcitx5.enable` | `bool` | `false` | 是否启用 Fcitx5 输入法模块 |
+| `desktop.inputMethod.fcitx5.waylandFrontend` | `bool` | `true` | 是否启用 Wayland 原生输入法前端（text-input，推荐保持 true 以避免 GTK_IM_MODULE 告警） |
 | `desktop.inputMethod.fcitx5.defaultInputMethod` | `str` | `"rime"` | 默认首选输入法标识（`"rime"` / `"pinyin"`） |
 | `desktop.inputMethod.fcitx5.theme.enable` | `bool` | `true` | 是否启用皮肤与主题支持 |
 | `desktop.inputMethod.fcitx5.theme.name` | `str` | `"catppuccin-mocha-mauve"` | 主题名称（支持 Catppuccin、Nord、Tokyonight、Material-Color） |
@@ -134,5 +136,5 @@ desktop.inputMethod.fcitx5 = {
 在 [`modules/apps/lib/profiles.nix`](../apps/lib/profiles.nix) 与 [`modules/apps/lib/mk-sandboxed-app.nix`](../apps/lib/mk-sandboxed-app.nix) 中：
 
 1. **套接字穿透**：默认通过 `--ro-bind-try $XDG_RUNTIME_DIR/fcitx5` 与 `$XDG_RUNTIME_DIR/bus` 穿透至沙箱内部。
-2. **环境变量自动注入**：沙箱内部启动脚本自动校验并导出 `XMODIFIERS`、`GTK_IM_MODULE`、`QT_IM_MODULE` 与 `SDL_IM_MODULE`。
+2. **环境变量自动注入**：沙箱内部启动脚本自动校验并导出 `XMODIFIERS`、`QT_IM_MODULE`、`SDL_IM_MODULE` 与 `GLFW_IM_MODULE`，在 Wayland 模式下自动取消 `GTK_IM_MODULE` 以优先使用原生 Wayland text-input 协议。
 3. **支持的应用**：已在 QQ NT、WeChat Universal、VSCode Insiders、Firefox Developer Edition、v2rayN 等所有沙箱应用中验证正常输入。
