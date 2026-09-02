@@ -299,8 +299,9 @@ in
       "net.ipv6.conf.all.forwarding" = 1;
     };
 
-    # 2. 放宽防火墙反向路径过滤 (避免多网卡与策略路由丢包)
+    # 2. 放宽防火墙反向路径过滤 (避免多网卡与策略路由丢包) 并信任 tun0 接口
     networking.firewall.checkReversePath = "loose";
+    networking.firewall.trustedInterfaces = [ "tun0" ];
 
     # 3. 创建专用系统组
     users.groups.proxy-bypass = {
