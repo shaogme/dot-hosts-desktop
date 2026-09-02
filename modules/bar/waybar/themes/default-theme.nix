@@ -512,7 +512,6 @@ let
       margin-right: 6px;
       font-weight: 700;
       font-size: 11px;
-      line-height: 1.2;
     }
 
     /* 启动器图标 */

@@ -152,7 +152,6 @@ let
     .floating-notifications.background .notification-row .notification-background .notification .notification-content .body {
       color: @foreground;
       font-size: 12px;
-      line-height: 1.4;
       margin-top: 4px;
     }
 
@@ -272,7 +271,6 @@ let
     .control-center .notification-row .notification-background .notification .notification-content .body {
       color: @foreground;
       font-size: 12px;
-      line-height: 1.4;
       margin-top: 2px;
     }
 
