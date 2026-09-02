@@ -103,7 +103,7 @@ in
     enable = true;
   };
 
-  desktop.launcher.wofi = {
+  desktop.launcher.anyrun = {
     enable = true;
   };
 
@@ -311,16 +311,8 @@ in
       message = "状态栏配置错误：Waybar 未启用";
     }
     {
-      assertion = config.desktop.launcher.wofi.enable == true;
-      message = "桌面启动器配置错误：Wofi 未启用";
-    }
-    {
-      assertion = config.desktop.launcher.wofi.allowImages == true;
-      message = "桌面启动器配置错误：Wofi 图像与图标渲染 (allowImages) 未启用";
-    }
-    {
-      assertion = config.desktop.launcher.wofi.mode == "drun";
-      message = "桌面启动器配置错误：Wofi 默认模式应当为 drun";
+      assertion = config.desktop.launcher.anyrun.enable == true;
+      message = "桌面启动器配置错误：Anyrun 未启用";
     }
     {
       assertion = config.desktop.powerMenu.wlogout.enable == true;

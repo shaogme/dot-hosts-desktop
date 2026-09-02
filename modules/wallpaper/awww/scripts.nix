@@ -247,11 +247,11 @@ let
       exit 1
     fi
 
-    # 优先使用 wofi 弹出选择，若无则使用 fzf 或 dmenu
-    if command -v wofi >/dev/null 2>&1; then
+    # 优先使用 anyrun 弹出选择，若无则使用 fzf 或 dmenu
+    if command -v anyrun >/dev/null 2>&1; then
       CHOICE=$(echo "$FILES" | while read -r f; do
-        printf "%s\0info\x1f%s\n" "$(${pkgs.coreutils}/bin/basename "$f")" "$f"
-      done | wofi --dmenu --prompt "选择桌面壁纸" --insensitive --allow-images --width 600 --height 450)
+        ${pkgs.coreutils}/bin/basename "$f"
+      done | anyrun --plugins libstdin.so)
       
       [ -z "$CHOICE" ] && exit 0
       

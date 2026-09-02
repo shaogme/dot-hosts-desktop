@@ -111,12 +111,12 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/xdg/hypr/hyprland.lua")
           server.succeed("test -f /etc/hypr/hyprland.lua")
 
-      # 验证启动器 (Wofi) 与 xdg-terminal-exec
-      if ${if (serverCfg.desktop ? launcher && serverCfg.desktop.launcher ? wofi && serverCfg.desktop.launcher.wofi.enable) then "True" else "False"}:
-          server.succeed("which wofi")
-          server.succeed("test -f /etc/xdg/wofi/config")
-          server.succeed("test -f /etc/wofi/config")
-          server.succeed("grep -q 'mode=drun' /etc/wofi/config")
+      # 验证启动器 (Anyrun) 与 xdg-terminal-exec
+      if ${if (serverCfg.desktop ? launcher && serverCfg.desktop.launcher ? anyrun && serverCfg.desktop.launcher.anyrun.enable) then "True" else "False"}:
+          server.succeed("which anyrun")
+          server.succeed("test -f /etc/xdg/anyrun/config.ron")
+          server.succeed("test -f /etc/anyrun/config.ron")
+          server.succeed("test -f /etc/anyrun/style.css")
           server.succeed("which xdg-terminal-exec")
           server.succeed("test -f /etc/xdg/xdg-terminals.list")
           server.succeed("grep -q 'kitty.desktop' /etc/xdg/xdg-terminals.list")

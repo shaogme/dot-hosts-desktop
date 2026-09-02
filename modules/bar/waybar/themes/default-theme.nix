@@ -245,8 +245,8 @@ let
     "custom/menu" = {
       format = "<span size='11500'></span>";
       tooltip = true;
-      tooltip-format = "应用启动器 (Wofi)\n• 左键：搜索并启动应用\n• 右键：打开终端";
-      on-click = "wofi --show drun --allow-images";
+      tooltip-format = "应用启动器 (Anyrun)\n• 左键：搜索并启动应用\n• 右键：打开终端";
+      on-click = "anyrun";
       on-click-right = "kitty";
     };
 
