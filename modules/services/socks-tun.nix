@@ -366,6 +366,10 @@ in
             ip daddr 127.0.0.0/8 accept;
             ip6 daddr ::1 accept;
           }
+          chain postrouting {
+            type nat hook postrouting priority srcnat; policy accept;
+            oifname != "tun0" meta mark 0x55 masquerade;
+          }
         '';
       };
     };
