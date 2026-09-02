@@ -502,6 +502,14 @@ in
         anyrunPowerScript
       ];
 
+      # 忽略 systemd-logind 对物理电源按键的默认关机动作，交由 Anyrun 电源菜单快捷键接管
+      services.logind.settings = {
+        Login = {
+          HandlePowerKey = "ignore";
+          HandlePowerKeyLongPress = "ignore";
+        };
+      };
+
       # 配置 XDG 默认终端规范 (xdg-terminal-exec)，确保 GLib/GIO 及 Anyrun drun/applications 模式正常拉起终端
       xdg.terminal-exec = {
         enable = true;
