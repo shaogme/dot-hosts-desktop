@@ -35,6 +35,11 @@ mkSandboxedApp {
     QT_SCALE_FACTOR_ROUNDING_POLICY = "PassThrough";
   };
 
+  # 虚拟环境兼容：提供 /usr/bin/lsblk 符号链接，避免微信调用 lsblk 探测块设备时报错
+  extraBuildCommands = ''
+    ln -sf ${pkgs.coreutils}/bin/true $out/usr/bin/lsblk
+  '';
+
   postUnpack = ''
     if [ -d "$out/opt/apps/com.tencent.wechat/entries/icons" ]; then
       mkdir -p $out/share

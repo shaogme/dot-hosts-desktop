@@ -64,7 +64,7 @@ rec {
 
     # 字体与文本排版引擎
     fonts = pkgs: with pkgs; [
-      fontconfig
+      fontconfig.lib
       freetype
       harfbuzz
     ];

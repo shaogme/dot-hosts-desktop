@@ -35,6 +35,7 @@ in
   customPostBuild ? "",          # symlinkJoin 的自定义 postBuild 逻辑
   aliases ? [],                  # 可执行命令别名列表 (如 [ "firefox-devedition" ])
   postUnpack ? "",               # 解包后的自定义处理逻辑
+  extraBuildCommands ? "",       # FHS 根文件系统构建期的自定义命令 (如创建软链接或额外文件)
   windowRules ? [],              # 该应用的 Hyprland 专用窗口规则列表 (window_rule)
   hyprlandRules ? [],            # 别名: 等同于 windowRules
 }:
@@ -135,11 +136,16 @@ let
     exec "${unpacked}/${execPath}" "$@"
   '';
 
+  resolvedExtraBuildCommands =
+    if lib.isFunction extraBuildCommands then extraBuildCommands pkgs
+    else extraBuildCommands;
+
   # 6. 构建 FHS 运行环境
   fhs = pkgs.buildFHSEnv {
     name = "${pname}-fhs";
     targetPkgs = resolvedTargetPkgs;
     extraBwrapArgs = bwrapArgs;
+    extraBuildCommands = resolvedExtraBuildCommands;
     runScript = launcherScript;
     unshareUser = effectiveBypassProxy;
   };
