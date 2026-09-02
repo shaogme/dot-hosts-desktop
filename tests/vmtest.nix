@@ -147,6 +147,8 @@ pkgs.testers.nixosTest {
           server.succeed("which notify-send")
           server.succeed("test -f /etc/xdg/swaync/config.json")
           server.succeed("test -f /etc/xdg/swaync/style.css")
+          server.succeed("test -f /run/current-system/sw/share/dbus-1/services/org.freedesktop.Notifications.service")
+          server.succeed("test -f /run/current-system/sw/share/dbus-1/services/org.erikreider.swaync.cc.service")
 
       # 验证文件管理器 (Yazi)
       if ${if (serverCfg.desktop ? fileManager && serverCfg.desktop.fileManager ? yazi && serverCfg.desktop.fileManager.yazi.enable) then "True" else "False"}:
