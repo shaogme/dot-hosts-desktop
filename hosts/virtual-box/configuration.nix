@@ -96,7 +96,7 @@ in
   # 登录管理器 (tuigreet)
   desktop.loginManager.tuigreet = {
     enable = true;
-    command = "start-hyprland";
+    defaultSession = "hyprland";
     display = {
       showTime = true;
     };
@@ -251,6 +251,10 @@ in
     {
       assertion = config.desktop.loginManager.tuigreet.enable == true;
       message = "登录管理器配置错误：tuigreet 未启用";
+    }
+    {
+      assertion = config.desktop.loginManager.tuigreet.defaultSession == "hyprland";
+      message = "登录管理器配置错误：tuigreet 默认会话应配置为 hyprland";
     }
     {
       assertion = config.base.container.podman.enable == true;

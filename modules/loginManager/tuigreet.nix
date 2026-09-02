@@ -135,6 +135,18 @@ let
   # 将结构化配置与用户传入的 settings 深度合并
   finalConfig = recursiveUpdate (filterNulls rawConfig) cfg.settings;
   configFile = tomlFormat.generate "tuigreet.toml" finalConfig;
+
+  defaultSessionName =
+    if cfg.defaultSession != null then
+      (if hasSuffix ".desktop" cfg.defaultSession then cfg.defaultSession else "${cfg.defaultSession}.desktop")
+    else
+      null;
+
+  defaultSessionPath =
+    if cfg.defaultSession != null then
+      "${config.services.displayManager.sessionData.desktops}/share/wayland-sessions/${defaultSessionName}"
+    else
+      null;
 in
 {
   options.desktop.loginManager.tuigreet = {
@@ -155,8 +167,15 @@ in
 
     command = mkOption {
       type = types.nullOr types.str;
-      default = "start-hyprland";
-      description = "默认启动的会话命令（如 start-hyprland、sway 等）。";
+      default = null;
+      description = "默认启动的原始命令行（如自定义启动脚本等）。若设置，tuigreet 将作为裸命令启动，优先级高于桌面会话。";
+    };
+
+    defaultSession = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "hyprland";
+      description = "tuigreet 默认选中的桌面会话（如 hyprland、sway 等）。不提供预设默认项，需由用户手动配置。配置后系统将自动预置 tuigreet 会话缓存，确保登录界面默认选中指定的会话。";
     };
 
     consoleSession = {
@@ -705,6 +724,16 @@ in
   };
 
   config = mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.defaultSession != null -> cfg.remember.session;
+        message = "desktop.loginManager.tuigreet.defaultSession 需要开启 remember.session (desktop.loginManager.tuigreet.remember.session = true) 以便持久化与加载预置桌面会话。";
+      }
+    ];
+
+    # 将 defaultSession 同步至系统 displayManager.defaultSession
+    services.displayManager.defaultSession = mkIf (cfg.defaultSession != null) (mkDefault cfg.defaultSession);
+
     # 启用底层 greetd 服务并配置 tuigreet
     services.greetd = {
       enable = true;
@@ -720,7 +749,9 @@ in
     # 确保 tuigreet 缓存目录存在且权限正确（用于记住用户名及上次会话）
     systemd.tmpfiles.rules = [
       "d /var/cache/tuigreet 0755 ${cfg.user} ${cfg.user} -"
-    ];
+    ] ++ (optional (cfg.defaultSession != null)
+      "f+ /var/cache/tuigreet/lastsession-path 0644 ${cfg.user} ${cfg.user} - ${defaultSessionPath}"
+    );
 
     # 将生成的 TOML 配置文件同步至 /etc/tuigreet/config.toml
     environment.etc."tuigreet/config.toml".source = configFile;

@@ -101,6 +101,8 @@ pkgs.testers.nixosTest {
           server.succeed("test -d /var/cache/tuigreet")
           if ${if serverCfg.desktop.loginManager.tuigreet.consoleSession.enable or false then "True" else "False"}:
               server.succeed("test -f ${serverCfg.services.displayManager.sessionData.desktops}/share/wayland-sessions/console.desktop")
+          if ${if (serverCfg.desktop.loginManager.tuigreet.defaultSession or null) != null then "True" else "False"}:
+              server.succeed("test -f /var/cache/tuigreet/lastsession-path")
 
       # 验证窗口管理器 (Hyprland)、启动器 (Wofi) 与电源中心 (wlogout)
       if ${if serverCfg.desktop.windowManager.hyprland.enable or false then "True" else "False"}:
