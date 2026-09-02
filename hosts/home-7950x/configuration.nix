@@ -76,7 +76,8 @@ in
   base.update = {
     enable = true;
     upgrade = {
-      enable = false;
+      enable = true;
+      timer.enable = false;
       type = "legacy";
       allowReboot = true;
     };
