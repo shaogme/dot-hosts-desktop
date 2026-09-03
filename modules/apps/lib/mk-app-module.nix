@@ -1,12 +1,11 @@
 {
   name,
   description,
-  package,                     # 软件包路径 ./package.nix 或 Derivation 或函数
-  aliases ? [],                # 模块别名列表 (如 [ "firefox-devedition" ])
-  windowRules ? [],            # 注册到 Hyprland 的专用窗口规则 (window_rule)
-  hyprlandRules ? [],          # 别名: 等同于 windowRules
-  extraOptions ? {},           # 附加的 NixOS options
-  extraConfig ? (cfg: {}),     # 附加的 NixOS config 逻辑
+  package,
+  aliases ? [ ],
+  windowRules ? [ ],
+  extraOptions ? { },
+  extraConfig ? (cfg: { }),
 }:
 
 { config, pkgs, lib, ... }:
@@ -16,7 +15,6 @@ with lib;
 let
   cfg = config.desktop.apps.${name};
 
-  # 检查是否有任何别名被启用
   aliasConfigs = map (alias: config.desktop.apps.${alias}) aliases;
   isAnyAliasEnabled = any (a: a.enable) aliasConfigs;
 
@@ -28,36 +26,25 @@ let
     else
       package;
 
-  # 获取有效生效的 package 实例
   effectivePackage =
     let
       customAliasPkg = findFirst (a: a.enable && a.package != cfg.package) null aliasConfigs;
-      basePkg = if customAliasPkg != null then customAliasPkg.package else cfg.package;
-      hasCustomDirs = (cfg ? sharedDirs && cfg.sharedDirs != [ ])
-        || (cfg ? roSharedDirs && cfg.roSharedDirs != [ ]);
-      hasThemeOverride = cfg ? theme && !(cfg.theme.shareHostTheme or true);
     in
-    if (hasCustomDirs || hasThemeOverride) && basePkg ? override then
-      basePkg.override (old: {
-        sandbox = (old.sandbox or { }) // {
-          sharedDirs = (old.sandbox.sharedDirs or [ ]) ++ (cfg.sharedDirs or [ ]);
-          roSharedDirs = (old.sandbox.roSharedDirs or [ ]) ++ (cfg.roSharedDirs or [ ]);
-        } // lib.optionalAttrs hasThemeOverride {
-          shareTheme = cfg.theme.shareHostTheme;
-        };
-      })
-    else
-      basePkg;
+    if customAliasPkg != null then customAliasPkg.package else cfg.package;
 
-  # 汇总该应用的所有关联窗口规则 (包括直接传入规则及 package passthru 规则)
   effectiveWindowRules = unique (
     windowRules
-    ++ hyprlandRules
     ++ (effectivePackage.passthru.windowRules or [ ])
     ++ (effectivePackage.windowRules or [ ])
   );
 
-  # 构造主选项定义
+  appMeta = effectivePackage.passthru.appMeta or null;
+  sandboxName = if appMeta != null then appMeta.sandboxName else name;
+  homeDirs = if appMeta != null then appMeta.homeDirs or [ ] else [ ];
+  bypassProxy = if appMeta != null then appMeta.bypassProxy or false else false;
+  fhsDrv = effectivePackage.passthru.fhs or null;
+  pnameOf = if appMeta != null then appMeta.pname else name;
+
   mainOptions = {
     ${name} = {
       enable = mkEnableOption "${description}（基于 Bubblewrap 沙箱与 FHS 隔离运行）";
@@ -69,44 +56,14 @@ let
         description = "使用的 ${description} 软件包实例。";
       };
 
-      sharedDirs = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        description = "额外与宿主机共享的读写目录列表（相对于 $HOME 或绝对路径）。";
-      };
-
-      roSharedDirs = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        description = "额外与宿主机共享的只读目录列表（相对于 $HOME 或绝对路径）。";
-      };
-
       windowRules = mkOption {
         type = types.listOf (types.attrsOf types.anything);
         default = effectiveWindowRules;
         description = "该应用程序在 Hyprland 下生效的专用窗口规则 (window_rule)。";
       };
-
-      theme = {
-        shareHostTheme = mkOption {
-          type = types.bool;
-          default = true;
-          description = ''
-            是否将宿主机的 GTK 主题配置穿透进沙箱（默认启用）。
-            启用后，Bubblewrap 会以只读方式挂载以下路径进沙箱：
-            - $XDG_CONFIG_HOME/gtk-3.0
-            - $XDG_CONFIG_HOME/gtk-4.0
-            - $XDG_RUNTIME_DIR/desktop-theme
-            - $XDG_RUNTIME_DIR/darkman
-            - $XDG_DATA_HOME/icons 和 $HOME/.icons
-            禁用后，沙箱使用独立的 GTK 配置目录（由 wrapper 初始化 Adwaita 回退）。
-          '';
-        };
-      };
     } // extraOptions;
   };
 
-  # 构造别名选项定义
   aliasOptions = genAttrs aliases (alias: {
     enable = mkOption {
       type = types.bool;
@@ -130,7 +87,21 @@ in
       environment.systemPackages = [
         effectivePackage
       ];
+
+      systemd.user.tmpfiles.rules =
+        [ "d %h/.sandboxes/${sandboxName} 0755 - - -" ]
+        ++ (map (dir: "d %h/.sandboxes/${sandboxName}/${dir} 0755 - - -") homeDirs);
+
+      users.groups.proxy-bypass = mkIf bypassProxy { };
     }
+    (mkIf bypassProxy {
+      security.wrappers."${pnameOf}-bwrap" = mkIf (fhsDrv != null) {
+        source = "${fhsDrv}/bin/${pnameOf}-fhs";
+        owner = "root";
+        group = "proxy-bypass";
+        setgid = true;
+      };
+    })
     (mkIf (cfg.windowRules != [ ] && config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri) {
       desktop.windowManager.niri.extraRules = cfg.windowRules;
     })

@@ -1,4 +1,4 @@
-{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? pkgs.callPackage ../lib/mk-sandboxed-app.nix { inherit lib; } }:
+{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
 
 let
   sources = import ./npins;
@@ -10,23 +10,24 @@ let
     if match != null then builtins.elemAt match 0
     else throw "vscode: Could not parse version from URL: ${sources.vscode.url}";
 in
-mkSandboxedApp {
+mkSandboxedApp.electronApp {
   pname = "vscode";
   inherit version;
-  src = sources.vscode;
-  srcType = "deb";
+  src = { deb = sources.vscode; };
   execPath = "share/code/bin/code";
 
-  profiles = [ "desktop-gui" "media" "electron" ];
-  sandboxDirs = [ ".config/Code" ".vscode" ];
-  hostDirs = [ ".config/Code" ".vscode" ];
+  sandbox = { homeDirs = [ ".config/Code" ".vscode" ]; };
 
-  postUnpack = ''
-    mkdir -p $out/share/icons/hicolor/512x512/apps
-    if [ -f "$out/share/pixmaps/vscode.png" ]; then
-      cp "$out/share/pixmaps/vscode.png" "$out/share/icons/hicolor/512x512/apps/vscode.png"
-    fi
-  '';
+  postUnpackHooks = [
+    ''
+      mkdir -p $out/share/icons/hicolor/512x512/apps
+      if [ -f "$out/share/pixmaps/vscode.png" ]; then
+        cp "$out/share/pixmaps/vscode.png" "$out/share/icons/hicolor/512x512/apps/vscode.png"
+      fi
+    ''
+  ];
+
+  icons = { hicolor.auto = true; };
 
   aliases = [ "code" ];
 

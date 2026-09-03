@@ -6,12 +6,19 @@
 
 ## 统一工具抽象体系
 
-为消除各 App 在 FHS 依赖、Bubblewrap 沙箱隔离、包装脚本与 Desktop 快捷方式创建中的样板代码，仓库在 [`modules/apps/lib/`](./lib/) 下提供了统一的抽象工具库：
+为消除各 App 在 FHS 依赖、Bubblewrap 沙箱隔离、包装脚本与 Desktop 快捷方式创建中的样板代码，仓库在 [`modules/apps/lib/`](./lib/) 下提供了统一的抽象工具库（静态特化管线，零 `for` 循环遍历与运行时分支）：
 
-- **[`lib/mk-sandboxed-app.nix`](./lib/mk-sandboxed-app.nix)**: 统一沙箱应用构建器（整合解包、FHS、bwrap、Launcher/Wrapper 生成、Desktop Item 与图标提取）。
-- **[`lib/mk-app-module.nix`](./lib/mk-app-module.nix)**: 统一 NixOS 模块生成器（自动生成 `options.desktop.apps.<name>`、别名支持与系统环境集成）。
-- **[`lib/profiles.nix`](./lib/profiles.nix)**: 预置依赖 Profile 库（`desktop-gui`, `gtk3`, `webkitgtk`, `dotnet`, `media` 等）与沙箱规则生成器。
-- **[`lib/unpackers.nix`](./lib/unpackers.nix)**: 通用解包引擎（支持 `deb`、`tarball` 及多系统架构自动适配）。
+- **[`lib/mk-sandboxed-app/`](./lib/mk-sandboxed-app/)**: 统一沙箱应用构建器目录，对外 API 为 `mkSandboxedApp.{base,desktopApp,electronApp,firefoxApp,qtApp,webkitApp,dotnetApp}` 特化构造器与 `fhsBases` 共享基底：
+  - [`default.nix`](./lib/mk-sandboxed-app/default.nix): 对外装配（`mkCore` 纯静态管线）。
+  - [`types.nix`](./lib/mk-sandboxed-app/types.nix): ADT 定义（`Src` / `Icons` / `Sandbox` / `Env`，封闭集合，未知字段直接 `throw`）。
+  - [`fhs-bases.nix`](./lib/mk-sandboxed-app/fhs-bases.nix): 共享 FHS 基底（`desktop-gui` 等高频组合预计算，`listToAttrs` O(n) 去重）。
+  - [`sandbox.nix`](./lib/mk-sandboxed-app/sandbox.nix): 类型化 bwrap 参数生成器。
+  - [`mk-unpacked.nix`](./lib/mk-sandboxed-app/mk-unpacked.nix): `Src` ADT 静态分发解包（含 `resolveArch`）。
+  - [`mk-launcher-env.nix`](./lib/mk-sandboxed-app/mk-launcher-env.nix): FHS `/etc/profile` 预烘焙环境（零 `for`/`grep`/`cat`）。
+  - [`mk-wrapper.nix`](./lib/mk-sandboxed-app/mk-wrapper.nix): 扁平 wrapper（`exec` + 单 `mkdir` 回退）。
+  - [`mk-desktop.nix`](./lib/mk-sandboxed-app/mk-desktop.nix): `desktopItem` + 图标（单次 `find -exec`）+ 别名（`linkFarm`）。
+  - [`mk-fhs-env.nix`](./lib/mk-sandboxed-app/mk-fhs-env.nix): 专用 FHS 构造器。
+- **[`lib/mk-app-module.nix`](./lib/mk-app-module.nix)**: 统一 NixOS 模块生成器（`options.desktop.apps.<name>`、别名支持、`systemd.user.tmpfiles` 沙箱目录声明、`security.wrappers` 特权切换、Niri 规则集成）。
 
 ---
 
@@ -68,7 +75,7 @@ modules/apps/<app-name>/
 创建 `modules/apps/<app-name>/package.nix`：
 
 ```nix
-{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? pkgs.callPackage ../lib/mk-sandboxed-app.nix { inherit lib; } }:
+{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
 
 let
   sources = import ./npins;
@@ -76,16 +83,15 @@ let
   version = lib.removePrefix "v" rawVersion;
   debUrl = "https://github.com/<owner>/<repo>/releases/download/v${version}/<app>_${version}_amd64.deb";
 in
-mkSandboxedApp {
+mkSandboxedApp.webkitApp {
   pname = "<app-name>";
   inherit version;
-  src = builtins.fetchurl debUrl;
-  srcType = "deb";
+  src = { deb = builtins.fetchurl debUrl; };
   execPath = "bin/<executable>";
 
-  # 依赖 Profile 组合 (如 desktop-gui, webkitgtk, dotnet, media 等)
-  profiles = [ "desktop-gui" "webkitgtk" ];
-  hostDirs = [ ".config/<app-name>" ];
+  # 共享 FHS 基底按构造器默认提供 (webkitApp = desktop-gui + webkitgtk);
+  # 需增量依赖时显式扩展: fhsBase = mkSandboxedApp.extend mkSandboxedApp.fhsBases.desktop-gui-webkitgtk (pkgs: [ pkgs.foo ]);
+  sandbox = { homeDirs = [ ".config/<app-name>" ]; };
 
   desktop = {
     desktopName = "<App Display Name>";
@@ -96,6 +102,12 @@ mkSandboxedApp {
   };
 }
 ```
+
+> 构造器选型：`base`（显式 `fhsBase`）· `desktopApp` · `electronApp` · `firefoxApp`（默认 `icons.firefox`）· `qtApp` · `webkitApp` · `dotnetApp`。
+> `src` 仅接受 ADT（`{ deb = …; }` | `{ tarball = …; }` | `{ custom = …; }`）；
+> `sandbox` 为封闭集合（未知字段直接 `throw`），持久目录统一声明于 `sandbox.homeDirs`（由模块层 `systemd.user.tmpfiles` 预建）；
+> `icons` 仅接受 ADT（`{ hicolor.auto = true; }` | `{ firefox = {}; }` | `{ none = true; }`）；
+> 启动钩子仅接受静态字符串列表（`preRunHooks` / `fhsExtraCommands` / `postUnpackHooks` / `postBuildHooks`，`@UNPACKED@` 在构建期替换为解包路径）。
 
 ---
 
@@ -324,7 +336,7 @@ if [ "$CURRENT_URL" != "$NEW_URL" ]; then
 fi
 ```
 
-- **`package.nix` 配合**：在 [`firefox-developer-edition/package.nix`](./firefox-developer-edition/package.nix) 中通过 `srcType = "tarball"` 配合 `unpackers.nix` 自动解压 `.tar.xz`，并通过正则从 URL 解析版本号：
+- **`package.nix` 配合**：在 [`firefox-developer-edition/package.nix`](./firefox-developer-edition/package.nix) 中通过 `src = { tarball = sources.firefox-developer-edition; }` ADT 由管线静态分发解压 `.tar.xz`，并通过正则从 URL 解析版本号：
 
   ```nix
   version =
@@ -341,21 +353,21 @@ fi
 为了实现真正的“零手动介入更新”，建议 `package.nix` 与 `update.sh` 采用如下解耦规范：
 
 1. **版本号动态提取**：永远不要在 `package.nix` 中硬编码固定版本号。对于 `type = "Url"` 或 `type = "Tarball"`，使用 `builtins.match` 从 `sources.<name>.url` 中动态提取。
-2. **源码引用直通**：直接将 `sources.<name>` 赋给 `src`（或通过 `pkgs.fetchurl` 传递特定 header），配合 `srcType = "deb"` / `srcType = "tarball"` 由 `mkSandboxedApp` 统一处理解包和 FHS 组装。
+2. **源码引用直通**：将 `sources.<name>` 包裹为 `src = { deb = sources.<name>; }` / `src = { tarball = sources.<name>; }` ADT（或通过 `pkgs.fetchurl` 传递特定 header 后同样包裹），由管线静态分发解包和 FHS 组装。
 3. **一键全量维护**：执行 `bash scripts/update-npins.sh` 时，所有定制应用的 `update.sh` 会自动拉取最新版本，`npins/sources.json` 自动锁定哈希，Nix 配置无需任何手动代码修改即可构建最新版。
 
 ---
 
-## 常用 Profile 清单
+## 共享 FHS 基底清单
 
-| Profile 名称 | 包含组件与适用场景 |
+| 基底键 | 包含组件与适用场景 |
 | :--- | :--- |
-| **`desktop-gui`** | 通用桌面 GUI 元 Profile：整合基础 C 运行时、X11、Wayland、GPU 加速、PipeWire 音频、Fontconfig 字体及 GTK3 |
-| **`electron`** | Electron / Chromium 基础运行环境（at-spi2-core、expat、libsecret、libnotify、NSS、NSPR、systemd 等，如 QQ、VSCode） |
-| **`xcb`** | XCB / Qt 附加图形环境（xcbutilimage、xcbutilkeysyms、xcbutilwm 等，如微信 WeChat Universal） |
-| **`webkitgtk`** | WebKitGTK 4.1 与 libsoup3 支持（如 Clash Verge Rev、Tauri 应用） |
-| **`dotnet`** | .NET CoreCLR / Avalonia UI 运行时依赖（ICU、SQLite 原生库等，如 v2rayN） |
-| **`media`** | 完整多媒体与安全编解码库（FFmpeg、libvpx、NSS、NSPR 等，如 Firefox） |
+| **`desktop-gui`** | 通用桌面 GUI 元基底：整合基础 C 运行时、X11、Wayland、GPU 加速、PipeWire 音频、Fontconfig 字体及 GTK3 |
+| **`desktop-gui-electron-media`** | `electronApp` 默认：桌面基底 + Electron/Chromium 运行时 + 多媒体编解码（如 QQ、VSCode） |
+| **`desktop-gui-electron-media-xcb-qt`** | `qtApp` 默认：桌面基底 + Electron + 多媒体 + XCB/Qt5/Qt6（如微信 WeChat Universal） |
+| **`desktop-gui-webkitgtk`** | `webkitApp` 默认：桌面基底 + WebKitGTK 4.1 与 libsoup3（如 Clash Verge Rev、Tauri 应用） |
+| **`desktop-gui-dotnet`** | `dotnetApp` 默认：桌面基底 + .NET CoreCLR 运行时依赖（ICU、SQLite 等，如 v2rayN） |
+| **`desktop-gui-media`** | `firefoxApp` 默认：桌面基底 + 完整多媒体与安全编解码库（FFmpeg、libvpx、NSS、NSPR 等，如 Firefox） |
 
 ---
 

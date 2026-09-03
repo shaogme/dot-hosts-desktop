@@ -1,4 +1,4 @@
-{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? pkgs.callPackage ../lib/mk-sandboxed-app.nix { inherit lib; } }:
+{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
 
 let
   sources = import ./npins;
@@ -6,16 +6,18 @@ let
   version = lib.removePrefix "v" rawVersion;
   debUrl = "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v${version}/Clash.Verge_${version}_amd64.deb";
 in
-mkSandboxedApp {
+mkSandboxedApp.webkitApp {
   pname = "clash-verge";
   inherit version;
-  src = builtins.fetchurl debUrl;
-  srcType = "deb";
+  src = { deb = builtins.fetchurl debUrl; };
   execPath = "bin/clash-verge";
 
-  profiles = [ "desktop-gui" "webkitgtk" ];
-  bypassProxy = true;
-  hostDirs = [ ".config/clash-verge" ".config/clash-verge-rev" ];
+  sandbox = {
+    bypassProxy = true;
+    homeDirs = [ ".config/clash-verge" ".config/clash-verge-rev" ];
+  };
+
+  icons = { hicolor.auto = true; };
 
   desktop = {
     desktopName = "Clash Verge Rev";

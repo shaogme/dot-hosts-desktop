@@ -1,4 +1,4 @@
-{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? pkgs.callPackage ../lib/mk-sandboxed-app.nix { inherit lib; } }:
+{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
 
 let
   sources = import ./npins;
@@ -10,30 +10,28 @@ let
     if match != null then builtins.elemAt match 1
     else throw "qq: Could not parse version from URL: ${sources.qq.url}";
 in
-mkSandboxedApp {
+mkSandboxedApp.electronApp {
   pname = "qq";
   inherit version;
-  src = sources.qq;
-  srcType = "deb";
+  src = { deb = sources.qq; };
   execPath = "opt/QQ/qq";
   runInDirectory = "opt/QQ";
 
-  profiles = [ "desktop-gui" "media" "electron" ];
-  extraPkgs = pkgs: with pkgs; [
+  fhsBase = mkSandboxedApp.extend mkSandboxedApp.fhsBases.desktop-gui-electron-media (pkgs: with pkgs; [
     libuuid
     libgcrypt
     libxft
     gnutls
     nettle
     gmp
-  ];
-  sandboxDirs = [ ".config/QQ" ];
-  hostDirs = [ ".config/QQ" ];
+  ]);
 
-  preRunHook = ''
-    mkdir -p "$HOME/.config/QQ"
-    rm -rf "$HOME/.config/QQ/crash_files"/* 2>/dev/null || true
-  '';
+  sandbox = { homeDirs = [ ".config/QQ" ]; };
+
+  preRunHooks = [
+    ''mkdir -p "$HOME/.config/QQ"''
+    ''rm -rf "$HOME/.config/QQ/crash_files"/* 2>/dev/null || true''
+  ];
 
   aliases = [ "linuxqq" ];
 

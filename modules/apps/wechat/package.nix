@@ -1,4 +1,4 @@
-{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? pkgs.callPackage ../lib/mk-sandboxed-app.nix { inherit lib; } }:
+{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
 
 let
   sources = import ./npins;
@@ -17,43 +17,46 @@ let
     curlOptsList = [ "-A" "debian APT-HTTP/1.3 (1.6.11)" ];
   };
 in
-mkSandboxedApp {
+mkSandboxedApp.qtApp {
   pname = "wechat";
-  inherit version src;
-  srcType = "deb";
+  inherit version;
+  src = { deb = src; };
   execPath = "opt/apps/com.tencent.wechat/files/wechat";
   runInDirectory = "opt/apps/com.tencent.wechat/files";
 
-  profiles = [ "desktop-gui" "media" "electron" "xcb" "qt" ];
-  sandboxDirs = [ ".xwechat" "Documents/WeChat_Data" "xwechat_files" ];
-  hostDirs = [ ".xwechat" "Documents/WeChat_Data" "xwechat_files" ];
+  sandbox = { homeDirs = [ ".xwechat" "Documents/WeChat_Data" "xwechat_files" ]; };
 
-  environment = {
+  env = {
     QT_QPA_PLATFORM = "wayland;xcb";
     QT_WAYLAND_DISABLE_WINDOWDECORATION = "1";
     QT_AUTO_SCREEN_SCALE_FACTOR = "1";
     QT_SCALE_FACTOR_ROUNDING_POLICY = "PassThrough";
   };
 
-  # 虚拟环境兼容：提供 /usr/bin/lsblk 符号链接，避免微信调用 lsblk 探测块设备时报错
-  extraBuildCommands = ''
-    ln -sf ${pkgs.coreutils}/bin/true $out/usr/bin/lsblk
-  '';
+  # 虚拟环境兼容: 提供 /usr/bin/lsblk 符号链接, 避免微信调用 lsblk 探测块设备时报错
+  fhsExtraCommands = [
+    "ln -sf ${pkgs.coreutils}/bin/true $out/usr/bin/lsblk"
+  ];
 
-  postUnpack = ''
-    if [ -d "$out/opt/apps/com.tencent.wechat/entries/icons" ]; then
-      mkdir -p $out/share
-      cp -rn $out/opt/apps/com.tencent.wechat/entries/icons $out/share/
-      chmod -R u+w $out/share/icons 2>/dev/null || true
-      for icon_dir in "$out"/share/icons/hicolor/*/apps; do
-        if [ -d "$icon_dir" ]; then
-          if [ -f "$icon_dir/com.tencent.wechat.png" ] && [ ! -f "$icon_dir/wechat.png" ]; then
-            ln -sf "$icon_dir/com.tencent.wechat.png" "$icon_dir/wechat.png"
+  postUnpackHooks = [
+    ''
+      if [ -d "$out/opt/apps/com.tencent.wechat/entries/icons" ]; then
+        mkdir -p $out/share
+        cp -a --reflink=auto $out/opt/apps/com.tencent.wechat/entries/icons $out/share/ 2>/dev/null \
+          || cp -rn $out/opt/apps/com.tencent.wechat/entries/icons $out/share/
+        chmod -R u+w $out/share/icons 2>/dev/null || true
+        find "$out/share/icons" -type f -name "com.tencent.wechat.png" -exec sh -c '
+          link="$1"
+          d=$(dirname "$link")
+          if [ ! -e "$d/wechat.png" ]; then
+            ln -sf "$link" "$d/wechat.png"
           fi
-        fi
-      done
-    fi
-  '';
+        ' _ {} \;
+      fi
+    ''
+  ];
+
+  icons = { hicolor.auto = true; };
 
   aliases = [ "wechat-universal" "weixin" ];
 

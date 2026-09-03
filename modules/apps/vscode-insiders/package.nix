@@ -1,4 +1,4 @@
-{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? pkgs.callPackage ../lib/mk-sandboxed-app.nix { inherit lib; } }:
+{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
 
 let
   sources = import ./npins;
@@ -10,23 +10,24 @@ let
     if match != null then builtins.elemAt match 0
     else throw "vscode-insiders: Could not parse version from URL: ${sources.vscode-insiders.url}";
 in
-mkSandboxedApp {
+mkSandboxedApp.electronApp {
   pname = "vscode-insiders";
   inherit version;
-  src = sources.vscode-insiders;
-  srcType = "deb";
+  src = { deb = sources.vscode-insiders; };
   execPath = "share/code-insiders/bin/code-insiders";
 
-  profiles = [ "desktop-gui" "media" "electron" ];
-  sandboxDirs = [ ".config/Code - Insiders" ".vscode-insiders" ];
-  hostDirs = [ ".config/Code - Insiders" ".vscode-insiders" ];
+  sandbox = { homeDirs = [ ".config/Code - Insiders" ".vscode-insiders" ]; };
 
-  postUnpack = ''
-    mkdir -p $out/share/icons/hicolor/512x512/apps
-    if [ -f "$out/share/pixmaps/vscode-insiders.png" ]; then
-      cp "$out/share/pixmaps/vscode-insiders.png" "$out/share/icons/hicolor/512x512/apps/vscode-insiders.png"
-    fi
-  '';
+  postUnpackHooks = [
+    ''
+      mkdir -p $out/share/icons/hicolor/512x512/apps
+      if [ -f "$out/share/pixmaps/vscode-insiders.png" ]; then
+        cp "$out/share/pixmaps/vscode-insiders.png" "$out/share/icons/hicolor/512x512/apps/vscode-insiders.png"
+      fi
+    ''
+  ];
+
+  icons = { hicolor.auto = true; };
 
   aliases = [ "code-insiders" "vscode-insider" "code-insider" ];
 
