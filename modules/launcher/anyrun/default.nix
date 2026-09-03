@@ -526,18 +526,19 @@ in
       # 联动向 Niri 注册快捷键
       desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable) {
         extraBinds =
-          (optional (cfg.niri.keybind != "") {
+          (optionalAttrs (cfg.niri.keybind != "") {
             "${cfg.niri.keybind}" = {
               _props.hotkey-overlay-title = "Application Launcher: Anyrun";
               spawn = [ "anyrun" ];
             };
           })
-          ++ (map (bindStr: {
-            "${bindStr}" = {
+          // (listToAttrs (map (bindStr: {
+            name = bindStr;
+            value = {
               _props.hotkey-overlay-title = "Power Menu";
               spawn = [ "anyrun-power" ];
             };
-          }) cfg.niri.powerKeybinds);
+          }) cfg.niri.powerKeybinds));
       };
     }
 

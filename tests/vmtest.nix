@@ -109,7 +109,10 @@ pkgs.testers.nixosTest {
           server.succeed("which niri")
           server.succeed("test -f /etc/xdg/niri/config.kdl")
           server.succeed("test -f /etc/niri/config.kdl")
+          server.succeed("test -f /etc/xdg/niri/config-gamemode.kdl")
+          server.succeed("test -f /etc/niri/config-gamemode.kdl")
           server.succeed("niri validate --config /etc/niri/config.kdl")
+          server.succeed("niri validate --config /etc/niri/config-gamemode.kdl")
 
       # 验证启动器 (Anyrun) 与 xdg-terminal-exec
       if ${if (serverCfg.desktop ? launcher && serverCfg.desktop.launcher ? anyrun && serverCfg.desktop.launcher.anyrun.enable) then "True" else "False"}:

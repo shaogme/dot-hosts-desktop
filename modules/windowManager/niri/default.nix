@@ -15,14 +15,6 @@ let
   defaultWindowRules = import ./rules;
   defaultSettings = import ./core/defaultSettings.nix { inherit cfg lib; };
 
-  # 规范化 extraBinds 支持 attrs 或 list of attrs
-  normalizedExtraBinds =
-    if isAttrs cfg.extraBinds then
-      cfg.extraBinds
-    else if isList cfg.extraBinds then
-      foldl' recursiveUpdate { } cfg.extraBinds
-    else
-      { };
 
   # 递归合并基础配置与用户自定义 settings
   mergedSettings = recursiveUpdate defaultSettings cfg.settings;
@@ -110,7 +102,7 @@ let
 
   # 最终合成设置
   finalSettings = (removeAttrs mergedSettings [ "window-rule" "layer-rule" "binds" ]) // {
-    binds = recursiveUpdate (mergedSettings.binds or { }) normalizedExtraBinds;
+    binds = recursiveUpdate (mergedSettings.binds or { }) cfg.extraBinds;
   }
   // (optionalAttrs (allWindowRules != [ ]) { window-rule = allWindowRules; })
   // (optionalAttrs (allLayerRules != [ ]) { layer-rule = allLayerRules; });
@@ -128,6 +120,26 @@ let
   configFile = pkgs.writeTextFile {
     name = "niri-config.kdl";
     text = generatedText;
+    checkPhase = optionalString cfg.checkConfig ''
+      ${lib.getExe cfg.package} validate --config "$target"
+    '';
+  };
+
+  gamemodeConfigFile = pkgs.writeTextFile {
+    name = "niri-config-gamemode.kdl";
+    text = ''
+      include "${configFile}"
+
+      animations {
+          off
+      }
+
+      layout {
+          shadow {
+              off
+          }
+      }
+    '';
     checkPhase = optionalString cfg.checkConfig ''
       ${lib.getExe cfg.package} validate --config "$target"
     '';
@@ -523,16 +535,16 @@ in
     };
 
     extraBinds = mkOption {
-      type = types.either (types.attrsOf types.anything) (types.listOf (types.attrsOf types.anything));
+      type = types.attrsOf types.anything;
       default = { };
-      description = "附加的快捷键绑定，支持属性集或属性集列表。";
+      description = "附加的快捷键绑定属性集。";
     };
 
     virtualization = {
       enable = mkOption {
         type = types.bool;
         default = false;
-        description = "是否启用虚拟机环境兼容设置（禁用光标平面，允许软件渲染，适配 VirtualBox / VMware / QEMU 等环境）。";
+        description = "是否启用虚拟机环境兼容设置（禁用光标平面以适配 VirtualBox / VMware / QEMU 等环境。注意：Niri 在 TTY/DRM 下会跳过纯软件 EGL 渲染器，虚拟机须启用 3D 硬件加速）。";
       };
     };
 
@@ -620,16 +632,14 @@ in
           ELECTRON_OZONE_PLATFORM_HINT = "auto";
         }
         cfg.sessionVariables
-        (mkIf cfg.virtualization.enable {
-          WLR_NO_HARDWARE_CURSORS = "1";
-          WLR_RENDERER_ALLOW_SOFTWARE = "1";
-        })
       ];
 
       # 4. 系统级 Niri 配置文件部署
       environment.etc = {
         "niri/config.kdl".source = configFile;
         "xdg/niri/config.kdl".source = configFile;
+        "niri/config-gamemode.kdl".source = gamemodeConfigFile;
+        "xdg/niri/config-gamemode.kdl".source = gamemodeConfigFile;
       };
 
       # 5. XDG Desktop Portal 桌面门户集成配置
@@ -662,6 +672,7 @@ in
         sharedModules = [
           ({ ... }: {
             xdg.configFile."niri/config.kdl".source = configFile;
+            xdg.configFile."niri/config-gamemode.kdl".source = gamemodeConfigFile;
             home.packages = [
               pkgs.wl-clipboard
               pkgs.grim

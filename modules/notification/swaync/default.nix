@@ -588,14 +588,12 @@ in
         autostart = mkIf (cfg.niri.autostart && !cfg.systemd.enable) [
           "swaync"
         ];
-        extraBinds = mkIf (cfg.niri.keybind != "") [
-          {
-            "${cfg.niri.keybind}" = {
-              _props.hotkey-overlay-title = "Toggle Notification Center";
-              spawn-sh = [ "swaync-client -t -sw" ];
-            };
-          }
-        ];
+        extraBinds = mkIf (cfg.niri.keybind != "") {
+          "${cfg.niri.keybind}" = {
+            _props.hotkey-overlay-title = "Toggle Notification Center";
+            spawn-sh = [ "swaync-client -t -sw" ];
+          };
+        };
       };
     }
 

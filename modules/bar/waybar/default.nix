@@ -187,14 +187,12 @@ in
         autostart = mkIf cfg.niri.autostart [
           "waybar"
         ];
-        extraBinds = mkIf (cfg.niri.keybind != "") [
-          {
-            "${cfg.niri.keybind}" = {
-              _props.hotkey-overlay-title = "Toggle Waybar";
-              spawn-sh = [ "pkill -SIGUSR1 waybar" ];
-            };
-          }
-        ];
+        extraBinds = mkIf (cfg.niri.keybind != "") {
+          "${cfg.niri.keybind}" = {
+            _props.hotkey-overlay-title = "Toggle Waybar";
+            spawn-sh = [ "pkill -SIGUSR1 waybar" ];
+          };
+        };
       };
     }
 

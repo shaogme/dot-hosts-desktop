@@ -414,17 +414,17 @@ in
         autostart = mkIf (cfg.niri.autostart && !cfg.daemon.systemd.enable) [
           "${scripts.awwwInitScript}/bin/awww-init"
         ];
-        extraBinds = (optional (cfg.niri.keybinds.randomWallpaper != "") {
+        extraBinds = (optionalAttrs (cfg.niri.keybinds.randomWallpaper != "") {
           "${cfg.niri.keybinds.randomWallpaper}" = {
             _props.hotkey-overlay-title = "Random Wallpaper";
             spawn = [ "${scripts.awwwRandomScript}/bin/awww-random" ];
           };
-        }) ++ (optional (cfg.niri.keybinds.nextWallpaper != "") {
+        }) // (optionalAttrs (cfg.niri.keybinds.nextWallpaper != "") {
           "${cfg.niri.keybinds.nextWallpaper}" = {
             _props.hotkey-overlay-title = "Next Wallpaper";
             spawn = [ "${scripts.awwwNextScript}/bin/awww-next" ];
           };
-        }) ++ (optional (cfg.niri.keybinds.selectWallpaper != "") {
+        }) // (optionalAttrs (cfg.niri.keybinds.selectWallpaper != "") {
           "${cfg.niri.keybinds.selectWallpaper}" = {
             _props.hotkey-overlay-title = "Select Wallpaper";
             spawn = [ "${scripts.awwwSwitchScript}/bin/awww-switch" ];

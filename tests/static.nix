@@ -35,9 +35,27 @@ let
       pkgs.writeText "${name}-rio-config" cfg.environment.etc."xdg/rio/config.toml".text
     else
       pkgs.emptyFile;
+
+  # Niri 配置静态语法与有效性验证
+  niriEnabled = cfg.desktop.windowManager.niri.enable or false;
+  niriConfigFile =
+    if cfg.environment.etc ? "xdg/niri/config.kdl" && cfg.environment.etc."xdg/niri/config.kdl" ? source then
+      cfg.environment.etc."xdg/niri/config.kdl".source
+    else if cfg.environment.etc ? "xdg/niri/config.kdl" && cfg.environment.etc."xdg/niri/config.kdl" ? text then
+      pkgs.writeText "${name}-niri-config" cfg.environment.etc."xdg/niri/config.kdl".text
+    else
+      pkgs.emptyFile;
+
+  niriGamemodeConfigFile =
+    if cfg.environment.etc ? "xdg/niri/config-gamemode.kdl" && cfg.environment.etc."xdg/niri/config-gamemode.kdl" ? source then
+      cfg.environment.etc."xdg/niri/config-gamemode.kdl".source
+    else if cfg.environment.etc ? "xdg/niri/config-gamemode.kdl" && cfg.environment.etc."xdg/niri/config-gamemode.kdl" ? text then
+      pkgs.writeText "${name}-niri-gamemode-config" cfg.environment.etc."xdg/niri/config-gamemode.kdl".text
+    else
+      pkgs.emptyFile;
 in
 pkgs.runCommand "${name}-static-check" {
-  nativeBuildInputs = [ pkgs.rio pkgs.python3 ];
+  nativeBuildInputs = [ pkgs.rio pkgs.python3 cfg.desktop.windowManager.niri.package ];
   # 增加元数据输出，方便调试
   passthru = { inherit eval; };
 } ''
@@ -54,6 +72,13 @@ pkgs.runCommand "${name}-static-check" {
     echo "[${name}] 正在验证 Rio 终端 TOML 配置合法性与语法结构..."
     python3 -c "import tomllib; tomllib.load(open('${rioConfigFile}', 'rb'))"
     echo "[${name}] Rio 终端配置合法性验证通过！"
+  '' else ""}
+
+  ${if niriEnabled then ''
+    echo "[${name}] 正在验证 Niri KDL 配置合法性与语法结构..."
+    ${cfg.desktop.windowManager.niri.package}/bin/niri validate --config "${niriConfigFile}"
+    ${cfg.desktop.windowManager.niri.package}/bin/niri validate --config "${niriGamemodeConfigFile}"
+    echo "[${name}] Niri 核心与游戏模式配置合法性验证通过！"
   '' else ""}
 
   echo "静态检查通过！"

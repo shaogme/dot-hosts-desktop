@@ -45,14 +45,16 @@ let
 
 in
 {
-  prefer-no-csd = optionalAttrs cfg.preferNoCsd { };
-
-  screenshot-path = cfg.screenshotPath;
-
-  hotkey-overlay = optionalAttrs cfg.hotkeyOverlay.skipAtStartup {
-    skip-at-startup = { };
-  };
-
+  screenshot-path = if cfg.screenshotPath != null then cfg.screenshotPath else { _args = [ null ]; };
+}
+// (optionalAttrs cfg.preferNoCsd { prefer-no-csd = { }; })
+// (optionalAttrs cfg.hotkeyOverlay.skipAtStartup {
+  hotkey-overlay.skip-at-startup = { };
+})
+// (optionalAttrs cfg.virtualization.enable {
+  debug.disable-cursor-plane = { };
+})
+// {
   input = {
     keyboard = {
       xkb = cfg.input.keyboard.xkb;
@@ -60,33 +62,29 @@ in
       numlock = { };
     });
 
-    touchpad = {
-      tap = optionalAttrs cfg.input.touchpad.tap { };
-      natural-scroll = optionalAttrs cfg.input.touchpad.naturalScroll { };
-    }
-    // (optionalAttrs (cfg.input.touchpad.accelSpeed != null) {
-      accel-speed = cfg.input.touchpad.accelSpeed;
-    })
-    // (optionalAttrs (cfg.input.touchpad.accelProfile != null) {
-      accel-profile = cfg.input.touchpad.accelProfile;
-    });
+    touchpad = { }
+      // (optionalAttrs cfg.input.touchpad.tap { tap = { }; })
+      // (optionalAttrs cfg.input.touchpad.naturalScroll { natural-scroll = { }; })
+      // (optionalAttrs (cfg.input.touchpad.accelSpeed != null) {
+        accel-speed = cfg.input.touchpad.accelSpeed;
+      })
+      // (optionalAttrs (cfg.input.touchpad.accelProfile != null) {
+        accel-profile = cfg.input.touchpad.accelProfile;
+      });
 
-    mouse = (optionalAttrs cfg.input.mouse.naturalScroll {
-      natural-scroll = { };
-    })
-    // (optionalAttrs (cfg.input.mouse.accelSpeed != null) {
-      accel-speed = cfg.input.mouse.accelSpeed;
-    })
-    // (optionalAttrs (cfg.input.mouse.accelProfile != null) {
-      accel-profile = cfg.input.mouse.accelProfile;
-    });
-
-    warp-mouse-to-focus = optionalAttrs cfg.input.warpMouseToFocus { };
-
-    focus-follows-mouse = optionalAttrs cfg.input.focusFollowsMouse.enable {
-      _props.max-scroll-amount = cfg.input.focusFollowsMouse.maxScrollAmount;
-    };
-  };
+    mouse = { }
+      // (optionalAttrs cfg.input.mouse.naturalScroll { natural-scroll = { }; })
+      // (optionalAttrs (cfg.input.mouse.accelSpeed != null) {
+        accel-speed = cfg.input.mouse.accelSpeed;
+      })
+      // (optionalAttrs (cfg.input.mouse.accelProfile != null) {
+        accel-profile = cfg.input.mouse.accelProfile;
+      });
+  }
+  // (optionalAttrs cfg.input.warpMouseToFocus { warp-mouse-to-focus = { }; })
+  // (optionalAttrs cfg.input.focusFollowsMouse.enable {
+    focus-follows-mouse._props.max-scroll-amount = cfg.input.focusFollowsMouse.maxScrollAmount;
+  });
 
   layout = {
     gaps = cfg.layout.gaps;
@@ -136,12 +134,12 @@ in
     xcursor-size = cfg.cursor.size;
   };
 
-  xwayland-satellite = optionalAttrs (cfg.xwayland.enable && cfg.xwayland.package != null) {
-    path = "${cfg.xwayland.package}/bin/xwayland-satellite";
-  };
-
-  debug = optionalAttrs cfg.virtualization.enable {
-    disable-cursor-plane = { };
+  xwayland-satellite = if cfg.xwayland.enable then (
+    optionalAttrs (cfg.xwayland.package != null) {
+      path = "${cfg.xwayland.package}/bin/xwayland-satellite";
+    }
+  ) else {
+    off = { };
   };
 
   binds = binds;

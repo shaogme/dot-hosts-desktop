@@ -111,101 +111,31 @@ let
       '{ text: $text, tooltip: $tooltip }'
   '';
 
-  waybarWindowScript = pkgs.writeShellScriptBin "waybar-window" ''
-    set -u
-
-    MAX_TITLE_LEN=22
-
-    print_status() {
-      window=$(${pkgs.niri}/bin/niri msg -j focused-window 2>/dev/null || echo "{}")
-      id=$(${pkgs.jq}/bin/jq -r '.id // empty' <<< "$window" 2>/dev/null || echo "")
-
-      # 无活动窗口时显示 Desktop 与工作区
-      if [[ -z "$id" || "$id" == "null" ]]; then
-        ws=$(${pkgs.niri}/bin/niri msg -j workspaces 2>/dev/null | ${pkgs.jq}/bin/jq -r '(.[] | select(.is_focused) | .idx // .name) // "1"' 2>/dev/null || echo "1")
-
-        top_line="Desktop"
-        bottom_line="Workspace $ws"
-
-        esc_top=$(${pkgs.gnused}/bin/sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g' <<< "$top_line")
-        esc_bottom=$(${pkgs.gnused}/bin/sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g' <<< "$bottom_line")
-
-        text="<span size='7500' foreground='#a6adc8' rise='-2000'>$esc_top</span>
-<span size='9000' weight='bold' foreground='#ffffff'>$esc_bottom</span>"
-
-        ${pkgs.jq}/bin/jq -nc \
-          --arg text "$text" \
-          --arg tooltip "$bottom_line" \
-          '{ text: $text, class: "custom-window", tooltip: $tooltip }'
-        return
-      fi
-
-      class=$(${pkgs.jq}/bin/jq -r '.app_id // "Unknown"' <<< "$window" 2>/dev/null || echo "Unknown")
-      title=$(${pkgs.jq}/bin/jq -r '.title // ""' <<< "$window" 2>/dev/null || echo "")
-
-      app_class="''${class,,}"
-
-      # 对常见应用标题精简
-      if [[ "$app_class" == *discord* || "$app_class" == *vesktop* ]]; then
-        title=$(${pkgs.gnused}/bin/sed -E 's/^\([0-9]+\)[[:space:]]*//; s/^Discord[[:space:]]*\|[[:space:]]*//' <<< "$title")
-      fi
-
-      # 截断过长标题
-      if (( ''${#title} > MAX_TITLE_LEN )); then
-        title="''${title:0:$((MAX_TITLE_LEN-3))}..."
-      fi
-
-      esc_top=$(${pkgs.gnused}/bin/sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g' <<< "$class")
-      esc_bottom=$(${pkgs.gnused}/bin/sed 's/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g' <<< "$title")
-
-      text="<span size='7500' foreground='#a6adc8' rise='-2000'>$esc_top</span>
-<span size='9000' weight='bold' foreground='#ffffff'>$esc_bottom</span>"
-
-      tooltip="$class: $title"
-
-      ${pkgs.jq}/bin/jq -nc \
-        --arg text "$text" \
-        --arg tooltip "$tooltip" \
-        '{ text: $text, class: "custom-window", tooltip: $tooltip }'
-    }
-
-    # 初始输出
-    print_status
-
-    last=""
-
-    # 监听状态变更并更新
-    while true; do
-      current_window=$(${pkgs.niri}/bin/niri msg -j focused-window 2>/dev/null || echo "{}")
-      current_ws=$(${pkgs.niri}/bin/niri msg -j workspaces 2>/dev/null | ${pkgs.jq}/bin/jq -r '(.[] | select(.is_focused) | .idx // .name) // "1"' 2>/dev/null || echo "1")
-
-      current="$current_window$current_ws"
-
-      if [[ "$current" != "$last" ]]; then
-        print_status
-        last="$current"
-      fi
-
-      sleep 0.5
-    done
-  '';
-
   waybarGamemodeStatusScript = pkgs.writeShellScriptBin "waybar-gamemode-status" ''
     CACHE_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/niri_gamemode"
     if [ -f "$CACHE_FILE" ]; then
-      echo '{"text":"","class":"active","tooltip":"游戏模式：已开启"}'
+      echo '{"text":"","class":"active","tooltip":"游戏模式：已开启（动画与阴影已通过备选配置禁用）"}'
     else
       echo '{"text":"","class":"inactive","tooltip":"游戏模式：已关闭（点击开启）"}'
     fi
   '';
 
   waybarGamemodeToggleScript = pkgs.writeShellScriptBin "waybar-gamemode-toggle" ''
+    set -u
     CACHE_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/niri_gamemode"
+    CONFIG_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/niri"
+
+    if [ ! -f "$CONFIG_DIR/config.kdl" ]; then
+      CONFIG_DIR="/etc/xdg/niri"
+    fi
+
     if [ -f "$CACHE_FILE" ]; then
       rm -f "$CACHE_FILE"
+      ${pkgs.niri}/bin/niri msg action load-config-file --path "$CONFIG_DIR/config.kdl" >/dev/null 2>&1 || true
     else
       mkdir -p "$(dirname "$CACHE_FILE")"
       touch "$CACHE_FILE"
+      ${pkgs.niri}/bin/niri msg action load-config-file --path "$CONFIG_DIR/config-gamemode.kdl" >/dev/null 2>&1 || true
     fi
     ${pkgs.procps}/bin/pkill -SIGRTMIN+8 waybar 2>/dev/null || true
   '';
@@ -278,7 +208,7 @@ let
       orientation = "inherit";
       modules = [
         "custom/menu"
-        "custom/active_window"
+        "niri/window"
         "custom/separator#blank"
         "custom/separator#dot"
         "tray"
@@ -338,11 +268,17 @@ let
       on-click-right = cfg.commands.terminal;
     };
 
-    "custom/active_window" = {
-      exec = "${waybarWindowScript}/bin/waybar-window";
-      return-type = "json";
-      markup = true;
-      restart-interval = 3;
+    "niri/window" = {
+      format = "{title}";
+      rewrite = {
+        "(.*) - Mozilla Firefox" = "🌎 $1";
+        "(.*) - Visual Studio Code" = "󰨞 $1";
+        "(.*) - Discord" = "󰙯 $1";
+      };
+      separate-outputs = true;
+      icon = true;
+      icon-size = 14;
+      max-length = 30;
     };
 
     "custom/gamemode" = {
@@ -598,7 +534,8 @@ let
       opacity: 1;
     }
 
-    /* 活动窗口组件 (双行紧凑卡片) */
+    /* 活动窗口组件 (紧凑卡片) */
+    #window,
     #custom-active_window {
       padding: 2px 8px;
       margin-top: 2px;
@@ -748,7 +685,6 @@ in
 {
   inherit settings style;
   extraPackages = [
-    waybarWindowScript
     waybarClockScript
     waybarGamemodeStatusScript
     waybarGamemodeToggleScript
