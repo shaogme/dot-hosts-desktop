@@ -27,7 +27,7 @@ let
   themeSyncScriptBin = pkgs.writeShellScriptBin "theme-sync-apply" ''
     #!/usr/bin/env bash
     set -uo pipefail
-    export PATH="${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin:${pkgs.bash}/bin:${pkgs.systemd}/bin:${pkgs.darkman}/bin:$PATH"
+    export PATH="${pkgs.coreutils}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin:${pkgs.bash}/bin:${pkgs.systemd}/bin:${pkgs.darkman}/bin:${pkgs.diffutils}/bin:$PATH"
 
     RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
     THEME_DIR="$RUNTIME_DIR/desktop-theme"
@@ -105,7 +105,7 @@ gtk-application-prefer-dark-theme=$PREF_DARK
     # 同步到宿主机（幂等：内容相同时跳过，避免频繁触发）
     for ver in "3.0" "4.0"; do
       DST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-$ver/settings.ini"
-      if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+      if [ -f "$DST" ] && ${pkgs.diffutils}/bin/diff -q "$SRC" "$DST" >/dev/null 2>&1; then
         continue
       fi
       if [ -d "$DST" ]; then
@@ -205,10 +205,13 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
       gsettings set org.gnome.desktop.interface cursor-size "$CURSOR_SIZE" 2>/dev/null || true
     fi
 
-    # ── 5+. 各模块注入的钩子（Niri/Waybar/SwayNC/Wallpaper 等）由 hookFragments 聚合
-    # 具体片段由各相关模块通过 `desktop.theme.hookFragments` 显式注入，
-    # 对应的 PATH 依赖由各模块通过 `desktop.theme.hookPackages` 声明。
+    # ── 5. 各模块 seedSafe 钩子（冷启动可安全执行，仅落盘，不阻塞） ─────
+    ${lib.concatStringsSep "\n" cfg.hookFragmentsSeedSafe}
+    # ── 6. 各模块 reload 钩子（需守护进程就绪，seed 阶段跳过） ──
+    if [ -z "''${THEME_SEED:-}" ]; then
+    ${lib.concatStringsSep "\n" cfg.hookFragmentsReload}
     ${lib.concatStringsSep "\n" cfg.hookFragments}
+    fi
     ${cfg.extraSwitchHooks}
   '';
 
@@ -521,8 +524,9 @@ in
         dconf
         glib
         darkman
+        diffutils
       ];
-      defaultText = literalExpression "with pkgs; [ coreutils gnugrep gnused bash systemd dconf glib darkman ]";
+      defaultText = literalExpression "with pkgs; [ coreutils gnugrep gnused bash systemd dconf glib darkman diffutils ]";
       description = ''
         主题切换钩子脚本运行时所需的最小 PATH 依赖包集合。
         各相关模块（niri/waybar/swaync/awww 等）应通过 `desktop.theme.hookPackages = [ pkgs.xxx ]`
@@ -534,9 +538,28 @@ in
       type = types.listOf types.lines;
       default = [];
       description = ''
-        各功能模块注入的主题切换钩子片段列表（内部）。
-        由各相关模块（niri/waybar/swaync/awww）通过 desktop.theme.hookFragments 显式声明，
-        最终在 theme-switch.sh 中按序拼接于 extraSwitchHooks 之前，避免 mkForce 覆盖导致丢失。
+        各功能模块注入的主题切换钩子片段列表（内部，兼容旧接口，视为 reload 级）。
+        由各相关模块通过 desktop.theme.hookFragments 显式声明，
+        最终在 theme-switch.sh 中按序拼接于 extraSwitchHooks 之前。
+      '';
+    };
+
+    hookFragmentsSeedSafe = mkOption {
+      type = types.listOf types.lines;
+      default = [];
+      description = ''
+        冷启动 seed 阶段可安全执行的钩子片段（仅落盘，不依赖守护进程存活）。
+        例如 niri 的 theme.kdl 生成。由各模块通过 desktop.theme.hookFragmentsSeedSafe 显式声明，
+        seed 服务仅执行此级，禁止阻塞 reload 操作。
+      '';
+    };
+
+    hookFragmentsReload = mkOption {
+      type = types.listOf types.lines;
+      default = [];
+      description = ''
+        需在图形会话就绪后执行的 reload 级钩子片段（依赖 swaync/waybar/niri/awww 守护进程）。
+        由各模块通过 desktop.theme.hookFragmentsReload 显式声明，seed 阶段跳过，避免 04:13 swaync-client 阻塞。
       '';
     };
   };
@@ -612,7 +635,7 @@ in
           ExecStart = "${pkgs.writeShellScript "theme-seed-apply" ''
             #!/usr/bin/env bash
             set -uo pipefail
-            export PATH="${lib.makeBinPath [ pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.bash pkgs.systemd pkgs.darkman ]}:$PATH"
+            export PATH="${lib.makeBinPath [ pkgs.coreutils pkgs.gnugrep pkgs.gnused pkgs.bash pkgs.systemd pkgs.darkman pkgs.diffutils ]}:$PATH"
             RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
             THEME_DIR="$RUNTIME_DIR/desktop-theme"
             SRC="$THEME_DIR/gtk-settings.ini"
@@ -643,15 +666,16 @@ in
               fi
             fi
             SWITCH_RC=0
+            # 分级：seed 阶段仅执行 seedSafe 片段，跳过 reload（swaync/waybar/awww）以根治 04:13 swaync-client 阻塞
             if [ -x "/etc/xdg/darkman/theme-switch.sh" ]; then
-              if "/etc/xdg/darkman/theme-switch.sh" "$SEED_MODE" 2>&1 | sed 's/^/[theme-seed] switch stderr: /' >&2; then
+              if THEME_SEED=1 "/etc/xdg/darkman/theme-switch.sh" "$SEED_MODE" 2>&1 | sed 's/^/[theme-seed] switch stderr: /' >&2; then
                 :
               else
                 SWITCH_RC=$?
                 echo "[theme-seed] warn: theme-switch.sh failed rc=$SWITCH_RC" >&2
               fi
             else
-              if "${themeSwitchScript}" "$SEED_MODE" 2>&1 | sed 's/^/[theme-seed] switch-nix stderr: /' >&2; then
+              if THEME_SEED=1 "${themeSwitchScript}" "$SEED_MODE" 2>&1 | sed 's/^/[theme-seed] switch-nix stderr: /' >&2; then
                 :
               else
                 SWITCH_RC=$?

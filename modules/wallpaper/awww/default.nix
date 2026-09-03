@@ -366,9 +366,11 @@ in
       desktop.theme.hookPackages = mkIf (config.desktop.theme.enable or false && (config.desktop.theme.dark.wallpaper != null || config.desktop.theme.light.wallpaper != null)) [
         cfg.package
         scripts.awwwSetScript
+        pkgs.procps
+        pkgs.systemd
       ];
-      desktop.theme.hookFragments = mkIf (config.desktop.theme.enable or false && (config.desktop.theme.dark.wallpaper != null || config.desktop.theme.light.wallpaper != null)) [''
-        # --- Wallpaper 主题联动（由 modules/wallpaper/awww 注入，条件化于 theme wallpaper） ---
+      desktop.theme.hookFragmentsReload = mkIf (config.desktop.theme.enable or false && (config.desktop.theme.dark.wallpaper != null || config.desktop.theme.light.wallpaper != null)) [''
+        # --- Wallpaper 主题联动 reload（由 modules/wallpaper/awww 注入，条件化于 theme wallpaper，需 awww 守护进程，seed 跳过） ---
         WALLPAPER_PATH=""
         if [ "$MODE" = "dark" ]; then
           WALLPAPER_PATH="${toString (if config.desktop.theme.dark.wallpaper != null then config.desktop.theme.dark.wallpaper else "")}"
@@ -376,12 +378,16 @@ in
           WALLPAPER_PATH="${toString (if config.desktop.theme.light.wallpaper != null then config.desktop.theme.light.wallpaper else "")}"
         fi
         if [ -n "$WALLPAPER_PATH" ] && [ -f "$WALLPAPER_PATH" ]; then
-          if command -v awww-set >/dev/null 2>&1; then
-            awww-set "$WALLPAPER_PATH" 2>/dev/null || true
-          elif [ -x "${scripts.awwwSetScript}/bin/awww-set" ]; then
-            ${scripts.awwwSetScript}/bin/awww-set "$WALLPAPER_PATH" 2>/dev/null || true
-          elif [ -x "${cfg.package}/bin/awww" ]; then
-            ${cfg.package}/bin/awww img "$WALLPAPER_PATH" 2>/dev/null || true
+          if systemctl --user is-active awww-daemon.service >/dev/null 2>&1 || pgrep -x awww-daemon >/dev/null 2>&1; then
+            if command -v awww-set >/dev/null 2>&1; then
+              awww-set "$WALLPAPER_PATH" 2>/dev/null || true
+            elif [ -x "${scripts.awwwSetScript}/bin/awww-set" ]; then
+              ${scripts.awwwSetScript}/bin/awww-set "$WALLPAPER_PATH" 2>/dev/null || true
+            elif [ -x "${cfg.package}/bin/awww" ]; then
+              ${cfg.package}/bin/awww img "$WALLPAPER_PATH" 2>/dev/null || true
+            fi
+          else
+            echo "[theme-switch] diag: awww-daemon not ready, skipping wallpaper" >&2
           fi
         fi
       ''];

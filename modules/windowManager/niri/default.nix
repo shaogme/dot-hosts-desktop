@@ -646,10 +646,11 @@ in
       desktop.theme.hookPackages = mkIf (config.desktop.theme.enable or false) [
         cfg.package
         pkgs.coreutils
+        pkgs.procps
       ];
 
-      desktop.theme.hookFragments = mkIf (config.desktop.theme.enable or false) [''
-        # --- Niri 主题联动（由 modules/windowManager/niri 注入） ---
+      desktop.theme.hookFragmentsSeedSafe = mkIf (config.desktop.theme.enable or false) [''
+        # --- Niri 主题联动 seedSafe（由 modules/windowManager/niri 注入，仅落盘） ---
         if [ "$MODE" = "dark" ]; then
           NIRI_FOCUS_ACTIVE="${config.desktop.theme.dark.niri.focusRingActiveColor}"
           NIRI_BORDER_ACTIVE="${config.desktop.theme.dark.niri.borderActiveColor}"
@@ -679,7 +680,15 @@ in
           if ! printf '%s' "$NIRI_THEME_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null; then
             printf '%s' "$NIRI_THEME_CONTENT" > "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null || echo "[theme-switch] warn: failed to write niri theme" >&2
           fi
-          if command -v niri >/dev/null 2>&1; then
+        fi
+      ''];
+
+      desktop.theme.hookFragmentsReload = mkIf (config.desktop.theme.enable or false) [''
+        # --- Niri 主题联动 reload（由 modules/windowManager/niri 注入，需 niri 守护进程） ---
+        NIRI_THEME_DIR="$RUNTIME_DIR/niri"
+        if [ -d "$NIRI_THEME_DIR" ] && command -v niri >/dev/null 2>&1; then
+          # 仅当 niri 守护进程可响应时才 reload，避免冷启动阻塞
+          if pgrep -x niri >/dev/null 2>&1 || niri msg --help >/dev/null 2>&1; then
             NIRI_CONFIG_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/niri"
             NIRI_SYSTEM_CONFIG="/etc/xdg/niri/config.kdl"
             if [ -f "$NIRI_CONFIG_DIR/config.kdl" ]; then
@@ -687,6 +696,8 @@ in
             elif [ -f "$NIRI_SYSTEM_CONFIG" ]; then
               niri msg action load-config-file --path "$NIRI_SYSTEM_CONFIG" 2>/dev/null || true
             fi
+          else
+            echo "[theme-switch] diag: niri not ready, skipping reload" >&2
           fi
         fi
       ''];
