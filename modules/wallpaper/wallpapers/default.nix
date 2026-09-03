@@ -74,6 +74,9 @@ in
       # 系统级安装壁纸软件包，系统构建时将自动软链接到 /run/current-system/sw/share/wallpapers
       environment.systemPackages = cfg.packages;
 
+      # 确保 /share/wallpapers 被链接到系统路径，否则 wallpapers 包内容无法出现在 /run/current-system/sw/share/wallpapers
+      environment.pathsToLink = [ "/share/wallpapers" ];
+
       environment.sessionVariables = optionalAttrs (cfg.wallpaperDir != null) {
         NIX_WALLPAPERS_DIR = toString cfg.wallpaperDir;
       } // optionalAttrs (cfg.defaultWallpaper != null) {
