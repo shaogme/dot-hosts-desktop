@@ -56,11 +56,11 @@ let
   # ── 主题模块静态验证（主配置） ──────────────────────────────────────────
   themeEnabled = cfg.desktop.theme.enable or false;
   darkmanConfigFile =
-    if cfg.environment.etc ? "xdg/darkman/config.yaml" && cfg.environment.etc."xdg/darkman/config.yaml" ? text then
-      pkgs.writeText "${name}-darkman-config" cfg.environment.etc."xdg/darkman/config.yaml".text
+    if cfg.environment.etc ? "darkman/config.yaml" && cfg.environment.etc."darkman/config.yaml" ? text then
+      pkgs.writeText "${name}-darkman-config" cfg.environment.etc."darkman/config.yaml".text
     else
       pkgs.emptyFile;
-  darkmanConfigText = if cfg.environment.etc ? "xdg/darkman/config.yaml" && cfg.environment.etc."xdg/darkman/config.yaml" ? text then cfg.environment.etc."xdg/darkman/config.yaml".text else "";
+  darkmanConfigText = if cfg.environment.etc ? "darkman/config.yaml" && cfg.environment.etc."darkman/config.yaml" ? text then cfg.environment.etc."darkman/config.yaml".text else "";
   themeHookFile =
     if cfg.environment.etc ? "xdg/darkman/theme-switch.sh" && cfg.environment.etc."xdg/darkman/theme-switch.sh" ? source then
       cfg.environment.etc."xdg/darkman/theme-switch.sh".source
@@ -84,6 +84,8 @@ let
   themeSeedExec = if themeSeedService != null then themeSeedService.serviceConfig.ExecStart or "" else "";
   hasTmpfilesGtk3 = lib.any (r: lib.hasInfix "gtk-3.0" r) tmpfilesRules;
   hasTmpfilesGtk4 = lib.any (r: lib.hasInfix "gtk-4.0" r) tmpfilesRules;
+  hasRuntimeDirSeed = themeSeedService != null && themeSeedService.serviceConfig ? RuntimeDirectory && themeSeedService.serviceConfig.RuntimeDirectory == "desktop-theme";
+  hasRuntimeDirSync = themeSyncService != null && themeSyncService.serviceConfig ? RuntimeDirectory && themeSyncService.serviceConfig.RuntimeDirectory == "desktop-theme";
 
   # ── 覆盖测试：主题多变体评估（基于当前 host 配置叠加 overlay） ───────
   # 变体1：强制深色模式
@@ -113,7 +115,7 @@ let
     inherit pkgs;
   };
   cfgThemeGeoclue = evalThemeGeoclue.config;
-  geoclueConfigText = if cfgThemeGeoclue.environment.etc ? "xdg/darkman/config.yaml" && cfgThemeGeoclue.environment.etc."xdg/darkman/config.yaml" ? text then cfgThemeGeoclue.environment.etc."xdg/darkman/config.yaml".text else "";
+  geoclueConfigText = if cfgThemeGeoclue.environment.etc ? "darkman/config.yaml" && cfgThemeGeoclue.environment.etc."darkman/config.yaml" ? text then cfgThemeGeoclue.environment.etc."darkman/config.yaml".text else "";
   geoclueHookFile = if cfgThemeGeoclue.environment.etc ? "xdg/darkman/theme-switch.sh" && cfgThemeGeoclue.environment.etc."xdg/darkman/theme-switch.sh" ? source then cfgThemeGeoclue.environment.etc."xdg/darkman/theme-switch.sh".source else pkgs.emptyFile;
 
   # 变体5：全自定义主题（覆盖 dark/light/cursor/niri/layout/extraHook/wallpaper）
@@ -147,7 +149,7 @@ let
     inherit pkgs;
   };
   cfgThemeCustom = evalThemeCustom.config;
-  customDarkmanText = if cfgThemeCustom.environment.etc ? "xdg/darkman/config.yaml" && cfgThemeCustom.environment.etc."xdg/darkman/config.yaml" ? text then cfgThemeCustom.environment.etc."xdg/darkman/config.yaml".text else "";
+  customDarkmanText = if cfgThemeCustom.environment.etc ? "darkman/config.yaml" && cfgThemeCustom.environment.etc."darkman/config.yaml" ? text then cfgThemeCustom.environment.etc."darkman/config.yaml".text else "";
   customHookFile = if cfgThemeCustom.environment.etc ? "xdg/darkman/theme-switch.sh" && cfgThemeCustom.environment.etc."xdg/darkman/theme-switch.sh" ? source then cfgThemeCustom.environment.etc."xdg/darkman/theme-switch.sh".source else pkgs.emptyFile;
   customHasAwww = lib.hasInfix "awww-set" customDarkmanText || true; # placeholder, actual check via hook file grep in shell
   customSolarLat = toString cfgThemeCustom.desktop.theme.solar.latitude;
@@ -163,7 +165,7 @@ let
   disabledHasThemeSeedService = cfgThemeDisabled.systemd.user.services ? theme-seed;
   disabledHasThemeSyncService = cfgThemeDisabled.systemd.user.services ? theme-sync;
   disabledHasThemeSyncPath = cfgThemeDisabled.systemd.user.paths ? theme-sync;
-  disabledHasDarkmanEtc = cfgThemeDisabled.environment.etc ? "xdg/darkman/config.yaml";
+  disabledHasDarkmanEtc = cfgThemeDisabled.environment.etc ? "darkman/config.yaml";
   disabledHasHookEtc = cfgThemeDisabled.environment.etc ? "xdg/darkman/theme-switch.sh";
   disabledHasDarkmanPkg = lib.any (p: lib.hasInfix "darkman" (p.name or p.pname or "")) cfgThemeDisabled.environment.systemPackages;
 
@@ -408,6 +410,14 @@ pkgs.runCommand "${name}-static-check" {
       echo "错误: tmpfiles 未包含 gtk-4.0 目录规则"
       exit 1
     fi
+    if [ "${if hasRuntimeDirSeed then "true" else "false"}" != "true" ]; then
+      echo "错误: theme-seed 未设置 RuntimeDirectory=desktop-theme（用于替代 tmpfiles %t 与 MakeDirectory，避免文件路径被误建为目录）"
+      exit 1
+    fi
+    if [ "${if hasRuntimeDirSync then "true" else "false"}" != "true" ]; then
+      echo "错误: theme-sync 未设置 RuntimeDirectory=desktop-theme"
+      exit 1
+    fi
     # theme-sync service (自愈：不再依赖 ConditionPathExists，由脚本内部播种)
     if [ "${if themeSyncService != null then "true" else "false"}" != "true" ]; then
       echo "错误: systemd.user.services.theme-sync 未定义"
@@ -417,8 +427,8 @@ pkgs.runCommand "${name}-static-check" {
       echo "错误: theme-sync Type 应为 oneshot"
       exit 1
     fi
-    if [ "${if themeSyncService.serviceConfig ? RemainAfterExit then "true" else "false"}" != "true" ]; then
-      echo "错误: theme-sync 应设置 RemainAfterExit"
+    if [ "${if themeSyncService.serviceConfig ? RemainAfterExit then (if themeSyncService.serviceConfig.RemainAfterExit then "true" else "false") else "missing"}" != "false" ]; then
+      echo "错误: theme-sync RemainAfterExit 应为 false（避免阻塞 path 重触发）"
       exit 1
     fi
     if ! echo "${themeSyncService.serviceConfig.ExecStart or ""}" | grep -q "theme-sync-apply"; then
@@ -446,33 +456,29 @@ pkgs.runCommand "${name}-static-check" {
       echo "错误: theme-seed 应设置 RemainAfterExit"
       exit 1
     fi
-    if [ "${themeSeedService.unitConfig.ConditionPathExists or ""}" != "!%t/desktop-theme/gtk-settings.ini" ]; then
-      echo "错误: theme-seed ConditionPathExists 应为 !%t/desktop-theme/gtk-settings.ini"
+    if [ "${if themeSeedService.serviceConfig ? ExecCondition then "true" else "false"}" != "true" ]; then
+      echo "错误: theme-seed 应设置 ExecCondition 以精确判断文件而非目录（替代 ConditionPathExists）"
+      exit 1
+    fi
+    if ! echo "${themeSeedService.serviceConfig.ExecCondition or ""}" | grep -q "test -f"; then
+      echo "错误: theme-seed ExecCondition 应包含 test -f 以区分文件与目录"
+      exit 1
+    fi
+    if [ "${if themeSeedService.unitConfig ? ConditionPathExists then "true" else "false"}" == "true" ]; then
+      echo "错误: theme-seed 不应使用 ConditionPathExists（无法区分文件与目录）"
       exit 1
     fi
     if [ "${toString (builtins.length (themeSeedService.wantedBy or []))}" = "0" ]; then
       echo "错误: theme-seed 应设置 wantedBy=graphical-session.target"
       exit 1
     fi
-    # theme-sync path (PathModified 替代 PathChanged 以可靠捕捉 install 写入)
+    # theme-sync path (PathChanged 覆盖创建/修改/删除，避免 PathExists+PathModified 冗余)
     if [ "${if themeSyncPath != null then "true" else "false"}" != "true" ]; then
       echo "错误: systemd.user.paths.theme-sync 未定义"
       exit 1
     fi
-    if [ "${themeSyncPath.pathConfig.PathModified or ""}" != "%t/desktop-theme/gtk-settings.ini" ]; then
-      echo "错误: theme-sync PathModified 应为 %t/desktop-theme/gtk-settings.ini"
-      exit 1
-    fi
-    if [ "${if themeSyncPath.pathConfig ? PathExists then "true" else "false"}" != "true" ]; then
-      echo "错误: theme-sync PathExists 未设置"
-      exit 1
-    fi
-    if [ "${themeSyncPath.pathConfig.PathExists or ""}" != "%t/desktop-theme/gtk-settings.ini" ]; then
-      echo "错误: theme-sync PathExists 应为 %t/desktop-theme/gtk-settings.ini"
-      exit 1
-    fi
-    if [ "${if themeSyncPath.pathConfig ? MakeDirectory then "true" else "false"}" != "true" ]; then
-      echo "错误: theme-sync 应设置 MakeDirectory"
+    if [ "${themeSyncPath.pathConfig.PathChanged or ""}" != "%t/desktop-theme/gtk-settings.ini" ]; then
+      echo "错误: theme-sync PathChanged 应为 %t/desktop-theme/gtk-settings.ini（覆盖删除边界）"
       exit 1
     fi
     if [ "${if themeSyncPath.unitConfig ? TriggerLimitIntervalSec then "true" else "false"}" != "true" ]; then
@@ -491,38 +497,10 @@ pkgs.runCommand "${name}-static-check" {
       echo "错误: theme-sync path Unit 应为 theme-sync.service"
       exit 1
     fi
-    # ── 6b. 重试上限与熔断验证（每个服务仅 1 次，根治竞态） ──
-    if [ "${toString (themeSyncService.unitConfig.StartLimitBurst or "")}" != "1" ]; then
-      echo "错误: theme-sync StartLimitBurst 应为 1"
-      exit 1
-    fi
-    if [ "${themeSyncService.unitConfig.StartLimitIntervalSec or ""}" != "60s" ]; then
-      echo "错误: theme-sync StartLimitIntervalSec 应为 60s"
-      exit 1
-    fi
-    if [ "${toString (themeSeedService.unitConfig.StartLimitBurst or "")}" != "1" ]; then
-      echo "错误: theme-seed StartLimitBurst 应为 1"
-      exit 1
-    fi
-    if [ "${themeSeedService.unitConfig.StartLimitIntervalSec or ""}" != "60s" ]; then
-      echo "错误: theme-seed StartLimitIntervalSec 应为 60s"
-      exit 1
-    fi
-    # 检查脚本内重试计数逻辑（仅 1 次）
-    themeSyncBin="${themeSyncExec}"
-    if [ -n "$themeSyncBin" ] && [ -f "$themeSyncBin" ]; then
-      grep -q "max retries 1" "$themeSyncBin" || { echo "错误: theme-sync-apply 未包含 max retries 1 逻辑"; exit 1; }
-      grep -q "RETRY_FILE" "$themeSyncBin" || { echo "错误: theme-sync-apply 未包含 RETRY_FILE"; exit 1; }
-    fi
-    themeSeedBin="${themeSeedExec}"
-    if [ -n "$themeSeedBin" ] && [ -f "$themeSeedBin" ]; then
-      grep -q "max retries 1" "$themeSeedBin" || { echo "错误: theme-seed 未包含 max retries 1 逻辑"; exit 1; }
-    fi
     if grep -q 'theme-sync-apply.*bin/theme-sync-apply' "${themeHookFile}" 2>/dev/null; then
       echo "错误: theme-switch.sh 不应同步调用 theme-sync-apply（仅允许 systemctl --no-block）"
       exit 1
     fi
-    echo "[${name}] 重试熔断验证通过！"
     echo "[${name}] systemd 单元验证通过！"
 
     # ── 7. dconf 服务验证 ──────────────────────────────────────────────

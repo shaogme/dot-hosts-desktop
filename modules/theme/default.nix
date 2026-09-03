@@ -30,36 +30,43 @@ let
     RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
     THEME_DIR="$RUNTIME_DIR/desktop-theme"
     SRC="$THEME_DIR/gtk-settings.ini"
-    RETRY_FILE="$THEME_DIR/.theme-sync-retries"
+
+    if [ -d "$SRC" ]; then
+      echo "[theme-sync] error: $SRC is a directory." >&2
+      exit 0
+    fi
+    if [ -e "$THEME_DIR" ] && [ ! -d "$THEME_DIR" ]; then
+      echo "[theme-sync] error: $THEME_DIR exists but not a directory" >&2
+      exit 0
+    fi
 
     if [ ! -f "$SRC" ]; then
-      CNT=$(cat "$RETRY_FILE" 2>/dev/null || echo 0)
-      if ! [[ "$CNT" =~ ^[0-9]+$ ]]; then CNT=0; fi
-      if [ "$CNT" -ge 1 ]; then
-        echo "[theme-sync] error: max retries 1 reached for $SRC, manual fix: theme-ctl set dark | systemctl --user reset-failed theme-sync.service && printf 0 > $RETRY_FILE && systemctl --user restart theme-seed.service" >&2
-        exit 0
-      fi
-      echo $((CNT+1)) > "$RETRY_FILE" 2>/dev/null || true
-      echo "[theme-sync] warn: $SRC not found, seeding inline (attempt $((CNT+1))/1)..." >&2
+      echo "[theme-sync] SRC missing, seeding inline..." >&2
       SEED_MODE=""
       if command -v darkman >/dev/null 2>&1; then
-        SEED_MODE="$(darkman get 2>/dev/null || true)"
+        SEED_MODE="$(darkman get 2>&1 || true)"
       fi
       if [ "$SEED_MODE" != "dark" ] && [ "$SEED_MODE" != "light" ]; then
         GTK_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
-        if [ -f "$GTK_HOST" ] && grep -q "gtk-theme-name.*-dark" "$GTK_HOST" 2>/dev/null; then
+        if [ -f "$GTK_HOST" ] && grep -q "gtk-theme-name.*-dark" "$GTK_HOST" 2>&1; then
           SEED_MODE="dark"
-        elif [ -f "$GTK_HOST" ] && grep -q "gtk-application-prefer-dark-theme=1" "$GTK_HOST" 2>/dev/null; then
+        elif [ -f "$GTK_HOST" ] && grep -q "gtk-application-prefer-dark-theme=1" "$GTK_HOST" 2>&1; then
           SEED_MODE="dark"
-        elif [ -f "$GTK_HOST" ] && grep -q "gtk-theme-name" "$GTK_HOST" 2>/dev/null; then
+        elif [ -f "$GTK_HOST" ] && grep -q "gtk-theme-name" "$GTK_HOST" 2>&1; then
           SEED_MODE="light"
         else
           SEED_MODE="${if cfg.mode != "auto" then cfg.mode else "dark"}"
         fi
       fi
-      mkdir -p "$THEME_DIR" 2>/dev/null || true
-      echo "$SEED_MODE" > "$THEME_DIR/mode" 2>/dev/null || true
-      # 内联生成（避免回调 theme-switch.sh 造成递归）
+      # 边界：非法值兜底
+      if [ "$SEED_MODE" != "dark" ] && [ "$SEED_MODE" != "light" ]; then
+        SEED_MODE="dark"
+      fi
+      mkdir -p "$THEME_DIR" 2>/dev/null || {
+        echo "[theme-sync] error: failed to create $THEME_DIR" >&2
+        exit 0
+      }
+      echo "$SEED_MODE" > "$THEME_DIR/mode" 2>/dev/null || echo "[theme-sync] warn: failed to write mode" >&2
       if [ "$SEED_MODE" = "dark" ]; then
         GTK_THEME="${cfg.dark.gtkTheme}"
         ICON_THEME="${cfg.dark.iconTheme}"
@@ -80,29 +87,34 @@ gtk-cursor-theme-name=$CURSOR_NAME
 gtk-cursor-theme-size=$CURSOR_SIZE
 gtk-application-prefer-dark-theme=$PREF_DARK
 "
-      printf '%s' "$GTK_SETTINGS_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$SRC" 2>/dev/null || \
-        printf '%s' "$GTK_SETTINGS_CONTENT" > "$SRC" 2>/dev/null || true
+      if ! printf '%s' "$GTK_SETTINGS_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$SRC" 2>/dev/null; then
+        if ! printf '%s' "$GTK_SETTINGS_CONTENT" > "$SRC" 2>/dev/null; then
+          echo "[theme-sync] error: failed to seed $SRC" >&2
+          exit 0
+        fi
+      fi
       if [ ! -f "$SRC" ]; then
-        echo "[theme-sync] error: inline seeding failed, $SRC still missing (attempt $((CNT+1))/1, no further retry)" >&2
+        echo "[theme-sync] error: inline seeding failed, $SRC still missing" >&2
         exit 0
       fi
-      echo "[theme-sync] seeded runtime inline with mode=$SEED_MODE" >&2
-    else
-      printf "0" > "$RETRY_FILE" 2>/dev/null || true
+      echo "[theme-sync] seeded runtime with mode=$SEED_MODE" >&2
     fi
 
+    # 同步到宿主机（幂等：内容相同时跳过，避免频繁触发）
     for ver in "3.0" "4.0"; do
       DST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-$ver/settings.ini"
-      # 声明式目录已由 systemd.tmpfiles 的 "d" 保证，此处仅作容错
-      ${pkgs.coreutils}/bin/install -Dm644 "$SRC" "$DST" 2>/dev/null || \
-        ${pkgs.coreutils}/bin/cp -f "$SRC" "$DST" 2>/dev/null || true
-      if [ -f "$DST" ]; then
-        echo "[theme-sync] synced $SRC -> $DST" >&2
-      else
-        echo "[theme-sync] warn: failed to sync $SRC -> $DST" >&2
+      if [ -f "$DST" ] && diff -q "$SRC" "$DST" >/dev/null 2>&1; then
+        continue
+      fi
+      if [ -d "$DST" ]; then
+        echo "[theme-sync] error: $DST is a directory, skipping" >&2
+        continue
+      fi
+      mkdir -p "$(dirname "$DST")" 2>/dev/null || true
+      if ! ${pkgs.coreutils}/bin/install -Dm644 "$SRC" "$DST" 2>/dev/null; then
+        ${pkgs.coreutils}/bin/cp -f "$SRC" "$DST" 2>/dev/null || echo "[theme-sync] warn: failed to sync $SRC -> $DST" >&2
       fi
     done
-    printf "0" > "$RETRY_FILE" 2>/dev/null || true
   '';
   themeSyncScript = "${themeSyncScriptBin}/bin/theme-sync-apply";
 
@@ -113,12 +125,30 @@ gtk-application-prefer-dark-theme=$PREF_DARK
     set -uo pipefail
 
     MODE="''${1:-dark}"
+    # 边界：非法模式兜底为 dark，避免未定义行为
+    if [ "$MODE" != "dark" ] && [ "$MODE" != "light" ]; then
+      echo "[theme-switch] warn: invalid MODE=$MODE, fallback to dark" >&2
+      MODE="dark"
+    fi
     RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
     THEME_DIR="$RUNTIME_DIR/desktop-theme"
 
-    # ── 1. 建立运行时主题状态目录 ─────────────────────────────────────────
-    mkdir -p "$THEME_DIR"
-    echo "$MODE" > "$THEME_DIR/mode"
+    # 边界：THEME_DIR 若为文件而非目录
+    if [ -e "$THEME_DIR" ] && [ ! -d "$THEME_DIR" ]; then
+      echo "[theme-switch] error: $THEME_DIR is not a directory" >&2
+      exit 0
+    fi
+    # 边界：gtk-settings.ini 若为目录而非文件
+    if [ -d "$THEME_DIR/gtk-settings.ini" ]; then
+      echo "[theme-switch] error: $THEME_DIR/gtk-settings.ini is a directory" >&2
+      exit 0
+    fi
+
+    mkdir -p "$THEME_DIR" 2>/dev/null || {
+      echo "[theme-switch] error: failed to create $THEME_DIR" >&2
+      exit 0
+    }
+    echo "$MODE" > "$THEME_DIR/mode" 2>/dev/null || echo "[theme-switch] warn: failed to write mode" >&2
 
     # ── 2. 选取当前模式的主题变量 ─────────────────────────────────────────
     if [ "$MODE" = "dark" ]; then
@@ -143,7 +173,7 @@ gtk-application-prefer-dark-theme=$PREF_DARK
       DCONF_COLOR_SCHEME="'prefer-light'"
     fi
 
-    # ── 3. 写入运行时 SSOT（供沙箱与 theme-sync 消费）─────────────────────
+    # ── 3. 写入运行时 SSOT ──────────────────────────────────────────────
     GTK_SETTINGS_CONTENT="[Settings]
 gtk-theme-name=$GTK_THEME
 gtk-icon-theme-name=$ICON_THEME
@@ -151,16 +181,16 @@ gtk-cursor-theme-name=$CURSOR_NAME
 gtk-cursor-theme-size=$CURSOR_SIZE
 gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
 "
-    # 写入 runtime，供沙箱 ro-bind 共享与同步服务消费
-    printf '%s' "$GTK_SETTINGS_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$THEME_DIR/gtk-settings.ini" 2>/dev/null || \
-      printf '%s' "$GTK_SETTINGS_CONTENT" > "$THEME_DIR/gtk-settings.ini" 2>/dev/null || true
+    if ! printf '%s' "$GTK_SETTINGS_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$THEME_DIR/gtk-settings.ini" 2>/dev/null; then
+      printf '%s' "$GTK_SETTINGS_CONTENT" > "$THEME_DIR/gtk-settings.ini" 2>/dev/null || echo "[theme-switch] error: failed to write gtk-settings.ini" >&2
+    fi
 
-    # 触发同步服务将 runtime 同步到宿主机可变配置（仅异步，避免与 theme-sync 互调导致 fork 炸弹）
+    # 触发同步服务（异步，避免与 theme-sync 互调导致 fork 炸弹）
     if command -v systemctl >/dev/null 2>&1; then
       systemctl --user start --no-block theme-sync.service 2>/dev/null || true
     fi
 
-    # ── 4. 通过 dconf 广播主题变更（GSettings 标准接口）─────────────────
+    # ── 4. 通过 dconf/gsettings 广播 ───────────────────────────────────
     if command -v dconf >/dev/null 2>&1; then
       dconf write /org/gnome/desktop/interface/color-scheme "$DCONF_COLOR_SCHEME" 2>/dev/null || true
       dconf write /org/gnome/desktop/interface/gtk-theme "'$GTK_THEME'" 2>/dev/null || true
@@ -168,8 +198,6 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
       dconf write /org/gnome/desktop/interface/cursor-theme "'$CURSOR_NAME'" 2>/dev/null || true
       dconf write /org/gnome/desktop/interface/cursor-size "$CURSOR_SIZE" 2>/dev/null || true
     fi
-
-    # 同时通过 gsettings 广播（兼容没有 dconf 但有 GSettings 的应用）
     if command -v gsettings >/dev/null 2>&1; then
       gsettings set org.gnome.desktop.interface color-scheme "$COLOR_SCHEME" 2>/dev/null || true
       gsettings set org.gnome.desktop.interface gtk-theme "$GTK_THEME" 2>/dev/null || true
@@ -178,10 +206,13 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
       gsettings set org.gnome.desktop.interface cursor-size "$CURSOR_SIZE" 2>/dev/null || true
     fi
 
-    # ── 5. 刷新 Niri 合成器主题配置（动态颜色注入）─────────────────────
+    # ── 5. 刷新 Niri 合成器主题配置 ───────────────────────────────────
     NIRI_THEME_DIR="$RUNTIME_DIR/niri"
-    mkdir -p "$NIRI_THEME_DIR" 2>/dev/null || true
-    NIRI_THEME_CONTENT="layout {
+    if [ -e "$NIRI_THEME_DIR" ] && [ ! -d "$NIRI_THEME_DIR" ]; then
+      echo "[theme-switch] warn: $NIRI_THEME_DIR is not a directory" >&2
+    else
+      mkdir -p "$NIRI_THEME_DIR" 2>/dev/null || true
+      NIRI_THEME_CONTENT="layout {
     focus-ring {
         width ${toString cfg.layout.focusRing.width}
         active-color \"$NIRI_FOCUS_ACTIVE\"
@@ -193,30 +224,31 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
     }
 }
 "
-    printf '%s' "$NIRI_THEME_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null || \
-      printf '%s' "$NIRI_THEME_CONTENT" > "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null || true
-    # 通知 niri 重载配置（若 niri 当前正在运行）
-    if command -v niri >/dev/null 2>&1; then
-      NIRI_CONFIG_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/niri"
-      NIRI_SYSTEM_CONFIG="/etc/xdg/niri/config.kdl"
-      if [ -f "$NIRI_CONFIG_DIR/config.kdl" ]; then
-        niri msg action load-config-file --path "$NIRI_CONFIG_DIR/config.kdl" >/dev/null 2>&1 || true
-      elif [ -f "$NIRI_SYSTEM_CONFIG" ]; then
-        niri msg action load-config-file --path "$NIRI_SYSTEM_CONFIG" >/dev/null 2>&1 || true
+      if ! printf '%s' "$NIRI_THEME_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null; then
+        printf '%s' "$NIRI_THEME_CONTENT" > "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null || echo "[theme-switch] warn: failed to write niri theme" >&2
+      fi
+      if command -v niri >/dev/null 2>&1; then
+        NIRI_CONFIG_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/niri"
+        NIRI_SYSTEM_CONFIG="/etc/xdg/niri/config.kdl"
+        if [ -f "$NIRI_CONFIG_DIR/config.kdl" ]; then
+          niri msg action load-config-file --path "$NIRI_CONFIG_DIR/config.kdl" 2>/dev/null || true
+        elif [ -f "$NIRI_SYSTEM_CONFIG" ]; then
+          niri msg action load-config-file --path "$NIRI_SYSTEM_CONFIG" 2>/dev/null || true
+        fi
       fi
     fi
 
-    # ── 6. 刷新 Waybar（SIGUSR2 热重载样式表）────────────────────────────
+    # ── 6. 刷新 Waybar ────────────────────────────────────────────────
     if command -v pkill >/dev/null 2>&1; then
       pkill -SIGUSR2 waybar 2>/dev/null || true
     fi
 
-    # ── 7. 刷新 SwayNC 通知中心样式 ─────────────────────────────────────
+    # ── 7. 刷新 SwayNC ───────────────────────────────────────────────
     if command -v swaync-client >/dev/null 2>&1; then
       swaync-client --reload-css 2>/dev/null || true
     fi
 
-    # ── 8. 壁纸切换 ────────────────────────────────────────────────────
+    # ── 8. 壁纸切换 ──────────────────────────────────────────────────
     ${optionalString (cfg.dark.wallpaper != null || cfg.light.wallpaper != null) ''
       WALLPAPER_PATH=""
       if [ "$MODE" = "dark" ]; then
@@ -229,9 +261,10 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
       fi
     ''}
 
-    # ── 9. 用户自定义附加 Hook ──────────────────────────────────────────
+    # ── 9. 用户自定义附加 Hook ─────────────────────────────────────
     ${cfg.extraSwitchHooks}
   '';
+
 
   # theme-ctl 控制脚本
   themeCtlScript = pkgs.writeShellScriptBin "theme-ctl" ''
@@ -245,16 +278,22 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
       echo "用法: theme-ctl <status|set dark|set light|auto|toggle>"
       echo ""
       echo "命令:"
-      echo "  status          显示当前主题状态（模式、GTK 主题、日出/日落时间）"
+      echo "  status          显示当前主题状态"
       echo "  set dark        强制切换为深色模式"
       echo "  set light       强制切换为浅色模式"
       echo "  auto            切换为根据太阳起落自适应模式"
-      echo "  toggle          翻转当前主题（快捷键绑定用）"
+      echo "  toggle          翻转当前主题"
     }
 
     get_current_mode() {
       if [ -f "$THEME_STATE" ]; then
-        cat "$THEME_STATE"
+        local m; m="$(cat "$THEME_STATE" 2>/dev/null | tr -d '
+' | tr -d ' ')"
+        if [ "$m" = "dark" ] || [ "$m" = "light" ]; then
+          echo "$m"
+        else
+          echo "dark"
+        fi
       elif command -v darkman >/dev/null 2>&1; then
         darkman get 2>/dev/null || echo "unknown"
       else
@@ -280,20 +319,12 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
         else
           echo "GTK 配置: (runtime 未初始化)"
         fi
-        # 宿主机可变配置同步状态
         GTK3_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
         GTK4_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/settings.ini"
         if [ -L "$GTK3_HOST" ]; then
           echo "宿主机 GTK3: symlink -> $(readlink "$GTK3_HOST") (将被 theme-sync 替换)"
         elif [ -f "$GTK3_HOST" ]; then
           echo "宿主机 GTK3: $(grep -E "^gtk-theme-name" "$GTK3_HOST" 2>/dev/null | head -1 | sed 's/^/  /')"
-          if [ ! -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
-            echo "  同步状态: 无法对比 (runtime 缺失，theme-seed/theme-sync 将自动播种)"
-          elif diff -q "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" "$GTK3_HOST" >/dev/null 2>&1; then
-            echo "  同步状态: 已同步 (与 runtime 一致)"
-          else
-            echo "  同步状态: 待同步 (与 runtime 不一致，theme-sync 将自动修复)"
-          fi
         else
           echo "宿主机 GTK3: 未找到 ($GTK3_HOST)"
         fi
@@ -301,24 +332,24 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
           echo "宿主机 GTK4: symlink -> $(readlink "$GTK4_HOST")"
         elif [ -f "$GTK4_HOST" ]; then
           echo "宿主机 GTK4: $(grep -E "^gtk-theme-name" "$GTK4_HOST" 2>/dev/null | head -1 | sed 's/^/  /')"
+        else
+          echo "宿主机 GTK4: 未找到 ($GTK4_HOST)"
         fi
         if command -v systemctl >/dev/null 2>&1; then
-          echo "theme-sync 服务: $(systemctl --user is-active theme-sync.service 2>/dev/null || echo 'inactive (oneshot)') | 已启用: $(systemctl --user is-enabled theme-sync.service 2>/dev/null || echo 'unknown')"
-          echo "theme-seed 服务: $(systemctl --user is-active theme-seed.service 2>/dev/null || echo 'inactive (oneshot)') | 已启用: $(systemctl --user is-enabled theme-seed.service 2>/dev/null || echo 'static')"
-          RETRY_SYNC="$RUNTIME_DIR/desktop-theme/.theme-sync-retries"
-          RETRY_SEED="$RUNTIME_DIR/desktop-theme/.theme-seed-retries"
-          if [ -f "$RETRY_SYNC" ]; then
-            echo "theme-sync 重试: $(cat "$RETRY_SYNC" 2>/dev/null || echo 0)/1 (超限后执行: printf 0 > $RETRY_SYNC && systemctl --user reset-failed theme-sync.service)"
-          fi
-          if [ -f "$RETRY_SEED" ]; then
-            echo "theme-seed 重试: $(cat "$RETRY_SEED" 2>/dev/null || echo 0)/1"
-          fi
+          echo "theme-sync 服务: $(systemctl --user is-active theme-sync.service 2>/dev/null || echo 'inactive')"
+          echo "theme-seed 服务: $(systemctl --user is-active theme-seed.service 2>/dev/null || echo 'inactive')"
         fi
         if command -v darkman >/dev/null 2>&1 && systemctl --user is-active darkman.service >/dev/null 2>&1; then
           echo "darkman 服务: active (running)"
           darkman get 2>&1 | sed 's/^/  /' || true
         else
           echo "darkman 服务: $(systemctl --user is-active darkman.service 2>/dev/null || echo 'inactive')"
+        fi
+        if [ ! -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
+          if [ -d "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
+            echo "  诊断: gtk-settings.ini 为目录（历史遗留），请执行: rmdir \"$RUNTIME_DIR/desktop-theme/gtk-settings.ini\" && systemctl --user restart theme-seed.service"
+          fi
+          echo "  建议: theme-ctl set $MODE"
         fi
         ;;
       set)
@@ -343,6 +374,9 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
         ;;
       toggle)
         CURRENT=$(get_current_mode)
+        if [ "$CURRENT" != "dark" ] && [ "$CURRENT" != "light" ]; then
+          CURRENT="light"
+        fi
         if [ "$CURRENT" = "dark" ]; then
           NEW_MODE="light"
         else
@@ -360,6 +394,7 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
         ;;
     esac
   '';
+
 
 in
 {
@@ -528,8 +563,8 @@ in
         XCURSOR_SIZE = toString cfg.cursor.size;
       };
 
-      # 3. 部署 Darkman 配置文件（/etc/xdg/darkman/config.yaml 供系统级用户共享）
-      environment.etc."xdg/darkman/config.yaml".text = darkmanConfig;
+      # 3. 部署 Darkman 配置文件（/etc/darkman/config.yaml 供系统级用户共享）
+      environment.etc."darkman/config.yaml".text = darkmanConfig;
 
       # 4. 部署主题切换钩子脚本到 XDG_DATA_DIRS
       #    Darkman 会自动搜索 $XDG_DATA_DIRS/darkman/ 下的可执行文件
@@ -558,7 +593,7 @@ in
           ExecStartPost = "${pkgs.darkman}/bin/darkman set ${cfg.mode}";
         };
         environment = {
-          XDG_CONFIG_DIRS = "/etc/xdg";
+          XDG_CONFIG_DIRS = "/etc:/etc/xdg";
           XDG_DATA_DIRS = "/etc/xdg";
         };
       };
@@ -570,60 +605,72 @@ in
         after = [ "systemd-tmpfiles-setup.service" ];
         before = [ "darkman.service" ];
         wantedBy = [ "graphical-session.target" ];
-        unitConfig = {
-          ConditionPathExists = "!%t/desktop-theme/gtk-settings.ini";
-          StartLimitIntervalSec = "60s";
-          StartLimitBurst = 1;
-        };
+        unitConfig = { };
         serviceConfig = {
           Type = "oneshot";
           RemainAfterExit = true;
+          RuntimeDirectory = "desktop-theme";
+          RuntimeDirectoryMode = "0755";
+          ExecCondition = "${pkgs.bash}/bin/bash -c '! test -f %t/desktop-theme/gtk-settings.ini'";
           ExecStart = "${pkgs.writeShellScript "theme-seed-apply" ''
             #!/usr/bin/env bash
             set -uo pipefail
             RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
             THEME_DIR="$RUNTIME_DIR/desktop-theme"
             SRC="$THEME_DIR/gtk-settings.ini"
-            RETRY_FILE="$THEME_DIR/.theme-seed-retries"
+            echo "[theme-seed] invoked RUNTIME_DIR=$RUNTIME_DIR SRC=$SRC" >&2
             if [ -f "$SRC" ]; then
-              printf "0" > "$RETRY_FILE" 2>/dev/null || true
               echo "[theme-seed] already exists, skip" >&2
               exit 0
             fi
-            CNT=$(cat "$RETRY_FILE" 2>/dev/null || echo 0)
-            if ! [[ "$CNT" =~ ^[0-9]+$ ]]; then CNT=0; fi
-            if [ "$CNT" -ge 1 ]; then
-              echo "[theme-seed] error: max retries 1 reached for $SRC, manual fix: theme-ctl set dark | systemctl --user reset-failed theme-seed.service && printf 0 > $RETRY_FILE && systemctl --user restart theme-seed.service" >&2
+            if [ -d "$SRC" ]; then
+              echo "[theme-seed] error: $SRC is a directory" >&2
               exit 0
             fi
-            echo $((CNT+1)) > "$RETRY_FILE" 2>/dev/null || true
-            echo "[theme-seed] seeding runtime (attempt $((CNT+1))/1)..." >&2
+            if [ -e "$THEME_DIR" ] && [ ! -d "$THEME_DIR" ]; then
+              echo "[theme-seed] error: $THEME_DIR is not a directory" >&2
+              exit 0
+            fi
+            echo "[theme-seed] seeding runtime..." >&2
             SEED_MODE="${cfg.mode}"
             if [ "$SEED_MODE" = "auto" ]; then
               SEED_MODE="dark"
               if command -v darkman >/dev/null 2>&1; then
-                DM="$(darkman get 2>/dev/null || true)"
+                DM="$(darkman get 2>&1 || true)"
                 if [ "$DM" = "dark" ] || [ "$DM" = "light" ]; then SEED_MODE="$DM"; fi
               fi
               GTK_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
-              if [ -f "$GTK_HOST" ] && grep -q "gtk-theme-name.*-dark" "$GTK_HOST" 2>/dev/null; then
+              if [ -f "$GTK_HOST" ] && grep -q "gtk-theme-name.*-dark" "$GTK_HOST" 2>&1; then
                 SEED_MODE="dark"
               fi
             fi
-            echo "[theme-seed] seeding runtime with mode=$SEED_MODE" >&2
+            SWITCH_RC=0
             if [ -x "/etc/xdg/darkman/theme-switch.sh" ]; then
-              "/etc/xdg/darkman/theme-switch.sh" "$SEED_MODE" 2>/dev/null || true
-            else
-              "${themeSwitchScript}" "$SEED_MODE" 2>/dev/null || true
-            fi
-            if [ -f "$SRC" ]; then
-              printf "0" > "$RETRY_FILE" 2>/dev/null || true
-              echo "[theme-seed] seeded successfully" >&2
-              if command -v systemctl >/dev/null 2>&1; then
-                systemctl --user start --no-block theme-sync.service 2>/dev/null || true
+              if "/etc/xdg/darkman/theme-switch.sh" "$SEED_MODE" 2>&1 | sed 's/^/[theme-seed] switch stderr: /' >&2; then
+                :
+              else
+                SWITCH_RC=$?
+                echo "[theme-seed] warn: theme-switch.sh failed rc=$SWITCH_RC" >&2
               fi
             else
-              echo "[theme-seed] error: seeding failed, $SRC still missing (attempt $((CNT+1))/1, no further retry)" >&2
+              if "${themeSwitchScript}" "$SEED_MODE" 2>&1 | sed 's/^/[theme-seed] switch-nix stderr: /' >&2; then
+                :
+              else
+                SWITCH_RC=$?
+                echo "[theme-seed] warn: nix switch script failed rc=$SWITCH_RC" >&2
+              fi
+            fi
+            if [ -f "$SRC" ]; then
+              echo "[theme-seed] seeded successfully" >&2
+              if command -v systemctl >/dev/null 2>&1; then
+                if systemctl --user start --no-block theme-sync.service 2>&1 | sed 's/^/[theme-seed] systemctl stderr: /' >&2; then
+                  :
+                else
+                  echo "[theme-seed] warn: systemctl trigger failed rc=$?" >&2
+                fi
+              fi
+            else
+              echo "[theme-seed] error: seeding failed, $SRC still missing" >&2
             fi
           ''}";
         };
@@ -641,14 +688,12 @@ in
         documentation = [ "man:theme-ctl(1)" ];
         partOf = [ "graphical-session.target" ];
         after = [ "graphical-session.target" ];
-        unitConfig = {
-          StartLimitIntervalSec = "60s";
-          StartLimitBurst = 1;
-        };
         serviceConfig = {
           Type = "oneshot";
           ExecStart = "${themeSyncScript}";
-          RemainAfterExit = true;
+          RemainAfterExit = false;
+          RuntimeDirectory = "desktop-theme";
+          RuntimeDirectoryMode = "0755";
         };
       };
 
@@ -662,9 +707,7 @@ in
           TriggerLimitBurst = 1;
         };
         pathConfig = {
-          PathExists = "%t/desktop-theme/gtk-settings.ini";
-          PathModified = "%t/desktop-theme/gtk-settings.ini";
-          MakeDirectory = true;
+          PathChanged = "%t/desktop-theme/gtk-settings.ini";
           Unit = "theme-sync.service";
         };
       };
