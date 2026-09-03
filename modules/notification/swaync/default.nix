@@ -562,6 +562,19 @@ in
         "xdg/swaync/style.css".text = finalStyleText;
       };
 
+      # ── 主题联动：显式声明 SwayNC 对主题钩子的 PATH 与脚本注入 ───────────
+      desktop.theme.hookPackages = mkIf (config.desktop.theme.enable or false) [
+        cfg.package
+      ];
+      desktop.theme.hookFragments = mkIf (config.desktop.theme.enable or false) [''
+        # --- SwayNC 主题联动（由 modules/notification/swaync 注入） ---
+        if command -v swaync-client >/dev/null 2>&1; then
+          swaync-client --reload-css 2>/dev/null || true
+        elif [ -x "${cfg.package}/bin/swaync-client" ]; then
+          ${cfg.package}/bin/swaync-client --reload-css 2>/dev/null || true
+        fi
+      ''];
+
       # Systemd 用户守护进程服务：由 graphical-session.target 统一管理生命周期
       systemd.user.services.swaync = mkIf cfg.systemd.enable {
         description = "Swaync notification daemon";

@@ -182,6 +182,19 @@ in
         "xdg/waybar/style.css".text = finalStyleText;
       };
 
+      # ── 主题联动：显式声明 Waybar 对主题钩子的 PATH 与脚本注入 ──────────
+      desktop.theme.hookPackages = mkIf (config.desktop.theme.enable or false) [
+        pkgs.procps
+      ];
+      desktop.theme.hookFragments = mkIf (config.desktop.theme.enable or false) [''
+        # --- Waybar 主题联动（由 modules/bar/waybar 注入） ---
+        if command -v pkill >/dev/null 2>&1; then
+          pkill -SIGUSR2 waybar 2>/dev/null || true
+        elif [ -x "${pkgs.procps}/bin/pkill" ]; then
+          ${pkgs.procps}/bin/pkill -SIGUSR2 waybar 2>/dev/null || true
+        fi
+      ''];
+
       # 联动向 Niri 注册自启动与快捷键
       desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable) {
         autostart = mkIf cfg.niri.autostart [

@@ -641,6 +641,56 @@ in
         }
       ];
 
+      # ── 主题联动：显式声明 Niri 对主题钩子的 PATH 与脚本注入 ───────────────
+      # 当全局主题启用时，向 theme 钩子注入 Niri 动态颜色逻辑与所需二进制
+      desktop.theme.hookPackages = mkIf (config.desktop.theme.enable or false) [
+        cfg.package
+        pkgs.coreutils
+      ];
+
+      desktop.theme.hookFragments = mkIf (config.desktop.theme.enable or false) [''
+        # --- Niri 主题联动（由 modules/windowManager/niri 注入） ---
+        if [ "$MODE" = "dark" ]; then
+          NIRI_FOCUS_ACTIVE="${config.desktop.theme.dark.niri.focusRingActiveColor}"
+          NIRI_BORDER_ACTIVE="${config.desktop.theme.dark.niri.borderActiveColor}"
+          NIRI_INACTIVE="${config.desktop.theme.dark.niri.inactiveColor}"
+        else
+          NIRI_FOCUS_ACTIVE="${config.desktop.theme.light.niri.focusRingActiveColor}"
+          NIRI_BORDER_ACTIVE="${config.desktop.theme.light.niri.borderActiveColor}"
+          NIRI_INACTIVE="${config.desktop.theme.light.niri.inactiveColor}"
+        fi
+        NIRI_THEME_DIR="$RUNTIME_DIR/niri"
+        if [ -e "$NIRI_THEME_DIR" ] && [ ! -d "$NIRI_THEME_DIR" ]; then
+          echo "[theme-switch] warn: $NIRI_THEME_DIR is not a directory" >&2
+        else
+          mkdir -p "$NIRI_THEME_DIR" 2>/dev/null || true
+          NIRI_THEME_CONTENT="layout {
+        focus-ring {
+            width ${toString config.desktop.theme.layout.focusRing.width}
+            active-color \"$NIRI_FOCUS_ACTIVE\"
+            inactive-color \"$NIRI_INACTIVE\"
+        }
+        border {
+            active-color \"$NIRI_BORDER_ACTIVE\"
+            inactive-color \"$NIRI_INACTIVE\"
+        }
+        }
+        "
+          if ! printf '%s' "$NIRI_THEME_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null; then
+            printf '%s' "$NIRI_THEME_CONTENT" > "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null || echo "[theme-switch] warn: failed to write niri theme" >&2
+          fi
+          if command -v niri >/dev/null 2>&1; then
+            NIRI_CONFIG_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/niri"
+            NIRI_SYSTEM_CONFIG="/etc/xdg/niri/config.kdl"
+            if [ -f "$NIRI_CONFIG_DIR/config.kdl" ]; then
+              niri msg action load-config-file --path "$NIRI_CONFIG_DIR/config.kdl" 2>/dev/null || true
+            elif [ -f "$NIRI_SYSTEM_CONFIG" ]; then
+              niri msg action load-config-file --path "$NIRI_SYSTEM_CONFIG" 2>/dev/null || true
+            fi
+          fi
+        fi
+      ''];
+
       # 1. 启用 NixOS 官方 programs.niri 支持
       programs.niri = {
         enable = true;

@@ -414,8 +414,8 @@ pkgs.runCommand "${name}-static-check" {
       echo "错误: theme-seed 未设置 RuntimeDirectory=desktop-theme（用于替代 tmpfiles %t 与 MakeDirectory，避免文件路径被误建为目录）"
       exit 1
     fi
-    if [ "${if hasRuntimeDirSync then "true" else "false"}" != "true" ]; then
-      echo "错误: theme-sync 未设置 RuntimeDirectory=desktop-theme"
+    if [ "${if hasRuntimeDirSync then "true" else "false"}" != "false" ]; then
+      echo "错误: theme-sync 不应设置 RuntimeDirectory=desktop-theme（已移除以避免与 theme-seed 共享目录竞争导致 SSOT 被清理）"
       exit 1
     fi
     # theme-sync service (自愈：不再依赖 ConditionPathExists，由脚本内部播种)
