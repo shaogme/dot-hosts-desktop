@@ -90,7 +90,7 @@ in
   # ==========================================
   desktop.windowManager.hyprland = {
     enable = true;
-    terminal = "ghostty";
+    terminal = "rio";
     virtualization.enable = true;
   };
 
@@ -101,18 +101,18 @@ in
   desktop.bar.waybar = {
     enable = true;
     commands = {
-      terminal = "ghostty";
-      cpu = "ghostty -e btop";
-      memory = "ghostty -e btop";
-      network = "ghostty -e nmtui";
-      bluetooth = "ghostty -e bluetuith";
+      terminal = "rio";
+      cpu = "rio -e btop";
+      memory = "rio -e btop";
+      network = "rio -e nmtui";
+      bluetooth = "rio -e bluetuith";
     };
   };
 
   desktop.launcher.anyrun = {
     enable = true;
     terminal = {
-      command = "ghostty";
+      command = "rio";
       args = "-e {}";
     };
   };
@@ -198,9 +198,9 @@ in
   };
 
   # ==========================================
-  # 终端与 Shell 环境 (Terminal & Ghostty & Zsh & Starship)
+  # 终端与 Shell 环境 (Terminal & Rio & Zsh & Starship)
   # ==========================================
-  desktop.terminal.ghostty = {
+  desktop.terminal.rio = {
     enable = true;
   };
 
@@ -309,8 +309,8 @@ in
       message = "窗口管理器配置错误：Hyprland 未启用";
     }
     {
-      assertion = config.desktop.windowManager.hyprland.terminal == "ghostty";
-      message = "Hyprland 终端命令行配置错误：应当配置为 ghostty";
+      assertion = config.desktop.windowManager.hyprland.terminal == "rio";
+      message = "Hyprland 终端命令行配置错误：应当配置为 rio";
     }
     {
       assertion = config.desktop.windowManager.hyprland.virtualization.enable == true;
@@ -329,16 +329,16 @@ in
       message = "状态栏配置错误：Waybar 未启用";
     }
     {
-      assertion = config.desktop.bar.waybar.commands.terminal == "ghostty";
-      message = "Waybar 终端命令行配置错误：应当配置为 ghostty";
+      assertion = config.desktop.bar.waybar.commands.terminal == "rio";
+      message = "Waybar 终端命令行配置错误：应当配置为 rio";
     }
     {
       assertion = config.desktop.launcher.anyrun.enable == true;
       message = "桌面启动器配置错误：Anyrun 未启用";
     }
     {
-      assertion = config.desktop.launcher.anyrun.terminal.command == "ghostty";
-      message = "Anyrun 终端命令行配置错误：应当配置为 ghostty";
+      assertion = config.desktop.launcher.anyrun.terminal.command == "rio";
+      message = "Anyrun 终端命令行配置错误：应当配置为 rio";
     }
 
     {
@@ -410,8 +410,8 @@ in
       message = "字体配置错误：Fontconfig 未启用";
     }
     {
-      assertion = config.desktop.terminal.ghostty.enable == true;
-      message = "终端配置错误：Ghostty 未启用";
+      assertion = config.desktop.terminal.rio.enable == true;
+      message = "终端配置错误：Rio 未启用";
     }
     {
       assertion = config.desktop.terminal.zsh.enable == true;

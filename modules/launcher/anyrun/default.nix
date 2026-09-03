@@ -270,7 +270,7 @@ in
     terminal = {
       command = mkOption {
         type = types.str;
-        default = "ghostty";
+        default = "rio";
         description = "Anyrun 运行终端应用时调用的终端命令行或可执行文件路径。";
       };
 
@@ -515,16 +515,13 @@ in
         enable = true;
         settings = {
           default = [
-            "com.mitchellh.ghostty.desktop"
-            "ghostty.desktop"
+            "rio.desktop"
           ];
           Hyprland = [
-            "com.mitchellh.ghostty.desktop"
-            "ghostty.desktop"
+            "rio.desktop"
           ];
           hyprland = [
-            "com.mitchellh.ghostty.desktop"
-            "ghostty.desktop"
+            "rio.desktop"
           ];
         };
       };
@@ -591,8 +588,8 @@ in
             };
 
             xdg.configFile = allConfigFiles // {
-              "xdg-terminals.list".text = "com.mitchellh.ghostty.desktop\nghostty.desktop\n";
-              "hyprland-xdg-terminals.list".text = "com.mitchellh.ghostty.desktop\nghostty.desktop\n";
+              "xdg-terminals.list".text = "rio.desktop\n";
+              "hyprland-xdg-terminals.list".text = "rio.desktop\n";
             };
           })
         ];

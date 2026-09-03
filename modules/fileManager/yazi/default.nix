@@ -141,7 +141,7 @@ let
     fi
 
     cmd="${finalPackage}/bin/yazi"
-    termcmd="''${TERMCMD:-${cfg.terminal} --class=termfilechooser --title=termfilechooser -e}"
+    termcmd="''${TERMCMD:-${cfg.terminal} --app-id=termfilechooser --title-placeholder=termfilechooser -e}"
 
     if [ "$save" = "1" ]; then
         set -- --chooser-file="$out" "$path"
@@ -253,8 +253,8 @@ in
 
     terminal = mkOption {
       type = types.str;
-      default = "ghostty";
-      description = "启动 Yazi 终端文件管理器的终端模拟器命令（如 ghostty、kitty、foot 等）。";
+      default = "rio";
+      description = "启动 Yazi 终端文件管理器的终端模拟器命令（如 rio、kitty、foot 等）。";
     };
 
     themePreset = mkOption {

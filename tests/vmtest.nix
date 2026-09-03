@@ -119,21 +119,21 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/anyrun/style.css")
           server.succeed("which xdg-terminal-exec")
           server.succeed("test -f /etc/xdg/xdg-terminals.list")
-          server.succeed("grep -q 'ghostty.desktop' /etc/xdg/xdg-terminals.list")
+          server.succeed("grep -q 'rio.desktop' /etc/xdg/xdg-terminals.list")
           server.succeed("test -f /etc/xdg/hyprland-xdg-terminals.list")
-          server.succeed("grep -q 'ghostty.desktop' /etc/xdg/hyprland-xdg-terminals.list")
+          server.succeed("grep -q 'rio.desktop' /etc/xdg/hyprland-xdg-terminals.list")
 
           server.succeed("which anyrun-power")
           server.succeed("test -f /etc/xdg/anyrun/actions.ron")
           server.succeed("test -f /etc/anyrun/actions.ron")
 
-      # 验证终端 (Ghostty)
-      if ${if (serverCfg.desktop ? terminal && serverCfg.desktop.terminal ? ghostty && serverCfg.desktop.terminal.ghostty.enable) then "True" else "False"}:
-          server.succeed("which ghostty")
-          server.succeed("test -f /etc/xdg/ghostty/config")
-          server.succeed("test -f /etc/ghostty/config")
-          server.succeed("ghostty +validate-config --config-file=/etc/xdg/ghostty/config")
-          server.succeed("ghostty +validate-config --config-file=/etc/ghostty/config")
+      # 验证终端 (Rio)
+      if ${if (serverCfg.desktop ? terminal && serverCfg.desktop.terminal ? rio && serverCfg.desktop.terminal.rio.enable) then "True" else "False"}:
+          server.succeed("which rio")
+          server.succeed("test -f /etc/xdg/rio/config.toml")
+          server.succeed("test -f /etc/rio/config.toml")
+          server.succeed("test -s /etc/xdg/rio/config.toml")
+          server.succeed("test -s /etc/rio/config.toml")
 
       # 验证状态栏 (Waybar)
       if ${if (serverCfg.desktop ? bar && serverCfg.desktop.bar ? waybar && serverCfg.desktop.bar.waybar.enable) then "True" else "False"}:

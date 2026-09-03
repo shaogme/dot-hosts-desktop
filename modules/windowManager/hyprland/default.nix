@@ -87,7 +87,7 @@ in
 
     terminal = mkOption {
       type = types.str;
-      default = "ghostty";
+      default = "rio";
       description = "Hyprland 默认快捷键 (SUPER + Return) 启动的终端命令或可执行程序名称。";
     };
 

@@ -75,13 +75,13 @@ in
 
     terminal = mkOption {
       type = types.str;
-      default = "ghostty";
-      description = "唤起终端文件选择器所使用的终端模拟器（默认 ghostty）。";
+      default = "rio";
+      description = "唤起终端文件选择器所使用的终端模拟器（默认 rio）。";
     };
 
     termcmd = mkOption {
       type = types.str;
-      default = "${cfg.terminal} --class=termfilechooser --title=termfilechooser -e";
+      default = "${cfg.terminal} --app-id=termfilechooser --title-placeholder=termfilechooser -e";
       description = "执行文件选择器所使用的终端命令行模板（注入 TERMCMD 环境变量，配合窗口规则）。";
     };
 
@@ -171,7 +171,7 @@ in
         };
       };
 
-      # 4. 配置 systemd user 服务的环境变量 PATH，确保能找到系统与用户终端（如 ghostty）
+      # 4. 配置 systemd user 服务的环境变量 PATH，确保能找到系统与用户终端（如 rio）
       systemd.user.services.xdg-desktop-portal-termfilechooser = {
         environment = {
           PATH = mkDefault "/run/wrappers/bin:/run/current-system/sw/bin:/etc/profiles/per-user/%u/bin";

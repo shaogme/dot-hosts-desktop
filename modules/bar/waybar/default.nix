@@ -71,37 +71,37 @@ in
 
       terminal = mkOption {
         type = types.str;
-        default = "ghostty";
+        default = "rio";
         description = "右键菜单图标执行的终端命令行。";
       };
 
       cpu = mkOption {
         type = types.str;
-        default = "ghostty -e btop";
+        default = "rio -e btop";
         description = "点击 CPU 监控模块执行的性能监控命令行。";
       };
 
       memory = mkOption {
         type = types.str;
-        default = "ghostty -e btop";
+        default = "rio -e btop";
         description = "点击内存监控模块执行的性能监控命令行。";
       };
 
       network = mkOption {
         type = types.str;
-        default = "ghostty -e nmtui";
+        default = "rio -e nmtui";
         description = "点击网络状态模块执行的网络配置命令行。";
       };
 
       netSpeed = mkOption {
         type = types.str;
-        default = "ghostty -e btop";
+        default = "rio -e btop";
         description = "点击实时网速监控模块执行的命令行。";
       };
 
       bluetooth = mkOption {
         type = types.str;
-        default = "ghostty -e bluetuith";
+        default = "rio -e bluetuith";
         description = "点击蓝牙状态模块执行的蓝牙管理命令行。";
       };
 

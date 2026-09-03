@@ -26,13 +26,18 @@ let
   failuresBash = pkgs.lib.concatStringsSep "\n" (pkgs.lib.imap0 generateFailure failedAssertions);
   failedCount = builtins.length failedAssertions;
 
-  # Ghostty 配置静态语法与有效性验证
-  ghosttyEnabled = cfg.desktop.terminal.ghostty.enable or false;
-  ghosttyConfigText = cfg.environment.etc."xdg/ghostty/config".text or "";
-  ghosttyConfigFile = pkgs.writeText "${name}-ghostty-config" ghosttyConfigText;
+  # Rio 配置静态语法与有效性验证
+  rioEnabled = cfg.desktop.terminal.rio.enable or false;
+  rioConfigFile =
+    if cfg.environment.etc ? "xdg/rio/config.toml" && cfg.environment.etc."xdg/rio/config.toml" ? source then
+      cfg.environment.etc."xdg/rio/config.toml".source
+    else if cfg.environment.etc ? "xdg/rio/config.toml" && cfg.environment.etc."xdg/rio/config.toml" ? text then
+      pkgs.writeText "${name}-rio-config" cfg.environment.etc."xdg/rio/config.toml".text
+    else
+      pkgs.emptyFile;
 in
 pkgs.runCommand "${name}-static-check" {
-  nativeBuildInputs = [ pkgs.ghostty ];
+  nativeBuildInputs = [ pkgs.rio pkgs.python3 ];
   # 增加元数据输出，方便调试
   passthru = { inherit eval; };
 } ''
@@ -45,10 +50,10 @@ pkgs.runCommand "${name}-static-check" {
     echo "[${name}] 所有静态断言检查通过！"
   ''}
 
-  ${if ghosttyEnabled then ''
-    echo "[${name}] 正在使用 ghostty +validate-config 验证 Ghostty 终端配置..."
-    ghostty +validate-config --config-file=${ghosttyConfigFile}
-    echo "[${name}] Ghostty 终端配置合法性验证通过！"
+  ${if rioEnabled then ''
+    echo "[${name}] 正在验证 Rio 终端 TOML 配置合法性与语法结构..."
+    python3 -c "import tomllib; tomllib.load(open('${rioConfigFile}', 'rb'))"
+    echo "[${name}] Rio 终端配置合法性验证通过！"
   '' else ""}
 
   echo "静态检查通过！"
