@@ -19,10 +19,41 @@ let
     portal: true
   '';
 
+  # ── 同步脚本：将 runtime SSOT 同步到宿主机可变配置 ──
+  # 设计：Hook 仅写 $RUNTIME_DIR/desktop-theme/*（SSOT），本脚本负责把
+  # runtime 的 gtk-settings.ini 拷贝到 $XDG_CONFIG_HOME/gtk-{3,4}.0/settings.ini。
+  themeSyncScriptBin = pkgs.writeShellScriptBin "theme-sync-apply" ''
+    #!/usr/bin/env bash
+    set -uo pipefail
+
+    RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    THEME_DIR="$RUNTIME_DIR/desktop-theme"
+    SRC="$THEME_DIR/gtk-settings.ini"
+
+    if [ ! -f "$SRC" ]; then
+      echo "[theme-sync] skip: $SRC not found (runtime not yet initialized)" >&2
+      exit 0
+    fi
+
+    for ver in "3.0" "4.0"; do
+      DST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-$ver/settings.ini"
+      # 声明式目录已由 systemd.tmpfiles 的 "d" 保证，此处仅作容错
+      ${pkgs.coreutils}/bin/install -Dm644 "$SRC" "$DST" 2>/dev/null || \
+        ${pkgs.coreutils}/bin/cp -f "$SRC" "$DST" 2>/dev/null || true
+      if [ -f "$DST" ]; then
+        echo "[theme-sync] synced $SRC -> $DST" >&2
+      else
+        echo "[theme-sync] warn: failed to sync $SRC -> $DST" >&2
+      fi
+    done
+  '';
+  themeSyncScript = "${themeSyncScriptBin}/bin/theme-sync-apply";
+
   # 全局主题切换 Hook 脚本（部署到 XDG_DATA_DIRS/darkman/）
+  # 架构：runtime 为 Single Source of Truth，Hook 仅写 runtime，同步由 theme-sync.service 完成
   themeSwitchScript = pkgs.writeShellScript "theme-switch" ''
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -uo pipefail
 
     MODE="''${1:-dark}"
     RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
@@ -55,11 +86,7 @@ let
       DCONF_COLOR_SCHEME="'prefer-light'"
     fi
 
-    # ── 3. 写入宿主机 GTK 配置文件 ────────────────────────────────────────
-    GTK3_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0"
-    GTK4_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0"
-    mkdir -p "$GTK3_DIR" "$GTK4_DIR"
-
+    # ── 3. 写入运行时 SSOT（供沙箱与 theme-sync 消费）─────────────────────
     GTK_SETTINGS_CONTENT="[Settings]
 gtk-theme-name=$GTK_THEME
 gtk-icon-theme-name=$ICON_THEME
@@ -67,11 +94,18 @@ gtk-cursor-theme-name=$CURSOR_NAME
 gtk-cursor-theme-size=$CURSOR_SIZE
 gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
 "
-    printf '%s' "$GTK_SETTINGS_CONTENT" > "$GTK3_DIR/settings.ini"
-    printf '%s' "$GTK_SETTINGS_CONTENT" > "$GTK4_DIR/settings.ini"
+    # 写入 runtime，供沙箱 ro-bind 共享与同步服务消费
+    printf '%s' "$GTK_SETTINGS_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$THEME_DIR/gtk-settings.ini" 2>/dev/null || \
+      printf '%s' "$GTK_SETTINGS_CONTENT" > "$THEME_DIR/gtk-settings.ini" 2>/dev/null || true
 
-    # 同时写入 $THEME_DIR 供沙箱共享
-    printf '%s' "$GTK_SETTINGS_CONTENT" > "$THEME_DIR/gtk-settings.ini"
+    # 触发同步服务将 runtime 同步到宿主机可变配置（非阻塞，失败不影响 darkman）
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl --user start --no-block theme-sync.service 2>/dev/null || true
+    fi
+    # 同步回退：若用户会话未就绪（如 VM 测试）或 systemctl 不可用，直接同步
+    if [ -x "${themeSyncScript}" ]; then
+      "${themeSyncScript}" 2>/dev/null || true
+    fi
 
     # ── 4. 通过 dconf 广播主题变更（GSettings 标准接口）─────────────────
     if command -v dconf >/dev/null 2>&1; then
@@ -93,20 +127,21 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
 
     # ── 5. 刷新 Niri 合成器主题配置（动态颜色注入）─────────────────────
     NIRI_THEME_DIR="$RUNTIME_DIR/niri"
-    mkdir -p "$NIRI_THEME_DIR"
-    cat > "$NIRI_THEME_DIR/theme.kdl" <<EOF
-layout {
+    mkdir -p "$NIRI_THEME_DIR" 2>/dev/null || true
+    NIRI_THEME_CONTENT="layout {
     focus-ring {
         width ${toString cfg.layout.focusRing.width}
-        active-color "$NIRI_FOCUS_ACTIVE"
-        inactive-color "$NIRI_INACTIVE"
+        active-color \"$NIRI_FOCUS_ACTIVE\"
+        inactive-color \"$NIRI_INACTIVE\"
     }
     border {
-        active-color "$NIRI_BORDER_ACTIVE"
-        inactive-color "$NIRI_INACTIVE"
+        active-color \"$NIRI_BORDER_ACTIVE\"
+        inactive-color \"$NIRI_INACTIVE\"
     }
 }
-EOF
+"
+    printf '%s' "$NIRI_THEME_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null || \
+      printf '%s' "$NIRI_THEME_CONTENT" > "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null || true
     # 通知 niri 重载配置（若 niri 当前正在运行）
     if command -v niri >/dev/null 2>&1; then
       NIRI_CONFIG_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/niri"
@@ -182,8 +217,40 @@ EOF
           echo "Darkman 模式: $(darkman get 2>/dev/null || echo '未运行')"
         fi
         if [ -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
-          echo "GTK 配置:"
+          echo "GTK 配置 (runtime SSOT):"
           grep -E "^gtk-theme-name|^gtk-icon-theme-name" "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" 2>/dev/null | sed 's/^/  /' || true
+          echo "  运行时文件: $RUNTIME_DIR/desktop-theme/gtk-settings.ini"
+        else
+          echo "GTK 配置: (runtime 未初始化)"
+        fi
+        # 宿主机可变配置同步状态
+        GTK3_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
+        GTK4_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/settings.ini"
+        if [ -L "$GTK3_HOST" ]; then
+          echo "宿主机 GTK3: symlink -> $(readlink "$GTK3_HOST") (将被 theme-sync 替换)"
+        elif [ -f "$GTK3_HOST" ]; then
+          echo "宿主机 GTK3: $(grep -E "^gtk-theme-name" "$GTK3_HOST" 2>/dev/null | head -1 | sed 's/^/  /')"
+          if [ -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ] && diff -q "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" "$GTK3_HOST" >/dev/null 2>&1; then
+            echo "  同步状态: 已同步 (与 runtime 一致)"
+          else
+            echo "  同步状态: 待同步 (与 runtime 不一致，theme-sync 将自动修复)"
+          fi
+        else
+          echo "宿主机 GTK3: 未找到 ($GTK3_HOST)"
+        fi
+        if [ -L "$GTK4_HOST" ]; then
+          echo "宿主机 GTK4: symlink -> $(readlink "$GTK4_HOST")"
+        elif [ -f "$GTK4_HOST" ]; then
+          echo "宿主机 GTK4: $(grep -E "^gtk-theme-name" "$GTK4_HOST" 2>/dev/null | head -1 | sed 's/^/  /')"
+        fi
+        if command -v systemctl >/dev/null 2>&1; then
+          echo "theme-sync 服务: $(systemctl --user is-active theme-sync.service 2>/dev/null || echo 'inactive (oneshot)') | 已启用: $(systemctl --user is-enabled theme-sync.service 2>/dev/null || echo 'unknown')"
+        fi
+        if command -v darkman >/dev/null 2>&1 && systemctl --user is-active darkman.service >/dev/null 2>&1; then
+          echo "darkman 服务: active (running)"
+          darkman get 2>&1 | sed 's/^/  /' || true
+        else
+          echo "darkman 服务: $(systemctl --user is-active darkman.service 2>/dev/null || echo 'inactive')"
         fi
         ;;
       set)
@@ -384,6 +451,7 @@ in
         pkgs.darkman
         themeCtlScript
         pkgs.dconf
+        themeSyncScriptBin
       ];
 
       # 2. 全局会话环境变量
@@ -427,6 +495,45 @@ in
         };
       };
 
+      # 5b. Systemd tmpfiles：预建宿主机 GTK 配置目录
+      systemd.user.tmpfiles.rules = [
+        "d %h/.config/gtk-3.0 0755 - - -"
+        "d %h/.config/gtk-4.0 0755 - - -"
+      ];
+
+      # 5c. Systemd 用户服务：theme-sync 同步服务（runtime SSOT → 宿主机可变配置）
+      systemd.user.services.theme-sync = {
+        description = "Synchronize GTK theme from runtime SSOT to user config";
+        documentation = [ "man:theme-ctl(1)" ];
+        partOf = [ "graphical-session.target" ];
+        after = [ "graphical-session.target" ];
+        unitConfig = {
+          ConditionPathExists = "%t/desktop-theme/gtk-settings.ini";
+        };
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${themeSyncScript}";
+          RemainAfterExit = true;
+        };
+      };
+
+      # 5d. Systemd path 监听：runtime 变化时自动触发同步
+      systemd.user.paths.theme-sync = {
+        description = "Watch runtime GTK theme for changes and trigger sync";
+        wantedBy = [ "graphical-session.target" ];
+        partOf = [ "graphical-session.target" ];
+        unitConfig = {
+          TriggerLimitIntervalSec = "10s";
+          TriggerLimitBurst = "20";
+        };
+        pathConfig = {
+          PathExists = "%t/desktop-theme/gtk-settings.ini";
+          PathChanged = "%t/desktop-theme/gtk-settings.ini";
+          MakeDirectory = true;
+          Unit = "theme-sync.service";
+        };
+      };
+
       # 6. 确保 dconf 服务可以被 Darkman Hook 调用
       programs.dconf.enable = mkDefault true;
     }
@@ -434,12 +541,16 @@ in
     (optionalAttrs (options ? home-manager) {
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
-          ({ ... }: {
+          ({ config, lib, ... }: {
             home.packages = optionals cfg.icons.enable [
               cfg.icons.package
               pkgs.hicolor-icon-theme
             ];
 
+            # HM 的 gtk 模块默认会生成指向 /nix/store 的只读 symlink
+            # （xdg.configFile."gtk-3.0/settings.ini"），与 runtime SSOT 冲突导致 EROFS。
+            # 此处禁用 HM 的 settings.ini 生成，改由 theme-sync.service 原子同步接管；
+            # 图标包仍通过 home.packages 提供，主题内容由 darkman 驱动的 runtime 提供。
             gtk = mkIf cfg.icons.enable {
               enable = true;
               iconTheme = {
@@ -447,6 +558,22 @@ in
                 package = cfg.icons.package;
               };
             };
+
+            # 覆盖 HM 生成的只读文件：强制不启用其 settings.ini，交由同步服务管理
+            xdg.configFile."gtk-3.0/settings.ini".enable = lib.mkForce false;
+            xdg.configFile."gtk-4.0/settings.ini".enable = lib.mkForce false;
+
+            # 登录时确保目录存在并通过 install 声明式填充
+            # HM 已通过 xdg.configFile.enable=false 禁用 store symlink，
+            # 此处仅通过 systemd.tmpfiles 的 "d" 保证目录，但为兼容首次激活仍显式 mkdir
+            home.activation.themeGtkCleanup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+              ${pkgs.coreutils}/bin/mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0" 2>/dev/null || true
+              # 若 runtime 已存在，则通过 install 声明式填充
+              if [ -f "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme/gtk-settings.ini" ]; then
+                ${pkgs.coreutils}/bin/install -Dm644 "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme/gtk-settings.ini" "$HOME/.config/gtk-3.0/settings.ini" 2>/dev/null || true
+                ${pkgs.coreutils}/bin/install -Dm644 "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme/gtk-settings.ini" "$HOME/.config/gtk-4.0/settings.ini" 2>/dev/null || true
+              fi
+            '';
           })
         ];
       };

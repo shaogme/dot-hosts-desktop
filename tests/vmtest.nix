@@ -1,10 +1,10 @@
-{ pkgs, configuration, name }:
+{ pkgs, configuration, name, extraModules ? [] }:
 
 pkgs.testers.nixosTest {
   name = "${name}-vm-test";
   
   nodes.server = { config, lib, ... }: {
-    imports = [ configuration ];
+    imports = [ configuration ] ++ extraModules;
 
     # 1. 环境适配：禁用物理环境特有的网络接口配置，改用 VM 默认网络
     base.hardware.network.enable = lib.mkForce false;
