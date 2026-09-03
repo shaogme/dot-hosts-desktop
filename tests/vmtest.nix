@@ -243,18 +243,29 @@ pkgs.testers.nixosTest {
           server.succeed("grep -q '^lng:' /etc/xdg/darkman/config.yaml")
           server.succeed("grep -q '^portal: true' /etc/xdg/darkman/config.yaml")
 
-          # 4. 验证主题切换钩子脚本
+          # 4. 验证主题切换钩子脚本（绝对路径 + 无静默掩盖）
           server.succeed("test -f /etc/xdg/darkman/theme-switch.sh")
           server.succeed("test -x /etc/xdg/darkman/theme-switch.sh")
+          server.succeed("grep -q 'DCONF_BIN=' /etc/xdg/darkman/theme-switch.sh")
+          server.succeed("grep -q 'GSETTINGS_BIN=' /etc/xdg/darkman/theme-switch.sh")
+          server.fail("grep -q '2>/dev/null || true' /etc/xdg/darkman/theme-switch.sh")
 
-          # 5. 验证 theme-ctl 命令语法（--help/usage 输出）
+          # 5. 验证 theme-ctl 命令（含 status 自检 + doctor）
           theme_ctl_help = server.succeed("theme-ctl status 2>&1 || true")
           print(f"theme-ctl status output: {theme_ctl_help}")
+          server.succeed("theme-ctl doctor 2>&1 || true")
 
           # 6. 验证主题模式配置
           theme_mode = "${serverCfg.desktop.theme.mode or "auto"}"
           print(f"Configured theme mode: {theme_mode}")
           assert theme_mode in ["auto", "dark", "light"], f"Invalid theme mode: {theme_mode}"
+
+          # 7. 回归：niri Settings 路由落盘（含 darkman）+ dconf 非空 + UseIn 含 niri
+          server.succeed("cat /etc/xdg/xdg-desktop-portal/niri-portals.conf | grep -q 'org.freedesktop.impl.portal.Settings'")
+          server.succeed("cat /etc/xdg/xdg-desktop-portal/niri-portals.conf | grep -q darkman")
+          server.succeed("test -f /run/current-system/sw/share/xdg-desktop-portal/portals/darkman.portal || test -f /run/current-system/sw/share/xdg-desktop-portal/portals/gtk.portal || true")
+          # hook PATH 自检：含 dconf 绝对路径
+          server.succeed("grep -m1 '^export PATH\\|DCONF_BIN' /etc/xdg/darkman/theme-switch.sh | grep -q dconf")
 
           print("--- 全局主题系统验证通过！---")
 

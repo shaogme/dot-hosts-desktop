@@ -160,15 +160,12 @@ in
         "xdg/xdg-desktop-portal-termfilechooser/config".text = configContent;
       };
 
-      # 3. 注册 XDG Desktop Portal 路由规则与后端
+      # 3. 注册 XDG Desktop Portal 后端
+      #    niri 会话不读 common，FileChooser 所有权在 niri 聚合器（filechooser=mkForce）。
+      #    此处仅注册 extraPortals，路由由 niri 侧声明。
       xdg.portal = {
         enable = true;
         extraPortals = [ cfg.package ];
-        config = mkIf cfg.setAsDefaultFileChooser {
-          common = {
-            "org.freedesktop.impl.portal.FileChooser" = "termfilechooser";
-          };
-        };
       };
 
       # 4. 配置 systemd user 服务的环境变量 PATH，确保能找到系统与用户终端（如 rio）

@@ -1,7 +1,7 @@
 { lib }:
 
 rec {
-  # ── Src ADT (破坏性: 仅接受 ADT, 无 srcType 字符串分发) ──
+  # ── Src ADT (仅接受 ADT, 无 srcType 字符串分发) ──
   #   src = { deb = <file>; }
   #       | { tarball = <file>; stripRoot ? bool; }
   #       | { custom = <drv | path>; }
@@ -33,7 +33,7 @@ rec {
     else
       file;
 
-  # ── Sandbox 类型化子模块 (破坏性: 封闭 attrset, 未知字段 throw) ──
+  # ── Sandbox 类型化子模块 (封闭 attrset, 未知字段 throw) ──
   sandboxDefaults = {
     isolatedHome = true;
     shareNet = true;
@@ -45,7 +45,9 @@ rec {
     bypassProxy = false;
     shareDownloads = true;
     shareUserDirs = false;
-    shareTheme = true;
+    # shareThemeStatic（icons/gtk ini 快照）vs shareThemeLive（desktop-theme/darkman/dconf-runtime），默认全 true。
+    shareThemeStatic = true;
+    shareThemeLive = true;
     sharedDirs = [ ];
     roSharedDirs = [ ];
     extraBinds = [ ];
@@ -66,7 +68,7 @@ rec {
     else
       sandboxDefaults // { name = pname; } // sandbox;
 
-  # ── Icons ADT (破坏性: 仅接受 ADT, 无 iconStrategy 字符串) ──
+  # ── Icons ADT (仅接受 ADT, 无 iconStrategy 字符串) ──
   #   icons = { hicolor.auto = true; }
   #         | { firefox.sizes ? [int]; }  (sizes 缺省为默认 7 档)
   #         | { none = true; }
@@ -94,14 +96,14 @@ rec {
     else
       throw "mkSandboxedApp: icons ADT 缺少 hicolor|firefox|none 键";
 
-  # ── Env (破坏性: 仅 env, 静态 attrset, 无 environment 别名) ──
+  # ── Env (仅 env, 静态 attrset, 无 environment 别名) ──
   normalizeEnv = { env ? { } }:
     if !(builtins.isAttrs env) then
       throw "mkSandboxedApp: env 必须为 attrset"
     else
       env;
 
-  # ── Hooks (破坏性: 仅静态 string 列表, 无函数动态分发) ──
+  # ── Hooks (仅静态 string 列表, 无函数动态分发) ──
   # preRunHooks: [string], runInDirectory: null | string (静态, 相对路径按 unpacked 解析)
   # 返回: { preRunLines; runDir; }
   resolvePreRun = { preRunHooks ? [ ], runInDirectory ? null, unpacked }:
@@ -110,11 +112,11 @@ rec {
         if !(builtins.isList preRunHooks) then
           throw "mkSandboxedApp: preRunHooks 必须为 string 列表"
         else if lib.any (h: lib.isFunction h) preRunHooks then
-          throw "mkSandboxedApp: preRunHooks 不接受函数 (请静态化为 string, 见 §4.3)"
+          throw "mkSandboxedApp: preRunHooks 不接受函数"
         else true;
       _checkDir =
         if runInDirectory != null && lib.isFunction runInDirectory then
-          throw "mkSandboxedApp: runInDirectory 不接受函数 (请静态化为 string)"
+          throw "mkSandboxedApp: runInDirectory 不接受函数"
         else true;
     in
     assert _checkHooks; assert _checkDir;
@@ -127,14 +129,14 @@ rec {
         else "${unpacked}/${runInDirectory}";
     };
 
-  # fhsExtraCommands: [string] (破坏性: 无 extraBuildCommands 字符串/函数)
+  # fhsExtraCommands: [string] (无 extraBuildCommands 字符串/函数)
   resolveExtraBuildCommands = { fhsExtraCommands ? [ ] }:
     if !(builtins.isList fhsExtraCommands) then
       throw "mkSandboxedApp: fhsExtraCommands 必须为 string 列表"
     else
       lib.concatStringsSep "\n" (map toString fhsExtraCommands);
 
-  # postUnpackHooks: [string] (破坏性: 无 postUnpack 字符串注入)
+  # postUnpackHooks: [string] (无 postUnpack 字符串注入)
   resolvePostUnpack = { postUnpackHooks ? [ ] }:
     if !(builtins.isList postUnpackHooks) then
       throw "mkSandboxedApp: postUnpackHooks 必须为 string 列表"

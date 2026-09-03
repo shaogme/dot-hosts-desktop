@@ -87,6 +87,34 @@ let
   hasRuntimeDirSeed = themeSeedService != null && themeSeedService.serviceConfig ? RuntimeDirectory && themeSeedService.serviceConfig.RuntimeDirectory == "desktop-theme";
   hasRuntimeDirSync = themeSyncService != null && themeSyncService.serviceConfig ? RuntimeDirectory && themeSyncService.serviceConfig.RuntimeDirectory == "desktop-theme";
 
+  # ── 主题回归门（theme-fix-solution §8） ─────────────────────────
+  niriPortalEnabled = cfg.desktop.windowManager.niri.enable or false;
+  themePortalBackends = cfg.desktop.theme.portal.settingsBackends or [ ];
+  normPortalVal = v:
+    if v == null then "<missing>"
+    else if builtins.isList v then builtins.concatStringsSep ";" v
+    else toString v;
+  themePortalBackendsStr = normPortalVal themePortalBackends;
+  niriSettingsVal = cfg.xdg.portal.config.niri."org.freedesktop.impl.portal.Settings" or null;
+  niriSettingsStr = normPortalVal niriSettingsVal;
+  commonHasSettings = (cfg.xdg.portal.config.common or { }) ? "org.freedesktop.impl.portal.Settings";
+  commonHasFileChooser = (cfg.xdg.portal.config.common or { }) ? "org.freedesktop.impl.portal.FileChooser";
+  niriFileChooserVal = cfg.xdg.portal.config.niri."org.freedesktop.impl.portal.FileChooser" or null;
+  hasHookPackagesOpt = (cfg.desktop.theme ? hookPackages);
+  hookBaseNames = builtins.concatStringsSep "," (map (p: p.name or p.pname or "") (cfg.desktop.theme.hookBasePackages or [ ]));
+  hookExtraNames = builtins.concatStringsSep "," (map (p: p.name or p.pname or "") (cfg.desktop.theme.hookExtraPackages or [ ]));
+  hookExtraLen = builtins.length (cfg.desktop.theme.hookExtraPackages or [ ]);
+  hasGsettingsSchemasPkg = lib.any (p: lib.hasInfix "gsettings-desktop-schemas" (p.name or p.pname or "")) cfg.environment.systemPackages;
+  hasGlibPkg = lib.any (p: (p.name or p.pname or "") == "glib" || lib.hasPrefix "glib-" (p.name or p.pname or "")) cfg.environment.systemPackages;
+  launcherSrc = builtins.readFile ../modules/apps/lib/mk-sandboxed-app/mk-launcher-env.nix;
+  sandboxSrc = builtins.readFile ../modules/apps/lib/mk-sandboxed-app/sandbox.nix;
+  useinSrc = if builtins.pathExists ../modules/portal/niri-usein.nix then builtins.readFile ../modules/portal/niri-usein.nix else "";
+  hasLauncherHardcode = lib.hasInfix ''export CURRENT_THEME_MODE="dark"'' launcherSrc;
+  hasLauncherUsrExport = lib.hasInfix ''export GSETTINGS_SCHEMA_DIR="/usr/share'' launcherSrc;
+  hasSandboxBusRw = lib.hasInfix ''"--bind-try" "\''${XDG_RUNTIME_DIR'' sandboxSrc && lib.hasInfix "/bus" sandboxSrc;
+  hasRoBindBusLine = lib.hasInfix ''"--ro-bind-try" "\''${XDG_RUNTIME_DIR:-/run/user/1000}/bus"'' sandboxSrc;
+  hasUseinNiri = lib.hasInfix "niri" useinSrc;
+
   # ── 覆盖测试：主题多变体评估（基于当前 host 配置叠加 overlay） ───────
   # 变体1：强制深色模式
   evalThemeDark = import (pkgs.path + "/nixos/lib/eval-config.nix") {
@@ -503,12 +531,97 @@ pkgs.runCommand "${name}-static-check" {
     fi
     echo "[${name}] systemd 单元验证通过！"
 
-    # ── 7. dconf 服务验证 ──────────────────────────────────────────────
+    # ── 7. dconf 服务验证（强制 true） ──────────────────────────
     if [ "${if cfg.programs.dconf.enable then "true" else "false"}" != "true" ]; then
-      echo "错误: programs.dconf.enable 应为 true"
+      echo "错误: programs.dconf.enable 应为 true（已改为 mkForce，不允许覆盖）"
+      exit 1
+    fi
+    if [ "${if hasGsettingsSchemasPkg then "true" else "false"}" != "true" ]; then
+      echo "错误: systemPackages 应包含 gsettings-desktop-schemas (当前: ${systemPackagesNames})"
       exit 1
     fi
     echo "[${name}] dconf 验证通过！"
+
+    # ── 7b. 回归门：portal/hook/dconf（缺一即失败） ─────────────
+    echo "[${name}] 验证主题回归门..."
+    # hookPackages 已移除
+    if [ "${if hasHookPackagesOpt then "true" else "false"}" = "true" ]; then
+      echo "错误: desktop.theme.hookPackages 应已删除（请改用 hookExtraPackages）"
+      exit 1
+    fi
+    # hookBase 含 dconf/glib
+    if ! echo "${hookBaseNames}" | grep -q "dconf"; then
+      echo "错误: hookBasePackages 应含 dconf (实际: ${hookBaseNames})"
+      exit 1
+    fi
+    if ! echo "${hookBaseNames}" | grep -q "glib\|gsettings"; then
+      echo "错误: hookBasePackages 应含 glib/gsettings-desktop-schemas (实际: ${hookBaseNames})"
+      exit 1
+    fi
+    # hook 绝对路径 + 无静默掩盖
+    grep -q "DCONF_BIN=" "${themeHookFile}" || { echo "错误: theme-switch.sh 未含 DCONF_BIN 绝对路径"; exit 1; }
+    grep -q "GSETTINGS_BIN=" "${themeHookFile}" || { echo "错误: theme-switch.sh 未含 GSETTINGS_BIN 绝对路径"; exit 1; }
+    if grep -q 'dconf write .*2>/dev/null || true' "${themeHookFile}"; then
+      echo "错误: theme-switch.sh 仍含 dconf 静默掩盖 2>/dev/null || true"
+      exit 1
+    fi
+    if grep -q 'gsettings set .*2>/dev/null || true' "${themeHookFile}"; then
+      echo "错误: theme-switch.sh 仍含 gsettings 静默掩盖"
+      exit 1
+    fi
+    if grep -q '2>/dev/null || true' "${themeHookFile}"; then
+      echo "错误: theme-switch.sh 仍含 2>/dev/null || true 掩盖（fail-loud 要求删除）"
+      exit 1
+    fi
+    # portal：common 不含 Settings/FileChooser，niri.Settings == backends
+    if [ "${if commonHasSettings then "true" else "false"}" = "true" ]; then
+      echo "错误: xdg.portal.config.common 不应含 Settings（niri 不读 common）"
+      exit 1
+    fi
+    if [ "${if commonHasFileChooser then "true" else "false"}" = "true" ]; then
+      echo "错误: xdg.portal.config.common 不应含 FileChooser（已移交 niri 聚合器）"
+      exit 1
+    fi
+    ${lib.optionalString (cfg.desktop.theme.portal.enable or false) ''
+      if [ "${niriSettingsStr}" != "${themePortalBackendsStr}" ]; then
+        echo "错误: xdg.portal.config.niri.Settings (${niriSettingsStr}) 与 desktop.theme.portal.settingsBackends (${themePortalBackendsStr}) 不一致"
+        exit 1
+      fi
+      if ! echo "${niriSettingsStr}" | grep -q "darkman"; then
+        echo "错误: niri.Settings 应含 darkman (实际: ${niriSettingsStr})"
+        exit 1
+      fi
+    ''}
+    # hookExtra 非空（当 niri/waybar/swaync 启用时）
+    if [ "${toString hookExtraLen}" = "0" ]; then
+      echo "警告: hookExtraPackages 为空（若 niri/waybar/swaync 启用则应非空，实际: ${hookExtraNames}）"
+    else
+      echo "[${name}] hookExtraPackages: ${hookExtraNames}"
+    fi
+    # launcher：无写死/硬编码导出
+    if [ "${if hasLauncherHardcode then "true" else "false"}" = "true" ]; then
+      echo "错误: mk-launcher-env 仍含 CURRENT_THEME_MODE=\"dark\" 写死"
+      exit 1
+    fi
+    if [ "${if hasLauncherUsrExport then "true" else "false"}" = "true" ]; then
+      echo "错误: mk-launcher-env 仍含 export GSETTINGS_SCHEMA_DIR=\"/usr/share...\" 硬编码"
+      exit 1
+    fi
+    # sandbox bus rw（ro-bind 改 bind-try）
+    if [ "${if hasSandboxBusRw then "true" else "false"}" != "true" ]; then
+      echo "错误: sandbox.nix 应含 --bind-try .../bus（rw），而非 ro-bind"
+      exit 1
+    fi
+    if [ "${if hasRoBindBusLine then "true" else "false"}" = "true" ]; then
+      echo "错误: sandbox.nix 仍含 --ro-bind-try .../bus（应改为 --bind-try）"
+      exit 1
+    fi
+    # UseIn overlay 生效
+    if [ "${if hasUseinNiri then "true" else "false"}" != "true" ]; then
+      echo "错误: modules/portal/niri-usein.nix 缺失或未含 niri UseIn 补丁"
+      exit 1
+    fi
+    echo "[${name}] 主题回归门验证通过！"
 
     # ── 8. Home Manager 集成验证（若启用） ─────────────────────────────
     ${lib.optionalString (cfg.homeManager.enable or false) ''

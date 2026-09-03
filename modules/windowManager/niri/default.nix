@@ -635,9 +635,8 @@ in
         }
       ];
 
-      # ── 主题联动：显式声明 Niri 对主题钩子的 PATH 与脚本注入 ───────────────
-      # 当全局主题启用时，向 theme 钩子注入 Niri 动态颜色逻辑与所需二进制
-      desktop.theme.hookPackages = mkIf (config.desktop.theme.enable or false) [
+      # ── 主题联动：经 hookExtraPackages 追加（base 由 theme 固定，此处只加自身所需） ──
+      desktop.theme.hookExtraPackages = mkIf (config.desktop.theme.enable or false) [
         cfg.package
         pkgs.coreutils
         pkgs.procps
@@ -658,7 +657,7 @@ in
         if [ -e "$NIRI_THEME_DIR" ] && [ ! -d "$NIRI_THEME_DIR" ]; then
           echo "[theme-switch] warn: $NIRI_THEME_DIR is not a directory" >&2
         else
-          mkdir -p "$NIRI_THEME_DIR" 2>/dev/null || true
+          mkdir -p "$NIRI_THEME_DIR" || true
           NIRI_THEME_CONTENT="layout {
         focus-ring {
             width ${toString config.desktop.theme.layout.focusRing.width}
@@ -671,8 +670,9 @@ in
         }
         }
         "
-          if ! printf '%s' "$NIRI_THEME_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null; then
-            printf '%s' "$NIRI_THEME_CONTENT" > "$NIRI_THEME_DIR/theme.kdl" 2>/dev/null || echo "[theme-switch] warn: failed to write niri theme" >&2
+          if ! printf '%s' "$NIRI_THEME_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$NIRI_THEME_DIR/theme.kdl"; then
+            echo "[theme-switch] warn: install niri theme failed, fallback to redirect" >&2
+            printf '%s' "$NIRI_THEME_CONTENT" > "$NIRI_THEME_DIR/theme.kdl" || echo "[theme-switch] warn: failed to write niri theme" >&2
           fi
         fi
       ''];
@@ -686,9 +686,9 @@ in
             NIRI_CONFIG_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/niri"
             NIRI_SYSTEM_CONFIG="/etc/xdg/niri/config.kdl"
             if [ -f "$NIRI_CONFIG_DIR/config.kdl" ]; then
-              niri msg action load-config-file --path "$NIRI_CONFIG_DIR/config.kdl" 2>/dev/null || true
+              if ! niri msg action load-config-file --path "$NIRI_CONFIG_DIR/config.kdl"; then echo "[theme-switch] warn: niri reload user config failed" >&2; fi
             elif [ -f "$NIRI_SYSTEM_CONFIG" ]; then
-              niri msg action load-config-file --path "$NIRI_SYSTEM_CONFIG" 2>/dev/null || true
+              if ! niri msg action load-config-file --path "$NIRI_SYSTEM_CONFIG"; then echo "[theme-switch] warn: niri reload system config failed" >&2; fi
             fi
           else
             echo "[theme-switch] diag: niri not ready, skipping reload" >&2
@@ -737,6 +737,8 @@ in
       };
 
       # 5. XDG Desktop Portal 桌面门户集成配置
+      #    排序数据源自 desktop.theme.portal.settingsBackends。
+      #    niri 会话不读 common，Settings 必须落到 niri 文件，否则回退 default=gnome;gtk 取 gtk(0)。
       xdg.portal = mkIf cfg.portal.enable {
         enable = true;
         extraPortals = cfg.portal.extraPortals;
@@ -750,6 +752,10 @@ in
               "org.freedesktop.impl.portal.Access" = "gtk";
               "org.freedesktop.impl.portal.Notification" = "gtk";
               "org.freedesktop.impl.portal.Secret" = "gnome-keyring";
+              "org.freedesktop.impl.portal.Settings" =
+                if (config.desktop.theme.enable or false) && (config.desktop.theme.portal.enable or false)
+                then config.desktop.theme.portal.settingsBackends
+                else [ "gtk" "gnome" ];
             }
             (optionalAttrs (cfg.portal.filechooser != "none") {
               "org.freedesktop.impl.portal.FileChooser" = mkForce cfg.portal.filechooser;

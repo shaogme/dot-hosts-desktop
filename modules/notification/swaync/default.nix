@@ -553,8 +553,8 @@ in
         "xdg/swaync/style.css".text = finalStyleText;
       };
 
-      # ── 主题联动：显式声明 SwayNC 对主题钩子的 PATH 与脚本注入 ───────────
-      desktop.theme.hookPackages = mkIf (config.desktop.theme.enable or false) [
+      # ── 主题联动：经 hookExtraPackages 追加（base 由 theme 固定） ──
+      desktop.theme.hookExtraPackages = mkIf (config.desktop.theme.enable or false) [
         cfg.package
         pkgs.procps
         pkgs.systemd
@@ -563,9 +563,9 @@ in
         # --- SwayNC 主题联动 reload（由 modules/notification/swaync 注入，需 swaync 守护进程，seed 跳过） ---
         if systemctl --user is-active swaync.service >/dev/null 2>&1 || pgrep -x swaync >/dev/null 2>&1 || pgrep -x swaync-client >/dev/null 2>&1; then
           if command -v swaync-client >/dev/null 2>&1; then
-            swaync-client --reload-css 2>/dev/null || true
+            if ! swaync-client --reload-css; then echo "[theme-switch] warn: swaync reload failed" >&2; fi
           elif [ -x "${cfg.package}/bin/swaync-client" ]; then
-            ${cfg.package}/bin/swaync-client --reload-css 2>/dev/null || true
+            if ! ${cfg.package}/bin/swaync-client --reload-css; then echo "[theme-switch] warn: swaync reload failed" >&2; fi
           fi
         else
           echo "[theme-switch] diag: swaync not ready, skipping reload" >&2

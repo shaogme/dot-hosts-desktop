@@ -47,15 +47,18 @@ let
         echo "[theme-sync] SRC missing, seeding inline..." >&2
         SEED_MODE=""
         if command -v darkman >/dev/null 2>&1; then
-          SEED_MODE="$(${pkgs.darkman}/bin/darkman get 2>&1 || true)"
+          if ! SEED_MODE="$(${pkgs.darkman}/bin/darkman get)"; then
+            echo "[theme-sync] warn: darkman get failed, fallback to host probing" >&2
+            SEED_MODE=""
+          fi
         fi
         if [ "$SEED_MODE" != "dark" ] && [ "$SEED_MODE" != "light" ]; then
           GTK_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
-          if [ -f "$GTK_HOST" ] && ${pkgs.gnugrep}/bin/grep -q "gtk-theme-name.*-dark" "$GTK_HOST" 2>&1; then
+          if [ -f "$GTK_HOST" ] && ${pkgs.gnugrep}/bin/grep -q "gtk-theme-name.*-dark" "$GTK_HOST"; then
             SEED_MODE="dark"
-          elif [ -f "$GTK_HOST" ] && ${pkgs.gnugrep}/bin/grep -q "gtk-application-prefer-dark-theme=1" "$GTK_HOST" 2>&1; then
+          elif [ -f "$GTK_HOST" ] && ${pkgs.gnugrep}/bin/grep -q "gtk-application-prefer-dark-theme=1" "$GTK_HOST"; then
             SEED_MODE="dark"
-          elif [ -f "$GTK_HOST" ] && ${pkgs.gnugrep}/bin/grep -q "gtk-theme-name" "$GTK_HOST" 2>&1; then
+          elif [ -f "$GTK_HOST" ] && ${pkgs.gnugrep}/bin/grep -q "gtk-theme-name" "$GTK_HOST"; then
             SEED_MODE="light"
           else
             SEED_MODE="${if cfg.mode != "auto" then cfg.mode else "dark"}"
@@ -65,11 +68,11 @@ let
       if [ "$SEED_MODE" != "dark" ] && [ "$SEED_MODE" != "light" ]; then
         SEED_MODE="dark"
       fi
-      mkdir -p "$THEME_DIR" 2>/dev/null || {
+      mkdir -p "$THEME_DIR" || {
         echo "[theme-sync] error: failed to create $THEME_DIR" >&2
         exit 0
       }
-      echo "$SEED_MODE" > "$THEME_DIR/mode" 2>/dev/null || echo "[theme-sync] warn: failed to write mode" >&2
+      echo "$SEED_MODE" > "$THEME_DIR/mode" || echo "[theme-sync] warn: failed to write mode" >&2
       if [ "$SEED_MODE" = "dark" ]; then
         GTK_THEME="${cfg.dark.gtkTheme}"
         ICON_THEME="${cfg.dark.iconTheme}"
@@ -90,8 +93,9 @@ gtk-cursor-theme-name=$CURSOR_NAME
 gtk-cursor-theme-size=$CURSOR_SIZE
 gtk-application-prefer-dark-theme=$PREF_DARK
 "
-      if ! printf '%s' "$GTK_SETTINGS_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$SRC" 2>/dev/null; then
-        if ! printf '%s' "$GTK_SETTINGS_CONTENT" > "$SRC" 2>/dev/null; then
+      if ! printf '%s' "$GTK_SETTINGS_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$SRC"; then
+        echo "[theme-sync] warn: install seed failed, fallback to shell redirect for $SRC" >&2
+        if ! printf '%s' "$GTK_SETTINGS_CONTENT" > "$SRC"; then
           echo "[theme-sync] error: failed to seed $SRC" >&2
           exit 0
         fi
@@ -113,9 +117,12 @@ gtk-application-prefer-dark-theme=$PREF_DARK
         echo "[theme-sync] error: $DST is a directory, skipping" >&2
         continue
       fi
-      mkdir -p "$(dirname "$DST")" 2>/dev/null || true
-      if ! ${pkgs.coreutils}/bin/install -Dm644 "$SRC" "$DST" 2>/dev/null; then
-        ${pkgs.coreutils}/bin/cp -f "$SRC" "$DST" 2>/dev/null || echo "[theme-sync] warn: failed to sync $SRC -> $DST" >&2
+      mkdir -p "$(dirname "$DST")" || true
+      if ! ${pkgs.coreutils}/bin/install -Dm644 "$SRC" "$DST"; then
+        echo "[theme-sync] warn: install sync failed, fallback to cp for $DST" >&2
+        if ! ${pkgs.coreutils}/bin/cp -f "$SRC" "$DST"; then
+          echo "[theme-sync] warn: failed to sync $SRC -> $DST" >&2
+        fi
       fi
     done
   '';
@@ -124,11 +131,15 @@ gtk-application-prefer-dark-theme=$PREF_DARK
   # 全局主题切换 Hook 脚本（部署到 XDG_DATA_DIRS/darkman/）
   # 架构：runtime 为 Single Source of Truth，Hook 仅写 runtime，同步由 theme-sync.service 完成
   # PATH 策略：systemd/darkman 环境极简，需显式注入。
-  # 各功能模块通过 `desktop.theme.hookPackages` 显式声明依赖，awww 等条件化包由对应模块按需注入。
+  # 契约：hookBasePackages 由 theme 内部固定；
+  # 各功能模块仅允许经 `desktop.theme.hookExtraPackages` 追加（多定义自动拼接，不丢 base）。
+  # 关键二进制 dconf/gsettings 走绝对路径，不依赖 PATH 拼接。
   themeSwitchScript = pkgs.writeShellScript "theme-switch" ''
     #!/usr/bin/env bash
     set -uo pipefail
-    export PATH="${lib.makeBinPath cfg.hookPackages}:$PATH"
+    DCONF_BIN="${pkgs.dconf}/bin/dconf"
+    GSETTINGS_BIN="${pkgs.glib}/bin/gsettings"
+    export PATH="${lib.makeBinPath (cfg.hookBasePackages ++ cfg.hookExtraPackages)}:$PATH"
 
     MODE="''${1:-dark}"
     # 边界：非法模式兜底为 dark，避免未定义行为
@@ -150,11 +161,11 @@ gtk-application-prefer-dark-theme=$PREF_DARK
       exit 0
     fi
 
-    mkdir -p "$THEME_DIR" 2>/dev/null || {
+    mkdir -p "$THEME_DIR" || {
       echo "[theme-switch] error: failed to create $THEME_DIR" >&2
       exit 0
     }
-    echo "$MODE" > "$THEME_DIR/mode" 2>/dev/null || echo "[theme-switch] warn: failed to write mode" >&2
+    echo "$MODE" > "$THEME_DIR/mode" || echo "[theme-switch] warn: failed to write mode" >&2
 
     # ── 2. 选取当前模式的主题变量（仅核心 GTK/光标/dconf，Niri 等由各模块自注入） ──
     if [ "$MODE" = "dark" ]; then
@@ -181,29 +192,38 @@ gtk-cursor-theme-name=$CURSOR_NAME
 gtk-cursor-theme-size=$CURSOR_SIZE
 gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
 "
-    if ! printf '%s' "$GTK_SETTINGS_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$THEME_DIR/gtk-settings.ini" 2>/dev/null; then
-      printf '%s' "$GTK_SETTINGS_CONTENT" > "$THEME_DIR/gtk-settings.ini" 2>/dev/null || echo "[theme-switch] error: failed to write gtk-settings.ini" >&2
+    if ! printf '%s' "$GTK_SETTINGS_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$THEME_DIR/gtk-settings.ini"; then
+      printf '%s' "$GTK_SETTINGS_CONTENT" > "$THEME_DIR/gtk-settings.ini" || echo "[theme-switch] error: failed to write gtk-settings.ini" >&2
     fi
 
     # 触发同步服务（异步，避免与 theme-sync 互调导致 fork 炸弹）
+    # fail-loud：失败必须进 journal，不再 || true 吞掉
     if command -v systemctl >/dev/null 2>&1; then
-      systemctl --user start --no-block theme-sync.service 2>/dev/null || true
+      if ! systemctl --user start --no-block theme-sync.service; then
+        echo "[theme-switch] error: systemctl trigger theme-sync failed MODE=$MODE" >&2
+      fi
+    else
+      echo "[theme-switch] error: systemctl not found, skip theme-sync trigger MODE=$MODE" >&2
     fi
 
-    # ── 4. 通过 dconf/gsettings 广播 ───────────────────────────────────
-    if command -v dconf >/dev/null 2>&1; then
-      dconf write /org/gnome/desktop/interface/color-scheme "$DCONF_COLOR_SCHEME" 2>/dev/null || true
-      dconf write /org/gnome/desktop/interface/gtk-theme "'$GTK_THEME'" 2>/dev/null || true
-      dconf write /org/gnome/desktop/interface/icon-theme "'$ICON_THEME'" 2>/dev/null || true
-      dconf write /org/gnome/desktop/interface/cursor-theme "'$CURSOR_NAME'" 2>/dev/null || true
-      dconf write /org/gnome/desktop/interface/cursor-size "$CURSOR_SIZE" 2>/dev/null || true
+    # ── 4. 通过 dconf/gsettings 广播（绝对路径，不依赖 PATH；fail-loud） ──
+    if [ ! -x "$DCONF_BIN" ]; then
+      echo "[theme-switch] error: DCONF_BIN not executable: $DCONF_BIN MODE=$MODE" >&2
+    else
+      if ! "$DCONF_BIN" write /org/gnome/desktop/interface/color-scheme "$DCONF_COLOR_SCHEME"; then echo "[theme-switch] error: dconf write color-scheme failed MODE=$MODE" >&2; fi
+      if ! "$DCONF_BIN" write /org/gnome/desktop/interface/gtk-theme "'$GTK_THEME'"; then echo "[theme-switch] error: dconf write gtk-theme failed MODE=$MODE" >&2; fi
+      if ! "$DCONF_BIN" write /org/gnome/desktop/interface/icon-theme "'$ICON_THEME'"; then echo "[theme-switch] error: dconf write icon-theme failed MODE=$MODE" >&2; fi
+      if ! "$DCONF_BIN" write /org/gnome/desktop/interface/cursor-theme "'$CURSOR_NAME'"; then echo "[theme-switch] error: dconf write cursor-theme failed MODE=$MODE" >&2; fi
+      if ! "$DCONF_BIN" write /org/gnome/desktop/interface/cursor-size "$CURSOR_SIZE"; then echo "[theme-switch] error: dconf write cursor-size failed MODE=$MODE" >&2; fi
     fi
-    if command -v gsettings >/dev/null 2>&1; then
-      gsettings set org.gnome.desktop.interface color-scheme "$COLOR_SCHEME" 2>/dev/null || true
-      gsettings set org.gnome.desktop.interface gtk-theme "$GTK_THEME" 2>/dev/null || true
-      gsettings set org.gnome.desktop.interface icon-theme "$ICON_THEME" 2>/dev/null || true
-      gsettings set org.gnome.desktop.interface cursor-theme "$CURSOR_NAME" 2>/dev/null || true
-      gsettings set org.gnome.desktop.interface cursor-size "$CURSOR_SIZE" 2>/dev/null || true
+    if [ ! -x "$GSETTINGS_BIN" ]; then
+      echo "[theme-switch] error: GSETTINGS_BIN not executable: $GSETTINGS_BIN MODE=$MODE" >&2
+    else
+      if ! "$GSETTINGS_BIN" set org.gnome.desktop.interface color-scheme "$COLOR_SCHEME"; then echo "[theme-switch] error: gsettings set color-scheme failed MODE=$MODE" >&2; fi
+      if ! "$GSETTINGS_BIN" set org.gnome.desktop.interface gtk-theme "$GTK_THEME"; then echo "[theme-switch] error: gsettings set gtk-theme failed MODE=$MODE" >&2; fi
+      if ! "$GSETTINGS_BIN" set org.gnome.desktop.interface icon-theme "$ICON_THEME"; then echo "[theme-switch] error: gsettings set icon-theme failed MODE=$MODE" >&2; fi
+      if ! "$GSETTINGS_BIN" set org.gnome.desktop.interface cursor-theme "$CURSOR_NAME"; then echo "[theme-switch] error: gsettings set cursor-theme failed MODE=$MODE" >&2; fi
+      if ! "$GSETTINGS_BIN" set org.gnome.desktop.interface cursor-size "$CURSOR_SIZE"; then echo "[theme-switch] error: gsettings set cursor-size failed MODE=$MODE" >&2; fi
     fi
 
     # ── 5. 各模块 seedSafe 钩子（冷启动可安全执行，仅落盘，不阻塞） ─────
@@ -217,111 +237,250 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
   '';
 
 
-  # theme-ctl 控制脚本
+  # theme-ctl 控制脚本（status 含 portal/dconf/hook 自检，非零退出；含 doctor）
   themeCtlScript = pkgs.writeShellScriptBin "theme-ctl" ''
     #!/usr/bin/env bash
     set -euo pipefail
 
     RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
     THEME_STATE="$RUNTIME_DIR/desktop-theme/mode"
+    DCONF_BIN="${pkgs.dconf}/bin/dconf"
+    HOOK_SH="/etc/xdg/darkman/theme-switch.sh"
 
     usage() {
-      echo "用法: theme-ctl <status|set dark|set light|auto|toggle>"
+      echo "用法: theme-ctl <status [--strict]|doctor|set dark|set light|auto|toggle>"
       echo ""
       echo "命令:"
-      echo "  status          显示当前主题状态"
-      echo "  set dark        强制切换为深色模式"
-      echo "  set light       强制切换为浅色模式"
+      echo "  status [--strict]  显示当前主题状态（含 portal/dconf/hook 自检；--strict 下不一致即非零）"
+      echo "  doctor          只读深度诊断（portal 聚合/dconf/hook PATH），FAIL 即非零"
+      echo "  set dark        强制切换为深色模式（切换后需重启 App，见 README）"
+      echo "  set light       强制切换为浅色模式（切换后需重启 App，见 README）"
       echo "  auto            切换为根据太阳起落自适应模式"
-      echo "  toggle          翻转当前主题"
+      echo "  toggle          翻转当前主题（切换后需重启 App）"
     }
 
     get_current_mode() {
       if [ -f "$THEME_STATE" ]; then
-        local m; m="$(cat "$THEME_STATE" 2>/dev/null | tr -d '
-' | tr -d ' ')"
+        local m; m="$(cat "$THEME_STATE" | tr -d '\n' | tr -d ' ')"
         if [ "$m" = "dark" ] || [ "$m" = "light" ]; then
           echo "$m"
         else
           echo "dark"
         fi
       elif command -v darkman >/dev/null 2>&1; then
-        darkman get 2>/dev/null || echo "unknown"
+        if ! darkman get; then echo "unknown"; fi
       else
         echo "unknown"
       fi
     }
 
-    case "''${1:-}" in
-      status)
-        MODE=$(get_current_mode)
-        echo "当前模式: $MODE"
-        if command -v darkman >/dev/null 2>&1; then
-          echo "Darkman 模式: $(darkman get 2>/dev/null || echo '未运行')"
-        fi
-        if [ -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
-          echo "GTK 配置 (runtime SSOT):"
-          grep -E "^gtk-theme-name|^gtk-icon-theme-name" "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" 2>/dev/null | sed 's/^/  /' || true
-          echo "  运行时文件: $RUNTIME_DIR/desktop-theme/gtk-settings.ini"
-        elif [ -f "$RUNTIME_DIR/desktop-theme/mode" ]; then
-          echo "GTK 配置: (runtime 部分初始化: mode=$MODE 但 gtk-settings.ini 缺失)"
-          echo "  运行时文件: $RUNTIME_DIR/desktop-theme/gtk-settings.ini (缺失)"
-          echo "  建议: 运行 theme-ctl set $MODE 或 systemctl --user restart theme-seed.service"
+    # 期望聚合值：dark→u 1，light→u 2
+    expected_aggregate() {
+      if [ "$1" = "dark" ]; then echo "u 1"; else echo "u 2"; fi
+    }
+    expected_dconf() {
+      if [ "$1" = "dark" ]; then echo "'prefer-dark'"; else echo "'prefer-light'"; fi
+    }
+
+    do_status() {
+      STRICT=0
+      if [ "''${1:-}" = "--strict" ]; then STRICT=1; fi
+      FAIL=0
+      MODE=$(get_current_mode)
+      echo "当前模式: $MODE"
+      if command -v darkman >/dev/null 2>&1; then
+        if DM="$(darkman get)"; then
+          echo "Darkman 模式: $DM"
         else
-          echo "GTK 配置: (runtime 未初始化)"
+          echo "Darkman 模式: 未运行" >&2
         fi
-        GTK3_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
-        GTK4_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/settings.ini"
-        if [ -L "$GTK3_HOST" ]; then
-          echo "宿主机 GTK3: symlink -> $(readlink "$GTK3_HOST") (将被 theme-sync 替换)"
-        elif [ -f "$GTK3_HOST" ]; then
-          echo "宿主机 GTK3: $(grep -E "^gtk-theme-name" "$GTK3_HOST" 2>/dev/null | head -1 | sed 's/^/  /')"
+      fi
+      if [ -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
+        echo "GTK 配置 (runtime SSOT):"
+        grep -E "^gtk-theme-name|^gtk-icon-theme-name" "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" | sed 's/^/  /' || echo "  warn: gtk-settings.ini 为空" >&2
+        echo "  运行时文件: $RUNTIME_DIR/desktop-theme/gtk-settings.ini"
+      elif [ -f "$RUNTIME_DIR/desktop-theme/mode" ]; then
+        echo "GTK 配置: (runtime 部分初始化: mode=$MODE 但 gtk-settings.ini 缺失)"
+        echo "  运行时文件: $RUNTIME_DIR/desktop-theme/gtk-settings.ini (缺失)"
+        echo "  建议: 运行 theme-ctl set $MODE 或 systemctl --user restart theme-seed.service"
+        FAIL=1
+      else
+        echo "GTK 配置: (runtime 未初始化)"
+        FAIL=1
+      fi
+      GTK3_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
+      GTK4_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/settings.ini"
+      if [ -L "$GTK3_HOST" ]; then
+        echo "宿主机 GTK3: symlink -> $(readlink "$GTK3_HOST") (将被 theme-sync 替换)"
+      elif [ -f "$GTK3_HOST" ]; then
+        echo "宿主机 GTK3: $(grep -E "^gtk-theme-name" "$GTK3_HOST" | head -1 | sed 's/^/  /')"
+      else
+        echo "宿主机 GTK3: 未找到 ($GTK3_HOST)"
+      fi
+      if [ -L "$GTK4_HOST" ]; then
+        echo "宿主机 GTK4: symlink -> $(readlink "$GTK4_HOST")"
+      elif [ -f "$GTK4_HOST" ]; then
+        echo "宿主机 GTK4: $(grep -E "^gtk-theme-name" "$GTK4_HOST" | head -1 | sed 's/^/  /')"
+      else
+        echo "宿主机 GTK4: 未找到 ($GTK4_HOST)"
+      fi
+      if command -v systemctl >/dev/null 2>&1; then
+        _svc_active() {
+          systemctl --user is-active "$1" >/dev/null 2>&1
+        }
+        if _svc_active theme-sync.service; then
+          echo "theme-sync 服务: active"
         else
-          echo "宿主机 GTK3: 未找到 ($GTK3_HOST)"
+          echo "theme-sync 服务: inactive (oneshot, normal)"
         fi
-        if [ -L "$GTK4_HOST" ]; then
-          echo "宿主机 GTK4: symlink -> $(readlink "$GTK4_HOST")"
-        elif [ -f "$GTK4_HOST" ]; then
-          echo "宿主机 GTK4: $(grep -E "^gtk-theme-name" "$GTK4_HOST" 2>/dev/null | head -1 | sed 's/^/  /')"
+        if _svc_active theme-seed.service; then
+          echo "theme-seed 服务: active"
         else
-          echo "宿主机 GTK4: 未找到 ($GTK4_HOST)"
+          echo "theme-seed 服务: inactive"
         fi
+      fi
+      if command -v darkman >/dev/null 2>&1 && systemctl --user is-active darkman.service >/dev/null 2>&1; then
+        echo "darkman 服务: active (running)"
+        darkman get | sed 's/^/  /' || echo "  warn: darkman get 失败" >&2
+      else
         if command -v systemctl >/dev/null 2>&1; then
-          # helper: 避免 systemctl is-active 的 stdout 重复（inactive 时会打印 inactive 并返回非零）
-          _svc_active() {
-            systemctl --user is-active "$1" >/dev/null 2>&1
-          }
-          if _svc_active theme-sync.service; then
-            echo "theme-sync 服务: active"
-          else
-            echo "theme-sync 服务: inactive (oneshot, normal)"
-          fi
-          if _svc_active theme-seed.service; then
-            echo "theme-seed 服务: active"
-          else
-            echo "theme-seed 服务: inactive"
-          fi
-        fi
-        if command -v darkman >/dev/null 2>&1 && systemctl --user is-active darkman.service >/dev/null 2>&1; then
-          echo "darkman 服务: active (running)"
-          darkman get 2>&1 | sed 's/^/  /' || true
-        else
-          if command -v systemctl >/dev/null 2>&1; then
-            if systemctl --user is-active darkman.service >/dev/null 2>&1; then
-              echo "darkman 服务: active"
-            else
-              echo "darkman 服务: inactive"
-            fi
+          if systemctl --user is-active darkman.service >/dev/null 2>&1; then
+            echo "darkman 服务: active"
           else
             echo "darkman 服务: inactive"
           fi
+        else
+          echo "darkman 服务: inactive"
         fi
-        if [ ! -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
-          if [ -d "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
-            echo "  诊断: gtk-settings.ini 为目录"
+      fi
+      if [ ! -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
+        if [ -d "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
+          echo "  诊断: gtk-settings.ini 为目录"
+        fi
+        echo "  建议: theme-ctl set $MODE"
+      fi
+      # ── 1/3：portal 聚合值 vs 期望 ──
+      if command -v busctl >/dev/null 2>&1; then
+        if AGGR="$(busctl --user call org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop org.freedesktop.portal.Settings Read ss "org.freedesktop.appearance" "color-scheme" 2>&1)"; then
+          echo "portal 聚合 color-scheme: $AGGR (期望 $(expected_aggregate "$MODE"))"
+          if ! echo "$AGGR" | grep -q "$(expected_aggregate "$MODE")"; then
+            echo "warn: portal 聚合值与 mode=$MODE 不一致" >&2
+            FAIL=1
           fi
-          echo "  建议: theme-ctl set $MODE"
+        else
+          echo "warn: busctl Desktop Read color-scheme 调用失败: $AGGR" >&2
+          FAIL=1
         fi
+      else
+        echo "warn: busctl 缺失，跳过 portal 聚合检查" >&2
+        FAIL=1
+      fi
+      # ── 2/3：dconf vs 期望 ──
+      if [ -x "$DCONF_BIN" ]; then
+        if DVAL="$("$DCONF_BIN" read /org/gnome/desktop/interface/color-scheme 2>&1)"; then
+          if [ -z "$DVAL" ]; then
+            echo "warn: dconf color-scheme 为空（期望 $(expected_dconf "$MODE")）" >&2
+            FAIL=1
+          else
+            echo "dconf color-scheme: $DVAL (期望 $(expected_dconf "$MODE"))"
+            if [ "$DVAL" != "$(expected_dconf "$MODE")" ]; then
+              echo "warn: dconf 值与 mode=$MODE 不一致" >&2
+              FAIL=1
+            fi
+          fi
+        else
+          echo "warn: dconf read 失败: $DVAL" >&2
+          FAIL=1
+        fi
+      else
+        echo "warn: $DCONF_BIN 缺失" >&2
+        FAIL=1
+      fi
+      # ── 3/3：hook 自检（绝对路径 + base 非空） ──
+      if [ -f "$HOOK_SH" ]; then
+        if grep -q "DCONF_BIN=" "$HOOK_SH" && grep -q "${pkgs.dconf}/bin/dconf" "$HOOK_SH"; then
+          echo "hook 自检: DCONF 绝对路径 OK"
+        else
+          echo "warn: hook 未含 dconf 绝对路径 ($HOOK_SH)" >&2
+          FAIL=1
+        fi
+        if grep -q "GSETTINGS_BIN=" "$HOOK_SH"; then
+          echo "hook 自检: GSETTINGS 绝对路径 OK"
+        else
+          echo "warn: hook 未含 gsettings 绝对路径" >&2
+          FAIL=1
+        fi
+        if grep -q "2>/dev/null || true" "$HOOK_SH"; then
+          echo "warn: hook 仍含静默掩盖 2>/dev/null || true" >&2
+          FAIL=1
+        fi
+      else
+        echo "warn: hook 脚本缺失: $HOOK_SH" >&2
+        FAIL=1
+      fi
+      if [ "$STRICT" = "1" ] && [ "$FAIL" != "0" ]; then
+        echo "status --strict: 检查未通过 (exit 2)" >&2
+        return 2
+      fi
+      if [ "$FAIL" != "0" ]; then
+        echo "warn: status 发现不一致（详见上文 warn），建议运行 theme-ctl doctor" >&2
+      fi
+      return 0
+    }
+
+    do_doctor() {
+      FAIL=0
+      echo "MODE  EXPECTED_AGG  EXPECTED_DCONF"
+      MODE=$(get_current_mode)
+      echo "mode=$MODE aggregate=$(expected_aggregate "$MODE") dconf=$(expected_dconf "$MODE")"
+      echo "--- [1/5] busctl Desktop 直调 ---"
+      if command -v busctl >/dev/null 2>&1; then
+        if busctl --user call org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop org.freedesktop.portal.Settings Read ss "org.freedesktop.appearance" "color-scheme"; then
+          echo "OK: Desktop Read"
+        else
+          echo "FAIL: Desktop Read" >&2; FAIL=1
+        fi
+        if command -v darkman >/dev/null 2>&1; then
+          echo "--- [2/5] darkman 直调 ---"
+          if darkman get; then echo "OK: darkman get"; else echo "FAIL: darkman get" >&2; FAIL=1; fi
+        fi
+        echo "--- [3/5] portal 配置文件 ---"
+        for f in /etc/xdg/xdg-desktop-portal/niri-portals.conf /etc/xdg/xdg-desktop-portal/portals.conf /run/current-system/sw/share/xdg-desktop-portal/portals/darkman.portal; do
+          if [ -f "$f" ]; then echo "== $f =="; cat "$f" || { echo "FAIL: cat $f" >&2; FAIL=1; }; else echo "skip: $f 缺失"; fi
+        done
+        if grep -rq "org.freedesktop.impl.portal.Settings" /etc/xdg/xdg-desktop-portal/ 2>/dev/null; then
+          echo "OK: Settings 路由存在"
+        else
+          echo "FAIL: Settings 路由缺失" >&2; FAIL=1
+        fi
+      else
+        echo "FAIL: busctl 缺失" >&2; FAIL=1
+      fi
+      echo "--- [4/5] dconf dump ---"
+      if [ -x "$DCONF_BIN" ]; then
+        if "$DCONF_BIN" dump /org/gnome/desktop/interface/; then echo "OK: dconf dump"; else echo "FAIL: dconf dump" >&2; FAIL=1; fi
+      else
+        echo "FAIL: $DCONF_BIN 缺失" >&2; FAIL=1
+      fi
+      echo "--- [5/5] hook PATH/绝对路径 + bind ---"
+      if [ -f "$HOOK_SH" ]; then
+        grep -m1 "^export PATH\|DCONF_BIN" "$HOOK_SH" || { echo "FAIL: hook PATH/DCONF_BIN 缺失" >&2; FAIL=1; }
+        if grep -q "2>/dev/null || true" "$HOOK_SH"; then echo "FAIL: hook 含静默掩盖" >&2; FAIL=1; else echo "OK: hook 无静默掩盖"; fi
+      else
+        echo "FAIL: $HOOK_SH 缺失" >&2; FAIL=1
+      fi
+      ls -i "$RUNTIME_DIR/desktop-theme/" 2>&1 || { echo "FAIL: runtime ls" >&2; FAIL=1; }
+      if [ "$FAIL" != "0" ]; then echo "doctor: FAIL (exit 1)" >&2; return 1; fi
+      echo "doctor: OK"
+      return 0
+    }
+
+    case "''${1:-}" in
+      status)
+        do_status "''${2:-}"
+        ;;
+      doctor)
+        do_doctor
         ;;
       set)
         TARGET_MODE="''${2:-}"
@@ -335,11 +494,15 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
         else
           ${themeSwitchScript} "$TARGET_MODE"
         fi
+        echo "提示：沙箱 App（qq/firefox/wechat）为 ro 快照，需重启 App 方可跟随。"
         ;;
       auto)
         echo "切换为自动日出/日落模式..."
         if command -v systemctl >/dev/null 2>&1; then
-          systemctl --user restart darkman.service 2>/dev/null || true
+          if ! systemctl --user restart darkman.service; then
+            echo "[theme-ctl] error: systemctl restart darkman 失败" >&2
+            exit 1
+          fi
         fi
         echo "已恢复为自动自适应模式（需要 darkman.service 正常运行）"
         ;;
@@ -358,6 +521,7 @@ gtk-application-prefer-dark-theme=$([ "$MODE" = "dark" ] && echo 1 || echo 0)
         else
           ${themeSwitchScript} "$NEW_MODE"
         fi
+        echo "提示：沙箱 App 为 ro 快照，需重启 App 方可跟随。"
         ;;
       *)
         usage
@@ -543,12 +707,12 @@ in
       enable = mkOption {
         type = types.bool;
         default = true;
-        description = "是否将 darkman 注册为 XDG Settings Portal 后端，使 Firefox、WebKit、Electron 等应用通过 org.freedesktop.portal.Settings 实时感知深浅色切换。启用后 darkman 将作为 Settings Portal 最高优先级后端。";
+        description = "是否将 darkman 注册为 XDG Settings Portal 后端，使 Firefox、WebKit、Electron 等应用通过 org.freedesktop.portal.Settings 实时感知深浅色切换。启用后 darkman 将作为 Settings Portal 最高优先级后端。注意：本选项只提供排序数据，所有权在 niri 会话路由（niri 聚合器），theme 不再直写任何 xdg.portal.config。";
       };
       settingsBackends = mkOption {
         type = types.listOf types.str;
         default = [ "darkman" "gtk" "gnome" ];
-        description = "XDG Settings Portal 后端优先级列表。首项为 darkman 时由 darkman 直接广播 color-scheme，其余为回退（gtk 读取 dconf，gnome 为兜底）。";
+        description = "XDG Settings Portal 后端优先级列表（全局契约，不允许各模块覆盖排序）。首项为 darkman 时由 darkman 直接广播 color-scheme，其余为回退（gtk 读取 dconf，gnome 为兜底）。实际路由由 desktop.windowManager.niri.portal 经聚合器写入 xdg.portal.config.niri。";
       };
     };
 
@@ -560,7 +724,7 @@ in
       };
     };
 
-    hookPackages = mkOption {
+    hookBasePackages = mkOption {
       type = types.listOf types.package;
       default = with pkgs; [
         coreutils
@@ -570,14 +734,23 @@ in
         systemd
         dconf
         glib
+        gsettings-desktop-schemas
         darkman
         diffutils
       ];
-      defaultText = literalExpression "with pkgs; [ coreutils gnugrep gnused bash systemd dconf glib darkman diffutils ]";
+      defaultText = literalExpression "with pkgs; [ coreutils gnugrep gnused bash systemd dconf glib gsettings-desktop-schemas darkman diffutils ]";
       description = ''
-        主题切换钩子脚本运行时所需的最小 PATH 依赖包集合。
-        各相关模块（niri/waybar/swaync/awww 等）应通过 `desktop.theme.hookPackages = [ pkgs.xxx ]`
-        显式声明自身所需的二进制，避免在 theme 模块内集中硬编码。
+        主题切换钩子基础依赖（theme 内部独占，不允许功能模块覆盖）。
+        hook 正确性不再依赖 PATH 拼接（dconf/gsettings 已改绝对路径），此处仅供 doctor/调试使用。
+      '';
+    };
+
+    hookExtraPackages = mkOption {
+      type = types.listOf types.package;
+      default = [ ];
+      description = ''
+        功能模块唯一允许追加的 hook 依赖口子（多定义自动拼接，不丢 base）。
+        用法：desktop.theme.hookExtraPackages = [ pkgs.xxx ];（niri/waybar/swaync/awww 等）。
       '';
     };
 
@@ -624,22 +797,24 @@ in
             UNIFIED_CSS=${lib.escapeShellArg (paletteLib.toCss cfg.palette.light)}
           fi
           UNIFIED_DIR="$RUNTIME_DIR/desktop-theme"
-          mkdir -p "$UNIFIED_DIR" 2>/dev/null || true
-          if ! printf '%s' "$UNIFIED_CSS" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$UNIFIED_DIR/colors.css" 2>/dev/null; then
-            printf '%s' "$UNIFIED_CSS" > "$UNIFIED_DIR/colors.css" 2>/dev/null || echo "[theme-switch] warn: failed to write unified colors.css" >&2
+          mkdir -p "$UNIFIED_DIR" || true
+          if ! printf '%s' "$UNIFIED_CSS" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$UNIFIED_DIR/colors.css"; then
+            echo "[theme-switch] warn: install colors.css failed, fallback to redirect" >&2
+            printf '%s' "$UNIFIED_CSS" > "$UNIFIED_DIR/colors.css" || echo "[theme-switch] warn: failed to write unified colors.css" >&2
           fi
           # 相对导入支持：写入 $XDG_CONFIG_HOME 旁的 colors.css (使 @import "colors.css" 生效)
           for app in waybar swaync; do
             DST="''${XDG_CONFIG_HOME:-$HOME/.config}/$app/colors.css"
-            mkdir -p "$(dirname "$DST")" 2>/dev/null || true
-            if ! printf '%s' "$UNIFIED_CSS" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$DST" 2>/dev/null; then
-              printf '%s' "$UNIFIED_CSS" > "$DST" 2>/dev/null || true
+            mkdir -p "$(dirname "$DST")" || true
+            if ! printf '%s' "$UNIFIED_CSS" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$DST"; then
+              echo "[theme-switch] warn: install $app/colors.css failed, fallback to redirect" >&2
+              printf '%s' "$UNIFIED_CSS" > "$DST" || echo "[theme-switch] warn: failed to write $app/colors.css" >&2
             fi
           done
         ''
       ];
 
-      # 1. 基础系统软件包
+      # 1. 基础系统软件包（强制包含 dconf/glib/schemas）
       environment.systemPackages = optionals cfg.icons.enable [
         cfg.icons.package
         pkgs.hicolor-icon-theme
@@ -647,6 +822,8 @@ in
         pkgs.darkman
         themeCtlScript
         pkgs.dconf
+        pkgs.glib
+        pkgs.gsettings-desktop-schemas
         themeSyncScriptBin
       ];
 
@@ -730,11 +907,14 @@ in
             if [ "$SEED_MODE" = "auto" ]; then
               SEED_MODE="dark"
               if command -v darkman >/dev/null 2>&1; then
-                DM="$(${pkgs.darkman}/bin/darkman get 2>&1 || true)"
-                if [ "$DM" = "dark" ] || [ "$DM" = "light" ]; then SEED_MODE="$DM"; fi
+                if DM="$(${pkgs.darkman}/bin/darkman get)"; then
+                  if [ "$DM" = "dark" ] || [ "$DM" = "light" ]; then SEED_MODE="$DM"; fi
+                else
+                  echo "[theme-seed] warn: darkman get failed" >&2
+                fi
               fi
               GTK_HOST="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
-              if [ -f "$GTK_HOST" ] && ${pkgs.gnugrep}/bin/grep -q "gtk-theme-name.*-dark" "$GTK_HOST" 2>&1; then
+              if [ -f "$GTK_HOST" ] && ${pkgs.gnugrep}/bin/grep -q "gtk-theme-name.*-dark" "$GTK_HOST"; then
                 SEED_MODE="dark"
               fi
             fi
@@ -807,19 +987,36 @@ in
         };
       };
 
-      # 6. 确保 dconf 服务可以被 Darkman Hook 调用
-      programs.dconf.enable = mkDefault true;
+      # 6. 确保 dconf 服务可以被 Darkman Hook 调用（强制 true，不允许覆盖）
+      programs.dconf.enable = mkForce true;
 
-      # 7. XDG Portal Settings 后端：将 darkman 作为全局 Settings Portal 首选
-      xdg.portal = mkIf cfg.portal.enable {
-        enable = mkDefault true;
-        config = {
-          common = {
-            "org.freedesktop.impl.portal.Settings" = cfg.portal.settingsBackends;
-          };
-        };
-      };
+      # 7. Portal 数据面：theme 只出排序数据，不再直写任何 xdg.portal.config。
+      #    niri 会话不读 common，Settings 所有权已移交 niri 聚合器（见 niri/default.nix）。
+      #    此处仅保留 dbus 包注册 + 评估期 lint。
       services.dbus.packages = mkIf cfg.portal.enable [ pkgs.darkman ];
+
+      assertions =
+        let
+          normPortalVal = v:
+            if v == null then "<missing>"
+            else if builtins.isList v then builtins.concatStringsSep ";" v
+            else toString v;
+          expectedBackends =
+            if cfg.portal.enable then cfg.portal.settingsBackends else [ "gtk" "gnome" ];
+        in
+        [
+          {
+            assertion =
+              config.xdg.portal.config.common."org.freedesktop.impl.portal.Settings" or null == null;
+            message = "portal 配置错误：禁止直写 xdg.portal.config.common.Settings（niri 会话不读 common）。请经 desktop.windowManager.niri.portal / portal 聚合器声明 Settings 排序。";
+          }
+          {
+            assertion =
+              !(config.desktop.windowManager.niri.enable or false) ||
+              (normPortalVal (config.xdg.portal.config.niri."org.freedesktop.impl.portal.Settings" or null) == normPortalVal expectedBackends);
+            message = "portal 配置错误：xdg.portal.config.niri.Settings 与 desktop.theme.portal.settingsBackends 不一致。";
+          }
+        ];
     }
 
     (optionalAttrs (options ? home-manager) {
@@ -851,11 +1048,11 @@ in
             # HM 已通过 xdg.configFile.enable=false 禁用 store symlink，
             # 此处仅通过 systemd.tmpfiles 的 "d" 保证目录，但为兼容首次激活仍显式 mkdir
             home.activation.themeGtkCleanup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-              ${pkgs.coreutils}/bin/mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0" 2>/dev/null || true
+              ${pkgs.coreutils}/bin/mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0" || true
               # 若 runtime 已存在，则通过 install 声明式填充
               if [ -f "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme/gtk-settings.ini" ]; then
-                ${pkgs.coreutils}/bin/install -Dm644 "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme/gtk-settings.ini" "$HOME/.config/gtk-3.0/settings.ini" 2>/dev/null || true
-                ${pkgs.coreutils}/bin/install -Dm644 "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme/gtk-settings.ini" "$HOME/.config/gtk-4.0/settings.ini" 2>/dev/null || true
+                ${pkgs.coreutils}/bin/install -Dm644 "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme/gtk-settings.ini" "$HOME/.config/gtk-3.0/settings.ini" || echo "[theme-hm] warn: failed to sync gtk-3.0" >&2
+                ${pkgs.coreutils}/bin/install -Dm644 "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme/gtk-settings.ini" "$HOME/.config/gtk-4.0/settings.ini" || echo "[theme-hm] warn: failed to sync gtk-4.0" >&2
               fi
             '';
           })

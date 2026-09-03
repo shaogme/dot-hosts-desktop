@@ -182,17 +182,17 @@ in
         "xdg/waybar/style.css".text = finalStyleText;
       };
 
-      # ── 主题联动：显式声明 Waybar 对主题钩子的 PATH 与脚本注入 ──────────
-      desktop.theme.hookPackages = mkIf (config.desktop.theme.enable or false) [
+      # ── 主题联动：经 hookExtraPackages 追加（base 由 theme 固定） ──
+      desktop.theme.hookExtraPackages = mkIf (config.desktop.theme.enable or false) [
         pkgs.procps
       ];
       desktop.theme.hookFragmentsReload = mkIf (config.desktop.theme.enable or false) [''
         # --- Waybar 主题联动 reload（由 modules/bar/waybar 注入，需 waybar 进程，seed 跳过） ---
         if pgrep -x waybar >/dev/null 2>&1; then
           if command -v pkill >/dev/null 2>&1; then
-            pkill -SIGUSR2 waybar 2>/dev/null || true
+            if ! pkill -SIGUSR2 waybar; then echo "[theme-switch] warn: waybar reload failed" >&2; fi
           elif [ -x "${pkgs.procps}/bin/pkill" ]; then
-            ${pkgs.procps}/bin/pkill -SIGUSR2 waybar 2>/dev/null || true
+            if ! ${pkgs.procps}/bin/pkill -SIGUSR2 waybar; then echo "[theme-switch] warn: waybar reload failed" >&2; fi
           fi
         else
           echo "[theme-switch] diag: waybar not running, skipping reload" >&2

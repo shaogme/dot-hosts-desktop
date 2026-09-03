@@ -57,12 +57,22 @@
         : "''${GLFW_IM_MODULE:=ibus}"
         export GLFW_IM_MODULE
 
-        # ── 主题 (全静态, 运行时挂载已保证一致) ──
-        export CURRENT_THEME_MODE="dark"
-        export QT_QPA_PLATFORMTHEME="gtk3"
-        if [ -z "''${GSETTINGS_SCHEMA_DIR:-}" ]; then
-          export GSETTINGS_SCHEMA_DIR="/usr/share/glib-2.0/schemas"
+        # ── 主题 (启动时从 ro-bind 穿透的 live 文件读) ──
+        # ro 快照 + “切换主题必须重启 App”（portal DBus SettingChanged 才是 live 通道，GTK 文件只是启动快照）。
+        THEME_MODE_FILE="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme/mode"
+        if [ -f "$THEME_MODE_FILE" ]; then
+          if CURRENT_THEME_MODE="$(tr -d ' \n' < "$THEME_MODE_FILE")"; then
+            case "$CURRENT_THEME_MODE" in dark|light) ;; *) echo "[launcher] warn: invalid mode $CURRENT_THEME_MODE, fallback to dark" >&2; CURRENT_THEME_MODE="dark" ;; esac
+          else
+            echo "[launcher] warn: failed to read $THEME_MODE_FILE, fallback to dark" >&2
+            CURRENT_THEME_MODE="dark"
+          fi
+        else
+          CURRENT_THEME_MODE="dark"
         fi
+        export CURRENT_THEME_MODE
+        export QT_QPA_PLATFORMTHEME="gtk3"
+        # 不设 GSETTINGS_SCHEMA_DIR，靠 FHS targetPkgs 已含 gsettings-desktop-schemas + XDG_DATA_DIRS 穿透。
         ${customExports}
       '';
 

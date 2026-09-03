@@ -361,9 +361,9 @@ in
         }
       ];
 
-      # ── 主题联动：显式声明 awww 对主题钩子的 PATH 与壁纸切换注入（条件化） ──
+      # ── 主题联动：经 hookExtraPackages 追加（base 由 theme 固定，条件化） ──
       # 仅当全局主题的深/浅色壁纸已配置时才注入，避免在未使用壁纸切换的主机上引入无谓闭包
-      desktop.theme.hookPackages = mkIf (config.desktop.theme.enable or false && (config.desktop.theme.dark.wallpaper != null || config.desktop.theme.light.wallpaper != null)) [
+      desktop.theme.hookExtraPackages = mkIf (config.desktop.theme.enable or false && (config.desktop.theme.dark.wallpaper != null || config.desktop.theme.light.wallpaper != null)) [
         cfg.package
         scripts.awwwSetScript
         pkgs.procps
@@ -380,11 +380,11 @@ in
         if [ -n "$WALLPAPER_PATH" ] && [ -f "$WALLPAPER_PATH" ]; then
           if systemctl --user is-active awww-daemon.service >/dev/null 2>&1 || pgrep -x awww-daemon >/dev/null 2>&1; then
             if command -v awww-set >/dev/null 2>&1; then
-              awww-set "$WALLPAPER_PATH" 2>/dev/null || true
+              if ! awww-set "$WALLPAPER_PATH"; then echo "[theme-switch] warn: awww-set failed" >&2; fi
             elif [ -x "${scripts.awwwSetScript}/bin/awww-set" ]; then
-              ${scripts.awwwSetScript}/bin/awww-set "$WALLPAPER_PATH" 2>/dev/null || true
+              if ! ${scripts.awwwSetScript}/bin/awww-set "$WALLPAPER_PATH"; then echo "[theme-switch] warn: awww-set failed" >&2; fi
             elif [ -x "${cfg.package}/bin/awww" ]; then
-              ${cfg.package}/bin/awww img "$WALLPAPER_PATH" 2>/dev/null || true
+              if ! ${cfg.package}/bin/awww img "$WALLPAPER_PATH"; then echo "[theme-switch] warn: awww img failed" >&2; fi
             fi
           else
             echo "[theme-switch] diag: awww-daemon not ready, skipping wallpaper" >&2
