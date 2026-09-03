@@ -97,9 +97,9 @@ in
   };
 
   # ==========================================
-  # 桌面与图形环境 (Hyprland & 桌面基础设施与组件)
+  # 桌面与图形环境 (Niri & 桌面基础设施与组件)
   # ==========================================
-  desktop.windowManager.hyprland = {
+  desktop.windowManager.niri = {
     enable = true;
     terminal = "rio";
   };
@@ -151,7 +151,7 @@ in
   # 登录管理器 (tuigreet)
   desktop.loginManager.tuigreet = {
     enable = true;
-    defaultSession = "hyprland";
+    defaultSession = "niri";
     display = {
       showTime = true;
     };
@@ -332,16 +332,16 @@ in
       message = "图形驱动配置错误：AMD+NVIDIA 混合显卡驱动与加速未启用";
     }
     {
-      assertion = config.desktop.windowManager.hyprland.enable == true;
-      message = "窗口管理器配置错误：Hyprland 未启用";
+      assertion = config.desktop.windowManager.niri.enable == true;
+      message = "窗口管理器配置错误：Niri 未启用";
     }
     {
-      assertion = config.desktop.windowManager.hyprland.terminal == "rio";
-      message = "Hyprland 终端命令行配置错误：应当配置为 rio";
+      assertion = config.desktop.windowManager.niri.terminal == "rio";
+      message = "Niri 终端命令行配置错误：应当配置为 rio";
     }
     {
-      assertion = config.programs.hyprland.enable == true;
-      message = "桌面环境配置错误：Hyprland 未启用";
+      assertion = config.programs.niri.enable == true;
+      message = "桌面环境配置错误：Niri 未启用";
     }
     {
       assertion = config.desktop.audio.pipewire.enable == true;
@@ -381,8 +381,8 @@ in
       message = "登录管理器配置错误：tuigreet 未启用";
     }
     {
-      assertion = config.desktop.loginManager.tuigreet.defaultSession == "hyprland";
-      message = "登录管理器配置错误：tuigreet 默认会话应配置为 hyprland";
+      assertion = config.desktop.loginManager.tuigreet.defaultSession == "niri";
+      message = "登录管理器配置错误：tuigreet 默认会话应配置为 niri";
     }
     {
       assertion = config.base.container.podman.enable == true;
@@ -513,12 +513,12 @@ in
       message = "桌面门户配置错误：termfilechooser 未启用";
     }
     {
-      assertion = config.desktop.windowManager.hyprland.fileManager.enable == true;
-      message = "Hyprland 文件管理器联动配置错误：应当启用文件管理器支持";
+      assertion = config.desktop.windowManager.niri.fileManager.enable == true;
+      message = "Niri 文件管理器联动配置错误：应当启用文件管理器支持";
     }
     {
-      assertion = config.desktop.windowManager.hyprland.portal.filechooser == "termfilechooser";
-      message = "Hyprland 桌面门户配置错误：FileChooser 接口应当配置为 termfilechooser";
+      assertion = config.desktop.windowManager.niri.portal.filechooser == "termfilechooser";
+      message = "Niri 桌面门户配置错误：FileChooser 接口应当配置为 termfilechooser";
     }
   ];
 }

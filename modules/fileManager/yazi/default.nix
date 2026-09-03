@@ -366,17 +366,17 @@ in
       description = "写入 yazi 配置目录的额外自定义配置文件集合。";
     };
 
-    hyprland = {
+    niri = {
       enable = mkOption {
         type = types.bool;
         default = true;
-        description = "是否自动联动注册为 Hyprland 默认文件管理器。";
+        description = "是否自动联动注册为 Niri 默认文件管理器。";
       };
 
       keybind = mkOption {
         type = types.str;
-        default = "SUPER + E";
-        description = "在 Hyprland 中唤起 Yazi 的快捷键绑定（设为空字符串则不注册）。";
+        default = "Mod+E";
+        description = "在 Niri 中唤起 Yazi 的快捷键绑定（设为空字符串则不注册）。";
       };
     };
 
@@ -425,12 +425,12 @@ in
       programs.zsh.interactiveShellInit = mkIf cfg.shellIntegration.enableZsh shellWrapperCode;
       programs.bash.interactiveShellInit = mkIf cfg.shellIntegration.enableBash shellWrapperCode;
 
-      # 4. 联动向 Hyprland 注册默认文件管理器启动命令
-      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable && cfg.hyprland.enable) {
+      # 4. 联动向 Niri 注册默认文件管理器启动命令
+      desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable && cfg.niri.enable) {
         fileManager = {
           enable = mkDefault true;
           command = mkDefault "${cfg.terminal} -e yazi";
-          keybind = mkDefault cfg.hyprland.keybind;
+          keybind = mkDefault cfg.niri.keybind;
         };
       };
 

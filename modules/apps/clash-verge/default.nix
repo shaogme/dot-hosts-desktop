@@ -4,11 +4,11 @@ import ../lib/mk-app-module.nix {
   package = ./package.nix;
   windowRules = [
     {
-      match = {
-        class = "^(clash-verge|clash-verge-rev)$";
+      match._props = {
+        app-id = "^(clash-verge|clash-verge-rev)$";
         title = "^(Settings|设置|Logs|日志|Profiles|配置)$";
       };
-      float = true;
+      open-floating = true;
     }
   ];
 }

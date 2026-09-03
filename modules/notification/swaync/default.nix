@@ -10,7 +10,6 @@ with lib;
 
 let
   cfg = config.desktop.notification.swaync;
-  inline = lib.generators.mkLuaInline;
 
   defaultSwayncSettings = {
     "$schema" = "/etc/xdg/swaync/configSchema.json";
@@ -525,17 +524,17 @@ in
       };
     };
 
-    hyprland = {
+    niri = {
       autostart = mkOption {
         type = types.bool;
         default = true;
-        description = "是否在 Hyprland 启动时自动拉起 SwayNC（当 systemd.enable = true 时自动由 systemd 管理，不向 Hyprland 注册重复启动命令）。";
+        description = "是否在 Niri 启动时自动拉起 SwayNC（当 systemd.enable = true 时自动由 systemd 管理，不向 Niri 注册重复启动命令）。";
       };
 
       keybind = mkOption {
         type = types.str;
-        default = "SUPER + N";
-        description = "在 Hyprland 中切换/唤起通知中心的快捷键绑定（设为空字符串则不注册）。";
+        default = "Mod+N";
+        description = "在 Niri 中切换/唤起通知中心的快捷键绑定（设为空字符串则不注册）。";
       };
     };
 
@@ -583,29 +582,18 @@ in
         };
       };
 
-      # 联动向 Hyprland 注册自启动、按键绑定及图层模糊规则
-      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable) {
-        # 仅在未启用 systemd 服务管理时通过 Hyprland 命令行拉起，避免同时启动产生竞态导致 "An instance of SwayNotificationCenter is already running!" 崩溃
-        autostart = mkIf (cfg.hyprland.autostart && !cfg.systemd.enable) [
+      # 联动向 Niri 注册自启动与按键绑定
+      desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable) {
+        # 仅在未启用 systemd 服务管理时通过 Niri 命令行拉起，避免同时启动产生竞态导致 "An instance of SwayNotificationCenter is already running!" 崩溃
+        autostart = mkIf (cfg.niri.autostart && !cfg.systemd.enable) [
           "swaync"
         ];
-        extraBinds = mkIf (cfg.hyprland.keybind != "") [
-          { _args = [ (inline ''"${cfg.hyprland.keybind}"'') (inline ''hl.dsp.exec_cmd("swaync-client -t -sw")'') ]; }
-        ];
-        layerRules = optionals cfg.blur.enable [
+        extraBinds = mkIf (cfg.niri.keybind != "") [
           {
-            match = {
-              namespace = "swaync-control-center";
+            "${cfg.niri.keybind}" = {
+              _props.hotkey-overlay-title = "Toggle Notification Center";
+              spawn-sh = [ "swaync-client -t -sw" ];
             };
-            blur = true;
-            ignore_alpha = 0;
-          }
-          {
-            match = {
-              namespace = "swaync-notification-window";
-            };
-            blur = true;
-            ignore_alpha = 0;
           }
         ];
       };

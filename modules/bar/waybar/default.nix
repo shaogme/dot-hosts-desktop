@@ -10,7 +10,6 @@ with lib;
 
 let
   cfg = config.desktop.bar.waybar;
-  inline = lib.generators.mkLuaInline;
 
   availableThemes = import ./themes { inherit pkgs lib config; };
   selectedTheme = availableThemes.${cfg.theme} or availableThemes.default-theme;
@@ -124,17 +123,17 @@ in
       };
     };
 
-    hyprland = {
+    niri = {
       autostart = mkOption {
         type = types.bool;
         default = true;
-        description = "是否在 Hyprland 启动时自动注入 waybar 自启动动作。";
+        description = "是否在 Niri 启动时自动注入 waybar 自启动动作。";
       };
 
       keybind = mkOption {
         type = types.str;
-        default = "SUPER + B";
-        description = "在 Hyprland 中切换/显隐 Waybar 的快捷键绑定（设为空字符串则不注册）。";
+        default = "Mod+B";
+        description = "在 Niri 中切换/显隐 Waybar 的快捷键绑定（设为空字符串则不注册）。";
       };
     };
 
@@ -183,13 +182,18 @@ in
         "xdg/waybar/style.css".text = finalStyleText;
       };
 
-      # 联动向 Hyprland 注册自启动与快捷键
-      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable) {
-        autostart = mkIf cfg.hyprland.autostart [
+      # 联动向 Niri 注册自启动与快捷键
+      desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable) {
+        autostart = mkIf cfg.niri.autostart [
           "waybar"
         ];
-        extraBinds = mkIf (cfg.hyprland.keybind != "") [
-          { _args = [ (inline ''"${cfg.hyprland.keybind}"'') (inline ''hl.dsp.exec_cmd("pkill -SIGUSR1 waybar")'') ]; }
+        extraBinds = mkIf (cfg.niri.keybind != "") [
+          {
+            "${cfg.niri.keybind}" = {
+              _props.hotkey-overlay-title = "Toggle Waybar";
+              spawn-sh = [ "pkill -SIGUSR1 waybar" ];
+            };
+          }
         ];
       };
     }

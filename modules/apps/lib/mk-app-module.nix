@@ -111,8 +111,8 @@ in
         effectivePackage
       ];
     }
-    (mkIf (cfg.windowRules != [ ] && config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland) {
-      desktop.windowManager.hyprland.settings.window_rule = cfg.windowRules;
+    (mkIf (cfg.windowRules != [ ] && config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri) {
+      desktop.windowManager.niri.extraRules = cfg.windowRules;
     })
     (extraConfig cfg)
   ]);

@@ -125,8 +125,8 @@ desktop.inputMethod.fcitx5 = {
 | `desktop.inputMethod.fcitx5.chineseAddons.cloudPinyin.backend` | `enum` | `"Baidu"` | 云拼音后端（`"Baidu"` / `"Google"`） |
 | `desktop.inputMethod.fcitx5.quickPhrase.enable` | `bool` | `true` | 是否启用快捷短语与表情符号 |
 | `desktop.inputMethod.fcitx5.hotkey.triggerKeys` | `listOf str` | `[ "Control+Space" "Shift_L" ]` | 输入法切换激活热键 |
-| `desktop.inputMethod.fcitx5.hyprland.autostart` | `bool` | `true` | 是否在 Hyprland 启动时自启 Fcitx5 |
-| `desktop.inputMethod.fcitx5.hyprland.windowRules` | `bool` | `true` | 是否注册 Fcitx5 配置界面的浮动与居中规则 |
+| `desktop.inputMethod.fcitx5.niri.autostart` | `bool` | `true` | 是否在 Niri 启动时自启 Fcitx5 |
+| `desktop.inputMethod.fcitx5.niri.windowRules` | `bool` | `true` | 是否注册 Fcitx5 配置界面的浮动与居中规则 |
 | `desktop.inputMethod.fcitx5.homeManager.enable` | `bool` | `true` | 是否同步配置至 Home Manager |
 
 ---

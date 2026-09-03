@@ -5,11 +5,11 @@ import ../lib/mk-app-module.nix {
   aliases = [ "code" ];
   windowRules = [
     {
-      match = {
-        class = "^(code|Code|vscode)$";
+      match._props = {
+        app-id = "^(code|Code|vscode)$";
         title = "^(Open Folder|Open File|Save As|Extension:.*)$";
       };
-      float = true;
+      open-floating = true;
     }
   ];
 }

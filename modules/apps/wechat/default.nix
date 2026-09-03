@@ -5,33 +5,25 @@ import ../lib/mk-app-module.nix {
   aliases = [ "wechat-universal" "weixin" ];
   windowRules = [
     {
-      match = {
-        class = "^(wechat|com.tencent.wechat)$";
+      match._props = {
+        app-id = "^(wechat|com\\.tencent\\.wechat)$";
         title = "^(微信|WeChat|登录)$";
       };
-      float = true;
+      open-floating = true;
     }
     {
-      match = {
-        class = "^(wechat|com.tencent.wechat)$";
+      match._props = {
+        app-id = "^(wechat|com\\.tencent\\.wechat)$";
         title = "^(图片查看|预览|设置|关于微信|意见反馈|聊天记录备份与迁移|ChatContactMenu|chat_menu)$";
       };
-      float = true;
+      open-floating = true;
     }
     {
-      match = {
-        class = "^(wechat|com.tencent.wechat)$";
-        title = "^()$";
-      };
-      no_blur = true;
-      no_shadow = true;
-    }
-    {
-      match = {
-        class = "^(wechat|com.tencent.wechat)$";
+      match._props = {
+        app-id = "^(wechat|com\\.tencent\\.wechat)$";
         title = "^(ChatContactMenu|chat_menu)$";
       };
-      stay_focused = true;
+      open-focused = true;
     }
   ];
 }

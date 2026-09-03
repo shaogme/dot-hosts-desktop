@@ -117,12 +117,12 @@ let
     MAX_TITLE_LEN=22
 
     print_status() {
-      window=$(${pkgs.hyprland}/bin/hyprctl activewindow -j 2>/dev/null || echo "{}")
-      address=$(${pkgs.jq}/bin/jq -r '.address // empty' <<< "$window" 2>/dev/null || echo "")
+      window=$(${pkgs.niri}/bin/niri msg -j focused-window 2>/dev/null || echo "{}")
+      id=$(${pkgs.jq}/bin/jq -r '.id // empty' <<< "$window" 2>/dev/null || echo "")
 
       # 无活动窗口时显示 Desktop 与工作区
-      if [[ -z "$address" || "$address" == "null" ]]; then
-        ws=$(${pkgs.hyprland}/bin/hyprctl activeworkspace -j 2>/dev/null | ${pkgs.jq}/bin/jq -r '.id // "1"' 2>/dev/null || echo "1")
+      if [[ -z "$id" || "$id" == "null" ]]; then
+        ws=$(${pkgs.niri}/bin/niri msg -j workspaces 2>/dev/null | ${pkgs.jq}/bin/jq -r '(.[] | select(.is_focused) | .idx // .name) // "1"' 2>/dev/null || echo "1")
 
         top_line="Desktop"
         bottom_line="Workspace $ws"
@@ -140,7 +140,7 @@ let
         return
       fi
 
-      class=$(${pkgs.jq}/bin/jq -r '.class // "Unknown"' <<< "$window" 2>/dev/null || echo "Unknown")
+      class=$(${pkgs.jq}/bin/jq -r '.app_id // "Unknown"' <<< "$window" 2>/dev/null || echo "Unknown")
       title=$(${pkgs.jq}/bin/jq -r '.title // ""' <<< "$window" 2>/dev/null || echo "")
 
       app_class="''${class,,}"
@@ -176,8 +176,8 @@ let
 
     # 监听状态变更并更新
     while true; do
-      current_window=$(${pkgs.hyprland}/bin/hyprctl activewindow -j 2>/dev/null || echo "{}")
-      current_ws=$(${pkgs.hyprland}/bin/hyprctl activeworkspace -j 2>/dev/null || echo "{}")
+      current_window=$(${pkgs.niri}/bin/niri msg -j focused-window 2>/dev/null || echo "{}")
+      current_ws=$(${pkgs.niri}/bin/niri msg -j workspaces 2>/dev/null | ${pkgs.jq}/bin/jq -r '(.[] | select(.is_focused) | .idx // .name) // "1"' 2>/dev/null || echo "1")
 
       current="$current_window$current_ws"
 
@@ -191,23 +191,21 @@ let
   '';
 
   waybarGamemodeStatusScript = pkgs.writeShellScriptBin "waybar-gamemode-status" ''
-    CACHE_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/hypr_gamemode"
+    CACHE_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/niri_gamemode"
     if [ -f "$CACHE_FILE" ]; then
-      echo '{"text":"","class":"active","tooltip":"游戏模式：已开启（动画、阴影与模糊已禁用）"}'
+      echo '{"text":"","class":"active","tooltip":"游戏模式：已开启"}'
     else
       echo '{"text":"","class":"inactive","tooltip":"游戏模式：已关闭（点击开启）"}'
     fi
   '';
 
   waybarGamemodeToggleScript = pkgs.writeShellScriptBin "waybar-gamemode-toggle" ''
-    CACHE_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/hypr_gamemode"
+    CACHE_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/niri_gamemode"
     if [ -f "$CACHE_FILE" ]; then
       rm -f "$CACHE_FILE"
-      ${pkgs.hyprland}/bin/hyprctl --batch "keyword animations:enabled 1; keyword decoration:blur:enabled 1; keyword decoration:shadow:enabled 1" >/dev/null 2>&1 || true
     else
       mkdir -p "$(dirname "$CACHE_FILE")"
       touch "$CACHE_FILE"
-      ${pkgs.hyprland}/bin/hyprctl --batch "keyword animations:enabled 0; keyword decoration:blur:enabled 0; keyword decoration:shadow:enabled 0" >/dev/null 2>&1 || true
     fi
     ${pkgs.procps}/bin/pkill -SIGRTMIN+8 waybar 2>/dev/null || true
   '';
@@ -271,7 +269,7 @@ let
     modules-center = [
       "group/center4"
       "group/center3"
-      "hyprland/workspaces"
+      "niri/workspaces"
       "group/center2"
     ];
     modules-right = [ ];
@@ -303,8 +301,7 @@ let
       ];
     };
 
-    "hyprland/workspaces" = {
-      on-click = "activate";
+    "niri/workspaces" = {
       format = "{icon}";
       format-icons = {
         default = "";
@@ -318,9 +315,6 @@ let
         "8" = "<span size='13500'>󰲮</span>";
         "9" = "<span size='13500'>󰲰</span>";
         "10" = "<span size='13500'>󰿬</span>";
-      };
-      persistent-workspaces = {
-        "*" = 5;
       };
     };
 

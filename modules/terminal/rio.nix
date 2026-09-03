@@ -1139,7 +1139,7 @@ in
         // customThemeEtcFiles
         // (optionalAttrs cfg.setAsDefaultTerminal {
           "xdg/xdg-terminals.list".text = "rio.desktop\n";
-          "xdg/hyprland-xdg-terminals.list".text = "rio.desktop\n";
+          "xdg/niri-xdg-terminals.list".text = "rio.desktop\n";
         })
       );
 
@@ -1150,10 +1150,10 @@ in
           default = [
             "rio.desktop"
           ];
-          Hyprland = [
+          Niri = [
             "rio.desktop"
           ];
-          hyprland = [
+          niri = [
             "rio.desktop"
           ];
         };
@@ -1172,7 +1172,7 @@ in
               // customThemeHomeFiles
               // (optionalAttrs cfg.setAsDefaultTerminal {
                 "xdg-terminals.list".text = "rio.desktop\n";
-                "hyprland-xdg-terminals.list".text = "rio.desktop\n";
+                "niri-xdg-terminals.list".text = "rio.desktop\n";
               })
             );
           })

@@ -178,8 +178,8 @@ in
         };
       };
 
-      # 5. 联动向 Hyprland 声明使用 termfilechooser
-      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable && cfg.setAsDefaultFileChooser) {
+      # 5. 联动向 Niri 声明使用 termfilechooser
+      desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable && cfg.setAsDefaultFileChooser) {
         portal = {
           filechooser = mkDefault "termfilechooser";
         };

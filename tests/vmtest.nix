@@ -104,12 +104,12 @@ pkgs.testers.nixosTest {
           if ${if (serverCfg.desktop.loginManager.tuigreet.defaultSession or null) != null then "True" else "False"}:
               server.succeed("test -f /var/cache/tuigreet/lastsession-path")
 
-      # 验证窗口管理器 (Hyprland) 核心
-      if ${if serverCfg.desktop.windowManager.hyprland.enable or false then "True" else "False"}:
-          server.succeed("which Hyprland")
-          server.succeed("which start-hyprland")
-          server.succeed("test -f /etc/xdg/hypr/hyprland.lua")
-          server.succeed("test -f /etc/hypr/hyprland.lua")
+      # 验证窗口管理器 (Niri) 核心
+      if ${if serverCfg.desktop.windowManager.niri.enable or false then "True" else "False"}:
+          server.succeed("which niri")
+          server.succeed("test -f /etc/xdg/niri/config.kdl")
+          server.succeed("test -f /etc/niri/config.kdl")
+          server.succeed("niri validate --config /etc/niri/config.kdl")
 
       # 验证启动器 (Anyrun) 与 xdg-terminal-exec
       if ${if (serverCfg.desktop ? launcher && serverCfg.desktop.launcher ? anyrun && serverCfg.desktop.launcher.anyrun.enable) then "True" else "False"}:
@@ -120,8 +120,8 @@ pkgs.testers.nixosTest {
           server.succeed("which xdg-terminal-exec")
           server.succeed("test -f /etc/xdg/xdg-terminals.list")
           server.succeed("grep -q 'rio.desktop' /etc/xdg/xdg-terminals.list")
-          server.succeed("test -f /etc/xdg/hyprland-xdg-terminals.list")
-          server.succeed("grep -q 'rio.desktop' /etc/xdg/hyprland-xdg-terminals.list")
+          server.succeed("test -f /etc/xdg/niri-xdg-terminals.list")
+          server.succeed("grep -q 'rio.desktop' /etc/xdg/niri-xdg-terminals.list")
 
           server.succeed("which anyrun-power")
           server.succeed("test -f /etc/xdg/anyrun/actions.ron")

@@ -470,17 +470,17 @@ in
       description = "用户自定义附加安装的 Fcitx5 插件包列表。";
     };
 
-    hyprland = {
+    niri = {
       autostart = mkOption {
         type = types.bool;
         default = true;
-        description = "是否在 Hyprland 启动时自动启动 Fcitx5 后台守护进程。";
+        description = "是否在 Niri 启动时自动启动 Fcitx5 后台守护进程。";
       };
 
       windowRules = mkOption {
         type = types.bool;
         default = true;
-        description = "是否自动向 Hyprland 注册 Fcitx5 配置界面的浮动与居中窗口规则。";
+        description = "是否自动向 Niri 注册 Fcitx5 配置界面的浮动与居中窗口规则。";
       };
     };
 
@@ -527,20 +527,20 @@ in
         GTK_IM_MODULE = "fcitx";
       };
 
-      # 4. Hyprland 桌面联动（自启动与窗口浮动规则）
-      desktop.windowManager.hyprland = mkIf config.desktop.windowManager.hyprland.enable {
-        extraExecOnce = mkIf cfg.hyprland.autostart [
+      # 4. Niri 桌面联动（自启动与窗口浮动规则）
+      desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable) {
+        autostart = mkIf cfg.niri.autostart [
           "fcitx5 -d --replace"
         ];
-        settings = mkIf cfg.hyprland.windowRules {
-          window_rule = [
+        windowRules = mkIf cfg.niri.windowRules {
+          extraRules = [
             {
-              match = {
-                class = "^(org.fcitx.fcitx5-config-qt)$";
+              match._props = {
+                app-id = "^(org\\.fcitx\\.fcitx5-config-qt)$";
               };
-              float = true;
-              center = true;
-              size = "800 600";
+              open-floating = true;
+              default-column-width = { fixed = 850; };
+              default-window-height = { fixed = 600; };
             }
           ];
         };

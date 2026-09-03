@@ -174,8 +174,8 @@ in
     defaultSession = mkOption {
       type = types.nullOr types.str;
       default = null;
-      example = "hyprland";
-      description = "tuigreet 默认选中的桌面会话（如 hyprland、sway 等）。不提供预设默认项，需由用户手动配置。配置后系统将自动预置 tuigreet 会话缓存，确保登录界面默认选中指定的会话。";
+      example = "niri";
+      description = "tuigreet 默认选中的桌面会话（如 niri、sway 等）。不提供预设默认项，需由用户手动配置。配置后系统将自动预置 tuigreet 会话缓存，确保登录界面默认选中指定的会话。";
     };
 
     consoleSession = {

@@ -10,7 +10,6 @@ with lib;
 
 let
   cfg = config.desktop.wallpaper.awww;
-  inline = lib.generators.mkLuaInline;
 
   builtinsWallpapers = import ./wallpapers.nix { inherit pkgs; };
   scripts = import ./scripts.nix {
@@ -318,30 +317,30 @@ in
       };
     };
 
-    hyprland = {
+    niri = {
       autostart = mkOption {
         type = types.bool;
         default = true;
-        description = "是否在 Hyprland 启动时自动初始化 awww 守护进程并应用初始壁纸。";
+        description = "是否在 Niri 启动时自动初始化 awww 守护进程并应用初始壁纸。";
       };
 
       keybinds = {
         randomWallpaper = mkOption {
           type = types.str;
-          default = "SUPER + ALT + W";
-          description = "在 Hyprland 中一键随机切换壁纸的快捷键（设为空则不注册）。";
+          default = "Mod+Alt+W";
+          description = "在 Niri 中一键随机切换壁纸的快捷键（设为空则不注册）。";
         };
 
         nextWallpaper = mkOption {
           type = types.str;
-          default = "SUPER + W";
-          description = "在 Hyprland 中切换下一张壁纸的快捷键（设为空则不注册）。";
+          default = "Mod+Ctrl+W";
+          description = "在 Niri 中切换下一张壁纸的快捷键（设为空则不注册）。";
         };
 
         selectWallpaper = mkOption {
           type = types.str;
-          default = "SUPER + SHIFT + W";
-          description = "在 Hyprland 中弹出 Wofi 壁纸交互选择器的快捷键（设为空则不注册）。";
+          default = "Mod+Shift+W";
+          description = "在 Niri 中弹出壁纸交互选择器的快捷键（设为空则不注册）。";
         };
       };
     };
@@ -409,19 +408,28 @@ in
         };
       };
 
-      # 5. 联动 Hyprland 注册自启动与快捷键
-      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable) {
-        # 仅在未启用 systemd 服务管理时通过 Hyprland 命令行拉起，避免同时启动产生竞态导致 "There is an awww-daemon instance already running on this socket!" 崩溃
-        autostart = mkIf (cfg.hyprland.autostart && !cfg.daemon.systemd.enable) [
+      # 5. 联动 Niri 注册自启动与快捷键
+      desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable) {
+        # 仅在未启用 systemd 服务管理时通过 Niri 命令行拉起，避免同时启动产生竞态导致 "There is an awww-daemon instance already running on this socket!" 崩溃
+        autostart = mkIf (cfg.niri.autostart && !cfg.daemon.systemd.enable) [
           "${scripts.awwwInitScript}/bin/awww-init"
         ];
-        extraBinds = (optionals (cfg.hyprland.keybinds.randomWallpaper != "") [
-          { _args = [ (inline ''"${cfg.hyprland.keybinds.randomWallpaper}"'') (inline ''hl.dsp.exec_cmd("${scripts.awwwRandomScript}/bin/awww-random")'') ]; }
-        ]) ++ (optionals (cfg.hyprland.keybinds.nextWallpaper != "") [
-          { _args = [ (inline ''"${cfg.hyprland.keybinds.nextWallpaper}"'') (inline ''hl.dsp.exec_cmd("${scripts.awwwNextScript}/bin/awww-next")'') ]; }
-        ]) ++ (optionals (cfg.hyprland.keybinds.selectWallpaper != "") [
-          { _args = [ (inline ''"${cfg.hyprland.keybinds.selectWallpaper}"'') (inline ''hl.dsp.exec_cmd("${scripts.awwwSwitchScript}/bin/awww-switch")'') ]; }
-        ]);
+        extraBinds = (optional (cfg.niri.keybinds.randomWallpaper != "") {
+          "${cfg.niri.keybinds.randomWallpaper}" = {
+            _props.hotkey-overlay-title = "Random Wallpaper";
+            spawn = [ "${scripts.awwwRandomScript}/bin/awww-random" ];
+          };
+        }) ++ (optional (cfg.niri.keybinds.nextWallpaper != "") {
+          "${cfg.niri.keybinds.nextWallpaper}" = {
+            _props.hotkey-overlay-title = "Next Wallpaper";
+            spawn = [ "${scripts.awwwNextScript}/bin/awww-next" ];
+          };
+        }) ++ (optional (cfg.niri.keybinds.selectWallpaper != "") {
+          "${cfg.niri.keybinds.selectWallpaper}" = {
+            _props.hotkey-overlay-title = "Select Wallpaper";
+            spawn = [ "${scripts.awwwSwitchScript}/bin/awww-switch" ];
+          };
+        });
       };
     }
 

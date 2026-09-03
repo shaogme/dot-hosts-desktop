@@ -10,7 +10,6 @@ with lib;
 
 let
   cfg = config.desktop.launcher.anyrun;
-  inline = lib.generators.mkLuaInline;
   themes = import ./themes.nix;
   svgIcons = import ./icons.nix { inherit pkgs; };
 
@@ -454,35 +453,17 @@ in
       description = "额外写入 anyrun 配置目录的自定义配置文件集合（如 plugin-name.ron）。";
     };
 
-    hyprland = {
+    niri = {
       keybind = mkOption {
         type = types.str;
-        default = "SUPER + Space";
-        description = "在 Hyprland 中唤起 Anyrun 启动器的快捷键绑定（设为空字符串则不注册）。";
+        default = "Mod+Space";
+        description = "在 Niri 中唤起 Anyrun 启动器的快捷键绑定（设为空字符串则不注册）。";
       };
 
       powerKeybinds = mkOption {
         type = types.listOf types.str;
-        default = [ "SUPER + M" "XF86PowerOff" ];
-        description = "在 Hyprland 中唤起 Anyrun 电源管理菜单的快捷键列表。";
-      };
-
-      blur = mkOption {
-        type = types.bool;
-        default = true;
-        description = "是否自动向 Hyprland 注册 anyrun layer_rule 背景毛玻璃模糊。";
-      };
-
-      dimAround = mkOption {
-        type = types.bool;
-        default = true;
-        description = "是否在唤起 Anyrun 时向 Hyprland 注册 dim_around 背景环境暗化，提升视觉聚焦度并消除边缘生硬对比。";
-      };
-
-      ignoreAlpha = mkOption {
-        type = types.float;
-        default = 0.65;
-        description = "向 Hyprland 注册的 ignore_alpha 阈值（默认 0.65，过滤微弱半透明渐变阴影，避免阴影外圈产生毛玻璃脏边与断层）。";
+        default = [ "Mod+M" "XF86PowerOff" ];
+        description = "在 Niri 中唤起 Anyrun 电源管理菜单的快捷键列表。";
       };
     };
 
@@ -517,10 +498,10 @@ in
           default = [
             "rio.desktop"
           ];
-          Hyprland = [
+          Niri = [
             "rio.desktop"
           ];
-          hyprland = [
+          niri = [
             "rio.desktop"
           ];
         };
@@ -542,25 +523,21 @@ in
 
       environment.etc = etcConfigFiles;
 
-      # 联动向 Hyprland 注册快捷键与图层毛玻璃规则
-      desktop.windowManager.hyprland = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? hyprland && config.desktop.windowManager.hyprland.enable) {
-        layerRules = optionals cfg.hyprland.blur [
-          {
-            match = {
-              namespace = "anyrun";
-            };
-            blur = true;
-            ignore_alpha = cfg.hyprland.ignoreAlpha;
-            dim_around = cfg.hyprland.dimAround;
-          }
-        ];
+      # 联动向 Niri 注册快捷键
+      desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable) {
         extraBinds =
-          (optional (cfg.hyprland.keybind != "") {
-            _args = [ (inline ''"${cfg.hyprland.keybind}"'') (inline ''hl.dsp.exec_cmd("anyrun")'') ];
+          (optional (cfg.niri.keybind != "") {
+            "${cfg.niri.keybind}" = {
+              _props.hotkey-overlay-title = "Application Launcher: Anyrun";
+              spawn = [ "anyrun" ];
+            };
           })
           ++ (map (bindStr: {
-            _args = [ (inline ''"${bindStr}"'') (inline ''hl.dsp.exec_cmd("anyrun-power")'') ];
-          }) cfg.hyprland.powerKeybinds);
+            "${bindStr}" = {
+              _props.hotkey-overlay-title = "Power Menu";
+              spawn = [ "anyrun-power" ];
+            };
+          }) cfg.niri.powerKeybinds);
       };
     }
 
@@ -589,7 +566,7 @@ in
 
             xdg.configFile = allConfigFiles // {
               "xdg-terminals.list".text = "rio.desktop\n";
-              "hyprland-xdg-terminals.list".text = "rio.desktop\n";
+              "niri-xdg-terminals.list".text = "rio.desktop\n";
             };
           })
         ];
