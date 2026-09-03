@@ -445,7 +445,6 @@ let
   # dbus-broker 会严格校验服务文件名是否与其声明的 BusName 一致，
   # 否则会打印警告并产生命名不匹配问题。此处构建纯符号链接包装层，
   # 将其规范化为 org.freedesktop.Notifications.service，
-  # 全程采用目录创建与符号链接，杜绝构建期执行任何 rm -f。
   defaultPackage =
     let
       orig = pkgs.swaynotificationcenter;

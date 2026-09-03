@@ -76,9 +76,12 @@ let
   systemPackagesNames = builtins.concatStringsSep "," (map (p: p.name or p.pname or "") cfg.environment.systemPackages);
   # systemd 派生属性快捷访问
   darkmanService = cfg.systemd.user.services.darkman or null;
+  themeSeedService = cfg.systemd.user.services.theme-seed or null;
   themeSyncService = cfg.systemd.user.services.theme-sync or null;
   themeSyncPath = cfg.systemd.user.paths.theme-sync or null;
   tmpfilesRules = cfg.systemd.user.tmpfiles.rules or [];
+  themeSyncExec = if themeSyncService != null then themeSyncService.serviceConfig.ExecStart or "" else "";
+  themeSeedExec = if themeSeedService != null then themeSeedService.serviceConfig.ExecStart or "" else "";
   hasTmpfilesGtk3 = lib.any (r: lib.hasInfix "gtk-3.0" r) tmpfilesRules;
   hasTmpfilesGtk4 = lib.any (r: lib.hasInfix "gtk-4.0" r) tmpfilesRules;
 
@@ -157,6 +160,7 @@ let
   };
   cfgThemeDisabled = evalThemeDisabled.config;
   disabledHasDarkmanService = cfgThemeDisabled.systemd.user.services ? darkman;
+  disabledHasThemeSeedService = cfgThemeDisabled.systemd.user.services ? theme-seed;
   disabledHasThemeSyncService = cfgThemeDisabled.systemd.user.services ? theme-sync;
   disabledHasThemeSyncPath = cfgThemeDisabled.systemd.user.paths ? theme-sync;
   disabledHasDarkmanEtc = cfgThemeDisabled.environment.etc ? "xdg/darkman/config.yaml";
@@ -404,7 +408,7 @@ pkgs.runCommand "${name}-static-check" {
       echo "错误: tmpfiles 未包含 gtk-4.0 目录规则"
       exit 1
     fi
-    # theme-sync service
+    # theme-sync service (自愈：不再依赖 ConditionPathExists，由脚本内部播种)
     if [ "${if themeSyncService != null then "true" else "false"}" != "true" ]; then
       echo "错误: systemd.user.services.theme-sync 未定义"
       exit 1
@@ -421,25 +425,42 @@ pkgs.runCommand "${name}-static-check" {
       echo "错误: theme-sync ExecStart 应指向 theme-sync-apply"
       exit 1
     fi
-    if [ "${if themeSyncService.unitConfig ? ConditionPathExists then "true" else "false"}" != "true" ]; then
-      echo "错误: theme-sync 应设置 ConditionPathExists"
-      exit 1
-    fi
-    if [ "${themeSyncService.unitConfig.ConditionPathExists or ""}" != "%t/desktop-theme/gtk-settings.ini" ]; then
-      echo "错误: theme-sync ConditionPathExists 应为 %t/desktop-theme/gtk-settings.ini"
+    if [ "${if themeSyncService.unitConfig ? ConditionPathExists then "true" else "false"}" = "true" ]; then
+      echo "错误: theme-sync 不应设置 ConditionPathExists（已由脚本自愈处理，移除以避免启动期跳过）"
       exit 1
     fi
     if [ "${toString (builtins.length (themeSyncService.wantedBy or []))}" != "0" ]; then
       echo "错误: theme-sync 不应设置 wantedBy（应仅由 path 触发，避免启动期空转）"
       exit 1
     fi
-    # theme-sync path
+    # theme-seed service (冷启动自愈)
+    if [ "${if themeSeedService != null then "true" else "false"}" != "true" ]; then
+      echo "错误: systemd.user.services.theme-seed 未定义"
+      exit 1
+    fi
+    if [ "${themeSeedService.serviceConfig.Type or ""}" != "oneshot" ]; then
+      echo "错误: theme-seed Type 应为 oneshot"
+      exit 1
+    fi
+    if [ "${if themeSeedService.serviceConfig ? RemainAfterExit then "true" else "false"}" != "true" ]; then
+      echo "错误: theme-seed 应设置 RemainAfterExit"
+      exit 1
+    fi
+    if [ "${themeSeedService.unitConfig.ConditionPathExists or ""}" != "!%t/desktop-theme/gtk-settings.ini" ]; then
+      echo "错误: theme-seed ConditionPathExists 应为 !%t/desktop-theme/gtk-settings.ini"
+      exit 1
+    fi
+    if [ "${toString (builtins.length (themeSeedService.wantedBy or []))}" = "0" ]; then
+      echo "错误: theme-seed 应设置 wantedBy=graphical-session.target"
+      exit 1
+    fi
+    # theme-sync path (PathModified 替代 PathChanged 以可靠捕捉 install 写入)
     if [ "${if themeSyncPath != null then "true" else "false"}" != "true" ]; then
       echo "错误: systemd.user.paths.theme-sync 未定义"
       exit 1
     fi
-    if [ "${themeSyncPath.pathConfig.PathChanged or ""}" != "%t/desktop-theme/gtk-settings.ini" ]; then
-      echo "错误: theme-sync PathChanged 应为 %t/desktop-theme/gtk-settings.ini"
+    if [ "${themeSyncPath.pathConfig.PathModified or ""}" != "%t/desktop-theme/gtk-settings.ini" ]; then
+      echo "错误: theme-sync PathModified 应为 %t/desktop-theme/gtk-settings.ini"
       exit 1
     fi
     if [ "${if themeSyncPath.pathConfig ? PathExists then "true" else "false"}" != "true" ]; then
@@ -462,10 +483,46 @@ pkgs.runCommand "${name}-static-check" {
       echo "错误: theme-sync path 应设置 TriggerLimitBurst"
       exit 1
     fi
+    if [ "${toString (themeSyncPath.unitConfig.TriggerLimitBurst or "")}" != "1" ]; then
+      echo "错误: theme-sync path TriggerLimitBurst 应为 1"
+      exit 1
+    fi
     if [ "${themeSyncPath.pathConfig.Unit or ""}" != "theme-sync.service" ]; then
       echo "错误: theme-sync path Unit 应为 theme-sync.service"
       exit 1
     fi
+    # ── 6b. 重试上限与熔断验证（每个服务仅 1 次，根治竞态） ──
+    if [ "${toString (themeSyncService.unitConfig.StartLimitBurst or "")}" != "1" ]; then
+      echo "错误: theme-sync StartLimitBurst 应为 1"
+      exit 1
+    fi
+    if [ "${themeSyncService.unitConfig.StartLimitIntervalSec or ""}" != "60s" ]; then
+      echo "错误: theme-sync StartLimitIntervalSec 应为 60s"
+      exit 1
+    fi
+    if [ "${toString (themeSeedService.unitConfig.StartLimitBurst or "")}" != "1" ]; then
+      echo "错误: theme-seed StartLimitBurst 应为 1"
+      exit 1
+    fi
+    if [ "${themeSeedService.unitConfig.StartLimitIntervalSec or ""}" != "60s" ]; then
+      echo "错误: theme-seed StartLimitIntervalSec 应为 60s"
+      exit 1
+    fi
+    # 检查脚本内重试计数逻辑（仅 1 次）
+    themeSyncBin="${themeSyncExec}"
+    if [ -n "$themeSyncBin" ] && [ -f "$themeSyncBin" ]; then
+      grep -q "max retries 1" "$themeSyncBin" || { echo "错误: theme-sync-apply 未包含 max retries 1 逻辑"; exit 1; }
+      grep -q "RETRY_FILE" "$themeSyncBin" || { echo "错误: theme-sync-apply 未包含 RETRY_FILE"; exit 1; }
+    fi
+    themeSeedBin="${themeSeedExec}"
+    if [ -n "$themeSeedBin" ] && [ -f "$themeSeedBin" ]; then
+      grep -q "max retries 1" "$themeSeedBin" || { echo "错误: theme-seed 未包含 max retries 1 逻辑"; exit 1; }
+    fi
+    if grep -q 'theme-sync-apply.*bin/theme-sync-apply' "${themeHookFile}" 2>/dev/null; then
+      echo "错误: theme-switch.sh 不应同步调用 theme-sync-apply（仅允许 systemctl --no-block）"
+      exit 1
+    fi
+    echo "[${name}] 重试熔断验证通过！"
     echo "[${name}] systemd 单元验证通过！"
 
     # ── 7. dconf 服务验证 ──────────────────────────────────────────────
@@ -577,6 +634,10 @@ pkgs.runCommand "${name}-static-check" {
   echo "[${name}] [覆盖] 验证禁用变体..."
   if [ "${if disabledHasDarkmanService then "true" else "false"}" = "true" ]; then
     echo "错误: [覆盖] 禁用变体不应存在 darkman service"
+    exit 1
+  fi
+  if [ "${if disabledHasThemeSeedService then "true" else "false"}" = "true" ]; then
+    echo "错误: [覆盖] 禁用变体不应存在 theme-seed service"
     exit 1
   fi
   if [ "${if disabledHasThemeSyncService then "true" else "false"}" = "true" ]; then

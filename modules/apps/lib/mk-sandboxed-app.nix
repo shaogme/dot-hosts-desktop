@@ -125,10 +125,14 @@ let
     fi
 
     # 主题感知：注入 GTK/Qt 平台主题环境变量
-    # 优先读取运行时主题状态目录（由 darkman + theme-switch.sh 生成）
+    # 优先读取运行时主题状态目录（由 darkman + theme-switch.sh 生成），其次推断宿主机 GTK
     RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
     if [ -f "$RUNTIME_DIR/desktop-theme/mode" ]; then
       export CURRENT_THEME_MODE="$(cat "$RUNTIME_DIR/desktop-theme/mode")"
+    elif [ -f "$HOME/.config/gtk-3.0/settings.ini" ] && grep -q "gtk-application-prefer-dark-theme=1" "$HOME/.config/gtk-3.0/settings.ini" 2>/dev/null; then
+      export CURRENT_THEME_MODE="dark"
+    elif [ -f "$HOME/.config/gtk-3.0/settings.ini" ] && grep -q "gtk-application-prefer-dark-theme=0" "$HOME/.config/gtk-3.0/settings.ini" 2>/dev/null; then
+      export CURRENT_THEME_MODE="light"
     else
       export CURRENT_THEME_MODE="dark"
     fi
@@ -180,19 +184,42 @@ let
     fi
 
     # 主题感知初始化：为沙箱预建 GTK 配置目录，并注入最新主题设置
-    # 优先复制运行时主题状态（由 darkman+theme-switch.sh 写入），否则使用 Adwaita 回退
+    # 优先复制运行时 SSOT，其次回退到宿主机 GTK 配置，最后按 mode 推断生成一致回退（修复 dark/light 不一致）
     SANDBOX_GTK3_DIR="$SANDBOX_HOME/.config/gtk-3.0"
     SANDBOX_GTK4_DIR="$SANDBOX_HOME/.config/gtk-4.0"
     mkdir -p "$SANDBOX_GTK3_DIR" "$SANDBOX_GTK4_DIR"
 
     RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    HOST_GTK3="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
     if [ -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
       # 每次启动都同步最新主题设置（theme-switch.sh 已写好，直接复制）
       cp "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" "$SANDBOX_GTK3_DIR/settings.ini"
       cp "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" "$SANDBOX_GTK4_DIR/settings.ini"
+    elif [ -f "$HOST_GTK3" ]; then
+      # runtime 缺失时回退到宿主机配置（由 theme-sync 维护，与 host 保持一致）
+      cp "$HOST_GTK3" "$SANDBOX_GTK3_DIR/settings.ini"
+      cp "$HOST_GTK3" "$SANDBOX_GTK4_DIR/settings.ini"
     elif [ ! -f "$SANDBOX_GTK3_DIR/settings.ini" ]; then
-      # 首次启动或主题服务还未写入时，生成 Adwaita 回退配置
-      cat > "$SANDBOX_GTK3_DIR/settings.ini" <<EOF
+      # 首次启动且 host/runtime 均缺失时，按实际 mode 推断生成回退（与 launcher CURRENT_THEME_MODE 一致）
+      FALLBACK_MODE="dark"
+      if [ -f "$RUNTIME_DIR/desktop-theme/mode" ]; then
+        FALLBACK_MODE="$(cat "$RUNTIME_DIR/desktop-theme/mode" 2>/dev/null || echo dark)"
+      elif [ -f "$HOST_GTK3" ] && grep -q "gtk-application-prefer-dark-theme=1" "$HOST_GTK3" 2>/dev/null; then
+        FALLBACK_MODE="dark"
+      elif [ -f "$HOST_GTK3" ] && grep -q "gtk-application-prefer-dark-theme=0" "$HOST_GTK3" 2>/dev/null; then
+        FALLBACK_MODE="light"
+      fi
+      if [ "$FALLBACK_MODE" = "dark" ]; then
+        cat > "$SANDBOX_GTK3_DIR/settings.ini" <<EOF
+[Settings]
+gtk-theme-name=Adwaita-dark
+gtk-icon-theme-name=Adwaita
+gtk-cursor-theme-name=Adwaita
+gtk-cursor-theme-size=24
+gtk-application-prefer-dark-theme=1
+EOF
+      else
+        cat > "$SANDBOX_GTK3_DIR/settings.ini" <<EOF
 [Settings]
 gtk-theme-name=Adwaita
 gtk-icon-theme-name=Adwaita
@@ -200,6 +227,7 @@ gtk-cursor-theme-name=Adwaita
 gtk-cursor-theme-size=24
 gtk-application-prefer-dark-theme=0
 EOF
+      fi
       cp "$SANDBOX_GTK3_DIR/settings.ini" "$SANDBOX_GTK4_DIR/settings.ini"
     fi
 
