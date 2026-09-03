@@ -1044,21 +1044,21 @@ in
       keys = mkOption {
         type = types.listOf (types.attrsOf types.anything);
         default = [
-          { key = "c"; "with" = "ctrl | shift"; action = "copy"; }
-          { key = "v"; "with" = "ctrl | shift"; action = "paste"; }
-          { key = "t"; "with" = "ctrl | shift"; action = "createtab"; }
-          { key = "w"; "with" = "ctrl | shift"; action = "closesplitortab"; }
-          { key = "n"; "with" = "ctrl | shift"; action = "createwindow"; }
-          { key = "o"; "with" = "ctrl | shift"; action = "splitright"; }
-          { key = "e"; "with" = "ctrl | shift"; action = "splitdown"; }
-          { key = "Left"; "with" = "ctrl | shift"; action = "selectprevtab"; }
-          { key = "Right"; "with" = "ctrl | shift"; action = "selectnexttab"; }
-          { key = "equal"; "with" = "ctrl"; action = "increasefontsize"; }
-          { key = "plus"; "with" = "ctrl"; action = "increasefontsize"; }
-          { key = "minus"; "with" = "ctrl"; action = "decreasefontsize"; }
-          { key = "0"; "with" = "ctrl"; action = "resetfontsize"; }
-          { key = "Space"; "with" = "ctrl | shift"; action = "togglevimode"; }
-          { key = "f"; "with" = "ctrl | shift"; action = "searchforward"; }
+          { key = "c"; "with" = "control | shift"; action = "copy"; }
+          { key = "v"; "with" = "control | shift"; action = "paste"; }
+          { key = "t"; "with" = "control | shift"; action = "createtab"; }
+          { key = "w"; "with" = "control | shift"; action = "closesplitortab"; }
+          { key = "n"; "with" = "control | shift"; action = "createwindow"; }
+          { key = "o"; "with" = "control | shift"; action = "splitright"; }
+          { key = "e"; "with" = "control | shift"; action = "splitdown"; }
+          { key = "Left"; "with" = "control | shift"; action = "selectprevtab"; }
+          { key = "Right"; "with" = "control | shift"; action = "selectnexttab"; }
+          { key = "equal"; "with" = "control"; action = "increasefontsize"; }
+          { key = "plus"; "with" = "control"; action = "increasefontsize"; }
+          { key = "minus"; "with" = "control"; action = "decreasefontsize"; }
+          { key = "0"; "with" = "control"; action = "resetfontsize"; }
+          { key = "Space"; "with" = "control | shift"; action = "togglevimode"; }
+          { key = "f"; "with" = "control | shift"; action = "searchforward"; }
         ];
         description = "Rio 快捷键绑定规则列表。";
       };
