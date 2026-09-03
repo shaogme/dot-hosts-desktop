@@ -9,7 +9,7 @@ let
     in len > 4 && builtins.substring (len - 4) 4 name == ".nix";
 
   subDirModules = builtins.filter
-    (name: entries.${name} == "directory" && builtins.pathExists (dir + "/${name}/default.nix"))
+    (name: name != "npins" && entries.${name} == "directory" && builtins.pathExists (dir + "/${name}/default.nix"))
     (builtins.attrNames entries);
 
   singleFileModules = builtins.filter

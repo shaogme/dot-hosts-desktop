@@ -11,13 +11,11 @@ with lib;
 let
   cfg = config.desktop.wallpaper.awww;
 
-  builtinsWallpapers = import ./wallpapers.nix { inherit pkgs; };
   scripts = import ./scripts.nix {
     inherit
       pkgs
       lib
       cfg
-      builtinsWallpapers
       ;
   };
 
@@ -35,7 +33,6 @@ let
 
   allPackages = [
     cfg.package
-    builtinsWallpapers.package
     scripts.awwwSetScript
     scripts.awwwRandomScript
     scripts.awwwNextScript
@@ -57,13 +54,13 @@ in
     wallpaper = mkOption {
       type = types.nullOr (types.either types.path types.str);
       default = null;
-      description = "系统全局默认壁纸图片路径（若未指定，默认使用预置的 4K 矢量极光壁纸或恢复上次缓存壁纸）。";
+      description = "系统全局壁纸图片路径。";
     };
 
     wallpaperDir = mkOption {
       type = types.nullOr (types.either types.path types.str);
       default = null;
-      description = "壁纸轮播与随机选择检索目录（若未指定，默认自动查找 ~/Pictures/Wallpapers、~/Pictures/wallpaper 及 /etc/wallpapers）。";
+      description = "壁纸轮播与随机选择检索目录（若未指定，默认检索 ~/Pictures/Wallpapers、~/Pictures/wallpaper 及 /etc/wallpapers）。";
     };
 
     color = mkOption {
@@ -356,6 +353,14 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
+      # 编译期断言：壁纸路径必须显式配置
+      assertions = [
+        {
+          assertion = cfg.wallpaper != null;
+          message = "desktop.wallpaper.awww: 必须显式配置壁纸图片路径 (desktop.wallpaper.awww.wallpaper)。";
+        }
+      ];
+
       # 1. 系统级软件包与工具脚本
       environment.systemPackages = allPackages;
 

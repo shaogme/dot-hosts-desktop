@@ -2,7 +2,6 @@
   pkgs,
   lib,
   cfg,
-  builtinsWallpapers,
 }:
 
 with lib;
@@ -18,7 +17,6 @@ let
     "$HOME/Pictures/Wallpapers/Anime"
     "$HOME/Pictures/Wallpapers/Nature"
     "/etc/wallpapers"
-    "${builtinsWallpapers.package}/share/wallpapers"
   ];
   searchDirsStr = concatStringsSep " " (filter (s: s != "") defaultSearchDirs);
 
@@ -127,8 +125,8 @@ let
     fi
 
     if [ ''${#CANDIDATE_DIRS[@]} -eq 0 ]; then
-      echo "警告: 未找到有效的壁纸目录，使用系统预置壁纸" >&2
-      CANDIDATE_DIRS+=("${builtinsWallpapers.package}/share/wallpapers")
+      echo "错误: 未找到任何有效的壁纸目录，请先配置壁纸目录 (cfg.wallpaperDir) 或在 ~/Pictures/Wallpapers 中放入壁纸文件" >&2
+      exit 1
     fi
 
     # 查找支持的图片格式文件
@@ -198,8 +196,8 @@ let
     fi
 
     if [ ''${#CANDIDATE_DIRS[@]} -eq 0 ]; then
-      echo "警告: 未找到有效的壁纸目录，使用系统预置壁纸" >&2
-      CANDIDATE_DIRS+=("${builtinsWallpapers.package}/share/wallpapers")
+      echo "错误: 未找到任何有效的壁纸目录，请先配置壁纸目录 (cfg.wallpaperDir) 或在 ~/Pictures/Wallpapers 中放入壁纸文件" >&2
+      exit 1
     fi
 
     MAPFILE=()
@@ -257,8 +255,8 @@ let
     fi
 
     if [ ''${#CANDIDATE_DIRS[@]} -eq 0 ]; then
-      echo "警告: 未找到有效的壁纸目录，使用系统预置壁纸" >&2
-      CANDIDATE_DIRS+=("${builtinsWallpapers.package}/share/wallpapers")
+      echo "错误: 未找到任何有效的壁纸目录，请先配置壁纸目录 (cfg.wallpaperDir) 或在 ~/Pictures/Wallpapers 中放入壁纸文件" >&2
+      exit 1
     fi
 
     FILES=$(${pkgs.findutils}/bin/find "''${CANDIDATE_DIRS[@]}" -type f \( \
@@ -318,7 +316,13 @@ let
   # 多显示器输出壁纸初始化指令生成
   outputInitCommands = concatStringsSep "\n" (mapAttrsToList (outName: outCfg:
     let
-      outImg = if outCfg.wallpaper != null then toString outCfg.wallpaper else builtinsWallpapers.defaultWallpaper;
+      outImg =
+        if outCfg.wallpaper != null then
+          toString outCfg.wallpaper
+        else if cfg.wallpaper != null then
+          toString cfg.wallpaper
+        else
+          "";
       outResize = if outCfg.resize != null then outCfg.resize else cfg.render.resize;
       outCropGrav = if outCfg.cropGravity != null then outCfg.cropGravity else cfg.render.cropGravity;
       outFilter = if outCfg.filter != null then outCfg.filter else cfg.render.filter;
@@ -326,17 +330,20 @@ let
       outTransType = if outCfg.transitionType != null then outCfg.transitionType else cfg.transition.type;
       nsArgs = optionalString (cfg.daemon.namespace != "") "--namespace ${cfg.daemon.namespace}";
     in
-    ''
-      ${awwwPkg}/bin/awww img ${nsArgs} -o "${outName}" \
-        --resize "${outResize}" \
-        --crop-gravity "${outCropGrav}" \
-        --filter "${outFilter}" \
-        --fill-color "${outFillColor}" \
-        --transition-type "${outTransType}" \
-        --transition-duration "${toString cfg.transition.duration}" \
-        --transition-fps "${toString cfg.transition.fps}" \
-        "${outImg}" || true
-    ''
+    if outImg != "" then
+      ''
+        ${awwwPkg}/bin/awww img ${nsArgs} -o "${outName}" \
+          --resize "${outResize}" \
+          --crop-gravity "${outCropGrav}" \
+          --filter "${outFilter}" \
+          --fill-color "${outFillColor}" \
+          --transition-type "${outTransType}" \
+          --transition-duration "${toString cfg.transition.duration}" \
+          --transition-fps "${toString cfg.transition.fps}" \
+          "${outImg}" || true
+      ''
+    else
+      ""
   ) cfg.outputs);
 
   initWallpaperCmd =
@@ -351,16 +358,8 @@ let
       "${awwwSetScript}/bin/awww-set \"${toString cfg.wallpaper}\" || true"
     else
       ''
-        # 尝试 restore 缓存，若无缓存或恢复失败则应用默认精美 4K 矢量壁纸
-        RESTORED=0
-        if ${awwwPkg}/bin/awww ${nsArgs} restore 2>/dev/null; then
-          if ${awwwPkg}/bin/awww ${nsArgs} query 2>/dev/null | grep -q "currently displaying: image:"; then
-            RESTORED=1
-          fi
-        fi
-        if [ "$RESTORED" -ne 1 ]; then
-          ${awwwSetScript}/bin/awww-set "${builtinsWallpapers.defaultWallpaper}" || true
-        fi
+        # 未手动指定壁纸，仅尝试恢复上次缓存壁纸，禁止任何 fallback
+        ${awwwPkg}/bin/awww ${nsArgs} restore 2>/dev/null || true
       '';
 
   awwwInitScript = pkgs.writeShellScriptBin "awww-init" ''

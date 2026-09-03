@@ -1,0 +1,21 @@
+{
+  "pins": {
+    "default": {
+      "type": "GitRelease",
+      "repository": {
+        "type": "GitHub",
+        "owner": "shaogme",
+        "repo": "wallpapers"
+      },
+      "pre_releases": false,
+      "version_upper_bound": null,
+      "release_prefix": "default/",
+      "submodules": false,
+      "version": "default/v2026.9.3",
+      "revision": "2fe83c4eb3d677f4e4636a238aab78bc7928a6cd",
+      "url": "https://api.github.com/repos/shaogme/wallpapers/tarball/refs/tags/default/v2026.9.3",
+      "hash": "sha256-DNhFODHiJvMWEk8gbq6qHM+VP1N9YivkK7A3yTCRzY8="
+    }
+  },
+  "version": 8
+}

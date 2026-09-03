@@ -138,6 +138,7 @@ in
 
   desktop.wallpaper.awww = {
     enable = true;
+    wallpaper = config.desktop.wallpaper.wallpapers.defaultWallpaper;
   };
 
   # 登录管理器 (tuigreet)

@@ -163,11 +163,14 @@ pkgs.testers.nixosTest {
           server.succeed("which awww-switch")
           server.succeed("which awww-restore")
           server.succeed("which awww-init")
-          server.succeed("test -f /run/current-system/sw/share/wallpapers/catppuccin-mocha.svg")
-          server.succeed("test -f /run/current-system/sw/share/wallpapers/tokyo-night.svg")
-          server.succeed("test -f /run/current-system/sw/share/wallpapers/nord.svg")
           if ${if (serverCfg.desktop.wallpaper.awww.daemon.systemd.enable or false) then "True" else "False"}:
               server.succeed("test -f /etc/systemd/user/awww-daemon.service")
+
+      # 验证系统壁纸资源包 (wallpapers)
+      if ${if (serverCfg.desktop ? wallpaper && serverCfg.desktop.wallpaper ? wallpapers && serverCfg.desktop.wallpaper.wallpapers.enable) then "True" else "False"}:
+          server.succeed("test -d /run/current-system/sw/share/wallpapers")
+          server.succeed("test -f /run/current-system/sw/share/wallpapers/nature-flowers-01.jpg")
+          server.succeed("test -f /run/current-system/sw/share/wallpapers/nature-forest-mist-01.jpg")
 
       # 验证文件管理器 (Yazi)
       if ${if (serverCfg.desktop ? fileManager && serverCfg.desktop.fileManager ? yazi && serverCfg.desktop.fileManager.yazi.enable) then "True" else "False"}:
