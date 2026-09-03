@@ -75,6 +75,10 @@ let
   swayncConfText = builtins.toJSON mergedSettings;
 
   defaultSwayncStyle = ''
+    /* 动态颜色覆盖：由 theme-switch.sh 在深浅色切换时写入，swaync-client --reload-css 后生效 */
+    /* 若文件不存在则静默跳过，回退至下方静态颜色变量 */
+    @import "/run/user/1000/swaync/colors.css";
+
     @define-color background rgba(20, 20, 28, 0.85);
     @define-color background-card rgba(30, 30, 42, 0.88);
     @define-color foreground #cdd6f4;

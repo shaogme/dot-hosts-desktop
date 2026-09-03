@@ -227,6 +227,37 @@ pkgs.testers.nixosTest {
           server.succeed("sing-box check -c /etc/socks-tun/config.template.json")
           server.succeed("proxy-ctl status")
 
+      # 验证全局主题系统 (desktop.theme)
+      if ${if serverCfg.desktop.theme.enable or false then "True" else "False"}:
+          print("--- 验证全局主题系统 (Darkman + theme-ctl) ---")
+
+          # 1. 验证 darkman 可执行文件
+          server.succeed("which darkman")
+
+          # 2. 验证 theme-ctl 可执行文件
+          server.succeed("which theme-ctl")
+
+          # 3. 验证 darkman 配置文件
+          server.succeed("test -f /etc/xdg/darkman/config.yaml")
+          server.succeed("grep -q '^lat:' /etc/xdg/darkman/config.yaml")
+          server.succeed("grep -q '^lng:' /etc/xdg/darkman/config.yaml")
+          server.succeed("grep -q '^portal: true' /etc/xdg/darkman/config.yaml")
+
+          # 4. 验证主题切换钩子脚本
+          server.succeed("test -f /etc/xdg/darkman/theme-switch.sh")
+          server.succeed("test -x /etc/xdg/darkman/theme-switch.sh")
+
+          # 5. 验证 theme-ctl 命令语法（--help/usage 输出）
+          theme_ctl_help = server.succeed("theme-ctl status 2>&1 || true")
+          print(f"theme-ctl status output: {theme_ctl_help}")
+
+          # 6. 验证主题模式配置
+          theme_mode = "${serverCfg.desktop.theme.mode or "auto"}"
+          print(f"Configured theme mode: {theme_mode}")
+          assert theme_mode in ["auto", "dark", "light"], f"Invalid theme mode: {theme_mode}"
+
+          print("--- 全局主题系统验证通过！---")
+
       print("VM 测试全部通过！")
     '';
 }

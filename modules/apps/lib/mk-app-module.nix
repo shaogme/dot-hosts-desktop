@@ -35,12 +35,15 @@ let
       basePkg = if customAliasPkg != null then customAliasPkg.package else cfg.package;
       hasCustomDirs = (cfg ? sharedDirs && cfg.sharedDirs != [ ])
         || (cfg ? roSharedDirs && cfg.roSharedDirs != [ ]);
+      hasThemeOverride = cfg ? theme && !(cfg.theme.shareHostTheme or true);
     in
-    if hasCustomDirs && basePkg ? override then
+    if (hasCustomDirs || hasThemeOverride) && basePkg ? override then
       basePkg.override (old: {
         sandbox = (old.sandbox or { }) // {
           sharedDirs = (old.sandbox.sharedDirs or [ ]) ++ (cfg.sharedDirs or [ ]);
           roSharedDirs = (old.sandbox.roSharedDirs or [ ]) ++ (cfg.roSharedDirs or [ ]);
+        } // lib.optionalAttrs hasThemeOverride {
+          shareTheme = cfg.theme.shareHostTheme;
         };
       })
     else
@@ -82,6 +85,23 @@ let
         type = types.listOf (types.attrsOf types.anything);
         default = effectiveWindowRules;
         description = "该应用程序在 Hyprland 下生效的专用窗口规则 (window_rule)。";
+      };
+
+      theme = {
+        shareHostTheme = mkOption {
+          type = types.bool;
+          default = true;
+          description = ''
+            是否将宿主机的 GTK 主题配置穿透进沙箱（默认启用）。
+            启用后，Bubblewrap 会以只读方式挂载以下路径进沙箱：
+            - $XDG_CONFIG_HOME/gtk-3.0
+            - $XDG_CONFIG_HOME/gtk-4.0
+            - $XDG_RUNTIME_DIR/desktop-theme
+            - $XDG_RUNTIME_DIR/darkman
+            - $XDG_DATA_HOME/icons 和 $HOME/.icons
+            禁用后，沙箱使用独立的 GTK 配置目录（由 wrapper 初始化 Adwaita 回退）。
+          '';
+        };
       };
     } // extraOptions;
   };

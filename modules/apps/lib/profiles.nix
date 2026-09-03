@@ -180,6 +180,7 @@ rec {
     bypassProxy ? false,
     shareDownloads ? true,        # 是否与宿主机共享 ~/Downloads (读写)
     shareUserDirs ? false,       # 是否与宿主机共享常用用户目录 (只读: Documents, Pictures, Desktop 等)
+    shareTheme ? true,           # 是否穿透宿主机 GTK 主题配置与运行时主题状态（用于深浅色感知）
     sharedDirs ? [],             # 额外的读写共享目录 (相对 $HOME 或绝对路径)
     roSharedDirs ? [],           # 额外的只读共享目录 (相对 $HOME 或绝对路径)
     customBinds ? [],
@@ -224,6 +225,20 @@ rec {
       (lib.concatMap (dir: [ "--bind-try" ] ++ (formatBindArg dir)) effectiveSharedDirs)
       ++ (lib.concatMap (dir: [ "--ro-bind-try" ] ++ (formatBindArg dir)) effectiveRoSharedDirs)
     )
+    # ── 主题穿透：将宿主机 GTK 配置和运行时主题状态挂载到沙箱内（只读）─────────
+    ++ lib.optionals (isolatedHome && shareTheme) [
+      # GTK 3 用户配置（settings.ini 包含 gtk-theme-name / gtk-application-prefer-dark-theme）
+      "--ro-bind-try" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-3.0" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-3.0"
+      # GTK 4 用户配置
+      "--ro-bind-try" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-4.0" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-4.0"
+      # 全局运行时主题状态目录（mode 文件 + gtk-settings.ini）
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/desktop-theme" "\${XDG_RUNTIME_DIR:-/run/user/1000}/desktop-theme"
+      # Darkman Socket 目录（供沙箱内应用查询当前模式）
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/darkman" "\${XDG_RUNTIME_DIR:-/run/user/1000}/darkman"
+      # 宿主机用户图标与光标目录
+      "--ro-bind-try" "\${XDG_DATA_HOME:-\$HOME/.local/share}/icons" "\${XDG_DATA_HOME:-\$HOME/.local/share}/icons"
+      "--ro-bind-try" "\$HOME/.icons" "\$HOME/.icons"
+    ]
     ++ lib.optionals bypassProxy [
       "--unshare-user"
       "--gid" "1992"

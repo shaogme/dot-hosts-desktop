@@ -445,6 +445,10 @@ let
   };
 
   style = ''
+    /* 动态颜色覆盖：由 theme-switch.sh 在深浅色切换时写入，Waybar 收到 SIGUSR2 信号后热重载 */
+    /* 若文件不存在则静默跳过，回退至下方静态颜色变量 */
+    @import "/run/user/1000/waybar/colors.css";
+
     @define-color background rgba(20, 20, 28, 0.85);
     @define-color background-card rgba(30, 30, 42, 0.88);
     @define-color foreground #cdd6f4;

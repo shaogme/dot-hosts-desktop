@@ -117,9 +117,28 @@ let
     ]
   );
 
+  # 构建静态主题初始值文件，用于 niri validate 检查期（此时没有运行时 theme.kdl）
+  # 内容对应 dark 模式默认颜色（若未启用 themeIntegration，则不会 include）
+  staticThemeKdl = pkgs.writeText "niri-theme-static.kdl" ''
+    layout {
+        focus-ring {
+            width 4
+            active-color "#7fc8ff"
+            inactive-color "#505050"
+        }
+        border {
+            active-color "#ffc87f"
+            inactive-color "#505050"
+        }
+    }
+  '';
+
   configFile = pkgs.writeTextFile {
     name = "niri-config.kdl";
-    text = generatedText;
+    text = generatedText + optionalString cfg.themeIntegration.enable ''
+
+include "${staticThemeKdl}"
+'';
     checkPhase = optionalString cfg.checkConfig ''
       ${lib.getExe cfg.package} validate --config "$target"
     '';
@@ -212,6 +231,26 @@ in
 
       package = mkPackageOption pkgs "xwayland-satellite" {
         nullable = true;
+      };
+    };
+
+    themeIntegration = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "是否启用 Darkman 深浅色主题与 Niri 的动态联动（接入 XDG Settings Portal，注册 include 动态主题 KDL）。";
+      };
+
+      darkmanPortal = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否将 darkman 注册为 XDG Settings Portal 后端（使 Firefox、WebKit、Electron 等应用能感知深浅色切换）。";
+      };
+
+      themeToggleKeybind = mkOption {
+        type = types.str;
+        default = "Mod+Shift+T";
+        description = "在 Niri 中切换深色/浅色主题的快捷键（设为空字符串则不注册）。";
       };
     };
 
@@ -645,7 +684,10 @@ in
       # 5. XDG Desktop Portal 桌面门户集成配置
       xdg.portal = mkIf cfg.portal.enable {
         enable = true;
-        extraPortals = cfg.portal.extraPortals;
+        extraPortals = cfg.portal.extraPortals
+          ++ (optionals (cfg.themeIntegration.enable && cfg.themeIntegration.darkmanPortal) [
+            pkgs.darkman
+          ]);
         config = {
           niri = mkMerge [
             {
@@ -660,8 +702,20 @@ in
             (optionalAttrs (cfg.portal.filechooser != "none") {
               "org.freedesktop.impl.portal.FileChooser" = mkForce cfg.portal.filechooser;
             })
+            # 将 Darkman 注册为 Settings 接口后端（感知深浅色）
+            (optionalAttrs (cfg.themeIntegration.enable && cfg.themeIntegration.darkmanPortal) {
+              "org.freedesktop.impl.portal.Settings" = [ "darkman" "gtk" "gnome" ];
+            })
             cfg.portal.config
           ];
+        };
+      };
+
+      # 5b. 主题切换快捷键
+      desktop.windowManager.niri.extraBinds = mkIf (cfg.themeIntegration.enable && cfg.themeIntegration.themeToggleKeybind != "") {
+        "${cfg.themeIntegration.themeToggleKeybind}" = {
+          _props.hotkey-overlay-title = "Toggle Dark/Light Theme";
+          spawn-sh = [ "theme-ctl toggle" ];
         };
       };
     }

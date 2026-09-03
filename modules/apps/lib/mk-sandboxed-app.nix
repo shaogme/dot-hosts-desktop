@@ -124,6 +124,21 @@ let
       export GLFW_IM_MODULE="ibus"
     fi
 
+    # 主题感知：注入 GTK/Qt 平台主题环境变量
+    # 优先读取运行时主题状态目录（由 darkman + theme-switch.sh 生成）
+    RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    if [ -f "$RUNTIME_DIR/desktop-theme/mode" ]; then
+      export CURRENT_THEME_MODE="$(cat "$RUNTIME_DIR/desktop-theme/mode")"
+    else
+      export CURRENT_THEME_MODE="dark"
+    fi
+    # 启用 GTK 平台主题（用于 Qt 应用的 GTK 主题感知）
+    export QT_QPA_PLATFORMTHEME="gtk3"
+    # 确保 GSettings Schema 可访问（GTK/GLib 应用读取 org.gnome.desktop.interface）
+    if [ -d "/run/current-system/sw/share/gsettings-schemas" ]; then
+      export GSETTINGS_SCHEMA_DIR="/run/current-system/sw/share/gsettings-schemas/gsettings-desktop-schemas-$(ls /run/current-system/sw/share/gsettings-schemas/ 2>/dev/null | head -1 | sed 's/.*-//')/glib-2.0/schemas"
+    fi
+
     # 导出自定义环境变量
     ${lib.concatStringsSep "\n" (lib.mapAttrsToList (k: v: "export ${k}=\"${toString v}\"") environment)}
 
@@ -162,6 +177,30 @@ let
 
     if [ -n "$XDG_RUNTIME_DIR" ]; then
       mkdir -p "$XDG_RUNTIME_DIR/dconf"
+    fi
+
+    # 主题感知初始化：为沙箱预建 GTK 配置目录，并注入最新主题设置
+    # 优先复制运行时主题状态（由 darkman+theme-switch.sh 写入），否则使用 Adwaita 回退
+    SANDBOX_GTK3_DIR="$SANDBOX_HOME/.config/gtk-3.0"
+    SANDBOX_GTK4_DIR="$SANDBOX_HOME/.config/gtk-4.0"
+    mkdir -p "$SANDBOX_GTK3_DIR" "$SANDBOX_GTK4_DIR"
+
+    RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    if [ -f "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" ]; then
+      # 每次启动都同步最新主题设置（theme-switch.sh 已写好，直接复制）
+      cp "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" "$SANDBOX_GTK3_DIR/settings.ini"
+      cp "$RUNTIME_DIR/desktop-theme/gtk-settings.ini" "$SANDBOX_GTK4_DIR/settings.ini"
+    elif [ ! -f "$SANDBOX_GTK3_DIR/settings.ini" ]; then
+      # 首次启动或主题服务还未写入时，生成 Adwaita 回退配置
+      cat > "$SANDBOX_GTK3_DIR/settings.ini" <<EOF
+[Settings]
+gtk-theme-name=Adwaita
+gtk-icon-theme-name=Adwaita
+gtk-cursor-theme-name=Adwaita
+gtk-cursor-theme-size=24
+gtk-application-prefer-dark-theme=0
+EOF
+      cp "$SANDBOX_GTK3_DIR/settings.ini" "$SANDBOX_GTK4_DIR/settings.ini"
     fi
 
     ${if effectiveBypassProxy then ''
