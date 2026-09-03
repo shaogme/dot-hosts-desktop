@@ -10,6 +10,7 @@ with lib;
 
 let
   cfg = config.desktop.theme;
+  paletteLib = import ./palette.nix { inherit lib; };
 
   # 生成 darkman 配置文件内容
   darkmanConfig = ''
@@ -445,6 +446,39 @@ in
       };
     };
 
+    palette = {
+      dark = {
+        background = mkOption { type = types.str; default = paletteLib.palettes.dark.background; description = "深色模式背景主色。"; };
+        backgroundCard = mkOption { type = types.str; default = paletteLib.palettes.dark.backgroundCard; description = "深色模式卡片背景色。"; };
+        foreground = mkOption { type = types.str; default = paletteLib.palettes.dark.foreground; description = "深色模式前景主色。"; };
+        foregroundMuted = mkOption { type = types.str; default = paletteLib.palettes.dark.foregroundMuted; description = "深色模式前景次级色。"; };
+        foregroundDim = mkOption { type = types.str; default = paletteLib.palettes.dark.foregroundDim; description = "深色模式前景暗淡色。"; };
+        border = mkOption { type = types.str; default = paletteLib.palettes.dark.border; description = "深色模式边框色。"; };
+        activeBorder = mkOption { type = types.str; default = paletteLib.palettes.dark.activeBorder; description = "深色模式活动边框/强调色。"; };
+        accent = mkOption { type = types.str; default = paletteLib.palettes.dark.accent; description = "深色模式强调色。"; };
+        hoverBg = mkOption { type = types.str; default = paletteLib.palettes.dark.hoverBg; description = "深色模式悬停背景。"; };
+        hoverBgLight = mkOption { type = types.str; default = paletteLib.palettes.dark.hoverBgLight; description = "深色模式浅悬停背景。"; };
+        selectedBg = mkOption { type = types.str; default = paletteLib.palettes.dark.selectedBg; description = "深色模式选中背景。"; };
+        warning = mkOption { type = types.str; default = paletteLib.palettes.dark.warning; description = "深色模式警告色。"; };
+        critical = mkOption { type = types.str; default = paletteLib.palettes.dark.critical; description = "深色模式危险色。"; };
+      };
+      light = {
+        background = mkOption { type = types.str; default = paletteLib.palettes.light.background; description = "浅色模式背景主色。"; };
+        backgroundCard = mkOption { type = types.str; default = paletteLib.palettes.light.backgroundCard; description = "浅色模式卡片背景色。"; };
+        foreground = mkOption { type = types.str; default = paletteLib.palettes.light.foreground; description = "浅色模式前景主色。"; };
+        foregroundMuted = mkOption { type = types.str; default = paletteLib.palettes.light.foregroundMuted; description = "浅色模式前景次级色。"; };
+        foregroundDim = mkOption { type = types.str; default = paletteLib.palettes.light.foregroundDim; description = "浅色模式前景暗淡色。"; };
+        border = mkOption { type = types.str; default = paletteLib.palettes.light.border; description = "浅色模式边框色。"; };
+        activeBorder = mkOption { type = types.str; default = paletteLib.palettes.light.activeBorder; description = "浅色模式活动边框/强调色。"; };
+        accent = mkOption { type = types.str; default = paletteLib.palettes.light.accent; description = "浅色模式强调色。"; };
+        hoverBg = mkOption { type = types.str; default = paletteLib.palettes.light.hoverBg; description = "浅色模式悬停背景。"; };
+        hoverBgLight = mkOption { type = types.str; default = paletteLib.palettes.light.hoverBgLight; description = "浅色模式浅悬停背景。"; };
+        selectedBg = mkOption { type = types.str; default = paletteLib.palettes.light.selectedBg; description = "浅色模式选中背景。"; };
+        warning = mkOption { type = types.str; default = paletteLib.palettes.light.warning; description = "浅色模式警告色。"; };
+        critical = mkOption { type = types.str; default = paletteLib.palettes.light.critical; description = "浅色模式危险色。"; };
+      };
+    };
+
     dark = {
       gtkTheme = mkOption {
         type = types.str;
@@ -566,6 +600,32 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
+      # 0. 统一调色板：运行时 colors.css 生成 (seedSafe, 仅落盘)
+      #    生成 $RUNTIME_DIR/desktop-theme/colors.css (SSOT) + $XDG_CONFIG_HOME/* 相对导入副本
+      desktop.theme.hookFragmentsSeedSafe = [
+        ''
+          # --- Unified palette colors.css (由 modules/theme/palette.nix 统一生成, seedSafe 仅落盘) ---
+          if [ "$MODE" = "dark" ]; then
+            UNIFIED_CSS=${lib.escapeShellArg (paletteLib.toCss cfg.palette.dark)}
+          else
+            UNIFIED_CSS=${lib.escapeShellArg (paletteLib.toCss cfg.palette.light)}
+          fi
+          UNIFIED_DIR="$RUNTIME_DIR/desktop-theme"
+          mkdir -p "$UNIFIED_DIR" 2>/dev/null || true
+          if ! printf '%s' "$UNIFIED_CSS" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$UNIFIED_DIR/colors.css" 2>/dev/null; then
+            printf '%s' "$UNIFIED_CSS" > "$UNIFIED_DIR/colors.css" 2>/dev/null || echo "[theme-switch] warn: failed to write unified colors.css" >&2
+          fi
+          # 相对导入支持：写入 $XDG_CONFIG_HOME 旁的 colors.css (使 @import "colors.css" 生效)
+          for app in waybar swaync; do
+            DST="''${XDG_CONFIG_HOME:-$HOME/.config}/$app/colors.css"
+            mkdir -p "$(dirname "$DST")" 2>/dev/null || true
+            if ! printf '%s' "$UNIFIED_CSS" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$DST" 2>/dev/null; then
+              printf '%s' "$UNIFIED_CSS" > "$DST" 2>/dev/null || true
+            fi
+          done
+        ''
+      ];
+
       # 1. 基础系统软件包
       environment.systemPackages = optionals cfg.icons.enable [
         cfg.icons.package

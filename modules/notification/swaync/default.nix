@@ -10,6 +10,9 @@ with lib;
 
 let
   cfg = config.desktop.notification.swaync;
+  paletteLib = import ../../theme/palette.nix { inherit lib; };
+  paletteDark = (config.desktop.theme.palette.dark or paletteLib.palettes.dark);
+  fallbackCss = paletteLib.toCss paletteDark;
 
   defaultSwayncSettings = {
     "$schema" = "/etc/xdg/swaync/configSchema.json";
@@ -75,23 +78,11 @@ let
   swayncConfText = builtins.toJSON mergedSettings;
 
   defaultSwayncStyle = ''
-    /* 动态颜色覆盖：由 theme-switch.sh 在深浅色切换时写入，swaync-client --reload-css 后生效 */
-    /* 若文件不存在则静默跳过，回退至下方静态颜色变量 */
-    @import "/run/user/1000/swaync/colors.css";
-
-    @define-color background rgba(20, 20, 28, 0.85);
-    @define-color background-card rgba(30, 30, 42, 0.88);
-    @define-color foreground #cdd6f4;
-    @define-color foreground-muted #a6adc8;
-    @define-color foreground-dim #6c7086;
-    @define-color border-color rgba(255, 255, 255, 0.08);
-    @define-color active-border #89b4fa;
-    @define-color hover-bg rgba(255, 255, 255, 0.08);
-    @define-color hover-bg-light rgba(255, 255, 255, 0.12);
-    @define-color selected-bg rgba(137, 180, 250, 0.15);
-    @define-color warning #f9e2af;
-    @define-color critical #f38ba8;
-    @define-color accent #89b4fa;
+    /* 统一调色板 fallback (palette.dark)：由 modules/theme/palette.nix 提供 */
+    ${fallbackCss}
+    /* 动态覆盖：由 desktop.theme 在 $XDG_RUNTIME_DIR/desktop-theme/colors.css 及 $XDG_CONFIG_HOME/swaync/colors.css 生成，swaync-client --reload-css 生效 */
+    /* 若 colors.css 存在则覆盖上方 fallback；缺失则静默回退 */
+    @import "colors.css";
 
     * {
       all: unset;
