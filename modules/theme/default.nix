@@ -539,6 +539,19 @@ in
       description = "主题切换时执行的附加 Bash 脚本片段（可接收参数 \$1 为 dark 或 light）。";
     };
 
+    portal = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否将 darkman 注册为 XDG Settings Portal 后端，使 Firefox、WebKit、Electron 等应用通过 org.freedesktop.portal.Settings 实时感知深浅色切换。启用后 darkman 将作为 Settings Portal 最高优先级后端。";
+      };
+      settingsBackends = mkOption {
+        type = types.listOf types.str;
+        default = [ "darkman" "gtk" "gnome" ];
+        description = "XDG Settings Portal 后端优先级列表。首项为 darkman 时由 darkman 直接广播 color-scheme，其余为回退（gtk 读取 dconf，gnome 为兜底）。";
+      };
+    };
+
     homeManager = {
       enable = mkOption {
         type = types.bool;
@@ -796,6 +809,17 @@ in
 
       # 6. 确保 dconf 服务可以被 Darkman Hook 调用
       programs.dconf.enable = mkDefault true;
+
+      # 7. XDG Portal Settings 后端：将 darkman 作为全局 Settings Portal 首选
+      xdg.portal = mkIf cfg.portal.enable {
+        enable = mkDefault true;
+        config = {
+          common = {
+            "org.freedesktop.impl.portal.Settings" = cfg.portal.settingsBackends;
+          };
+        };
+      };
+      services.dbus.packages = mkIf cfg.portal.enable [ pkgs.darkman ];
     }
 
     (optionalAttrs (options ? home-manager) {

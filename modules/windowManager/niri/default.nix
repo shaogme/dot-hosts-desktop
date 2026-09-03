@@ -237,14 +237,8 @@ in
     themeIntegration = {
       enable = mkOption {
         type = types.bool;
-        default = false;
-        description = "是否启用 Darkman 深浅色主题与 Niri 的动态联动（接入 XDG Settings Portal，注册 include 动态主题 KDL）。";
-      };
-
-      darkmanPortal = mkOption {
-        type = types.bool;
         default = true;
-        description = "是否将 darkman 注册为 XDG Settings Portal 后端（使 Firefox、WebKit、Electron 等应用能感知深浅色切换）。";
+        description = "是否启用 Darkman 深浅色主题与 Niri 的动态联动（注册 include 动态主题 KDL）。默认 true 以保证主题联动开箱即用。";
       };
 
       themeToggleKeybind = mkOption {
@@ -745,10 +739,7 @@ in
       # 5. XDG Desktop Portal 桌面门户集成配置
       xdg.portal = mkIf cfg.portal.enable {
         enable = true;
-        extraPortals = cfg.portal.extraPortals
-          ++ (optionals (cfg.themeIntegration.enable && cfg.themeIntegration.darkmanPortal) [
-            pkgs.darkman
-          ]);
+        extraPortals = cfg.portal.extraPortals;
         config = {
           niri = mkMerge [
             {
@@ -762,10 +753,6 @@ in
             }
             (optionalAttrs (cfg.portal.filechooser != "none") {
               "org.freedesktop.impl.portal.FileChooser" = mkForce cfg.portal.filechooser;
-            })
-            # 将 Darkman 注册为 Settings 接口后端（感知深浅色）
-            (optionalAttrs (cfg.themeIntegration.enable && cfg.themeIntegration.darkmanPortal) {
-              "org.freedesktop.impl.portal.Settings" = [ "darkman" "gtk" "gnome" ];
             })
             cfg.portal.config
           ];

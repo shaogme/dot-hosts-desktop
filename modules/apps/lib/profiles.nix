@@ -231,6 +231,10 @@ rec {
       "--ro-bind-try" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-3.0" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-3.0"
       # GTK 4 用户配置
       "--ro-bind-try" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-4.0" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-4.0"
+      # dconf 用户数据库（宿主机 `~/.config/dconf/user`，只读，避免沙箱隔离导致 color-scheme 读不到）
+      "--ro-bind-try" "\${XDG_CONFIG_HOME:-\$HOME/.config}/dconf" "\${XDG_CONFIG_HOME:-\$HOME/.config}/dconf"
+      # dconf 备用路径（兼容 XDG_CONFIG_HOME 未设或历史路径）
+      "--ro-bind-try" "\$HOME/.config/dconf" "\$HOME/.config/dconf"
       # 全局运行时主题状态目录（mode 文件 + gtk-settings.ini）
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/desktop-theme" "\${XDG_RUNTIME_DIR:-/run/user/1000}/desktop-theme"
       # Darkman Socket 目录（供沙箱内应用查询当前模式）

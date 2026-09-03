@@ -138,9 +138,34 @@ let
     fi
     # 启用 GTK 平台主题（用于 Qt 应用的 GTK 主题感知）
     export QT_QPA_PLATFORMTHEME="gtk3"
-    # 确保 GSettings Schema 可访问（GTK/GLib 应用读取 org.gnome.desktop.interface）
     if [ -d "/run/current-system/sw/share/gsettings-schemas" ]; then
-      export GSETTINGS_SCHEMA_DIR="/run/current-system/sw/share/gsettings-schemas/gsettings-desktop-schemas-$(ls /run/current-system/sw/share/gsettings-schemas/ 2>/dev/null | head -1 | sed 's/.*-//')/glib-2.0/schemas"
+      for _gschema_dir in /run/current-system/sw/share/gsettings-schemas/*/glib-2.0/schemas; do
+        if [ -d "$_gschema_dir" ]; then
+          if [ -z "''${GSETTINGS_SCHEMA_DIR:-}" ]; then
+            export GSETTINGS_SCHEMA_DIR="$_gschema_dir"
+          else
+            case ":$GSETTINGS_SCHEMA_DIR:" in
+              *:"$_gschema_dir":*) ;;
+              *) export GSETTINGS_SCHEMA_DIR="$GSETTINGS_SCHEMA_DIR:$_gschema_dir" ;;
+            esac
+          fi
+        fi
+      done
+      unset _gschema_dir
+      # 若构造后仍指向无效路径则回退到 FHS 默认
+      if [ -n "''${GSETTINGS_SCHEMA_DIR:-}" ]; then
+        _first_schema="''${GSETTINGS_SCHEMA_DIR%%:*}"
+        if [ ! -d "$_first_schema" ] && [ ! -d "/usr/share/glib-2.0/schemas" ]; then
+          unset GSETTINGS_SCHEMA_DIR
+        elif [ ! -d "$_first_schema" ]; then
+          export GSETTINGS_SCHEMA_DIR="/usr/share/glib-2.0/schemas"
+        fi
+        unset _first_schema
+      fi
+    fi
+    # 兜底：若未设置则显式指向 FHS 编译路径，确保 org.gnome.desktop.interface 可解析
+    if [ -z "''${GSETTINGS_SCHEMA_DIR:-}" ] && [ -d "/usr/share/glib-2.0/schemas" ]; then
+      export GSETTINGS_SCHEMA_DIR="/usr/share/glib-2.0/schemas"
     fi
 
     # 导出自定义环境变量
