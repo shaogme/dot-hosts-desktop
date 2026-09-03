@@ -19,6 +19,14 @@ mkSandboxedApp {
   runInDirectory = "opt/QQ";
 
   profiles = [ "desktop-gui" "media" "electron" ];
+  extraPkgs = pkgs: with pkgs; [
+    libuuid
+    libgcrypt
+    libxft
+    gnutls
+    nettle
+    gmp
+  ];
   sandboxDirs = [ ".config/QQ" ];
   hostDirs = [ ".config/QQ" ];
 
