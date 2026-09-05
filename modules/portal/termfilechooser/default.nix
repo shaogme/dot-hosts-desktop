@@ -111,10 +111,7 @@ in
 
     env = mkOption {
       type = types.attrsOf types.str;
-      default =
-        optionalAttrs (config ? desktop && config.desktop ? editor && config.desktop.editor ? defaultEditor && config.desktop.editor.defaultEditor != "") {
-          EDITOR = config.desktop.editor.defaultEditor;
-        };
+      default = { };
       description = "传递给包装脚本执行环境的额外环境变量字典。";
       example = literalExpression ''
         {

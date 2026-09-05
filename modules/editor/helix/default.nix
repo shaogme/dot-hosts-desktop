@@ -129,11 +129,6 @@ in
 
     package = mkPackageOption pkgs "helix" { };
 
-    defaultEditor = mkOption {
-      type = types.bool;
-      default = true;
-      description = "是否将 Helix 设为系统与桌面环境默认文本编辑器。";
-    };
 
     terminal = mkOption {
       type = types.str;
@@ -177,19 +172,6 @@ in
       description = "追加写入 config.toml 的原生纯文本 TOML 配置片段。";
     };
 
-    niri = {
-      enable = mkOption {
-        type = types.bool;
-        default = true;
-        description = "是否自动联动注册为 Niri 默认文本编辑器。";
-      };
-
-      keybind = mkOption {
-        type = types.str;
-        default = "";
-        description = "在 Niri 中唤起 Helix 的快捷键绑定（设为空字符串则不注册）。";
-      };
-    };
 
     desktopEntry = {
       enable = mkOption {
@@ -210,8 +192,6 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
-      # 1. 设置系统默认编辑器
-      desktop.editor.defaultEditor = mkIf cfg.defaultEditor (mkDefault "hx");
 
       # 2. NixOS 系统级软件包与桌面项安装
       environment.systemPackages = [
@@ -223,14 +203,6 @@ in
       # 3. 系统级配置文件部署 (/etc/xdg/helix/config.toml 等)
       environment.etc = baseEtcFiles;
 
-      # 4. 联动向 Niri 注册默认文本编辑器启动命令
-      desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable && cfg.niri.enable) {
-        editor = {
-          enable = mkDefault true;
-          command = mkDefault "${cfg.terminal} -e hx";
-          keybind = mkDefault cfg.niri.keybind;
-        };
-      };
     }
 
     # 5. Home Manager 自动联动

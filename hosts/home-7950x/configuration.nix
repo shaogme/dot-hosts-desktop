@@ -20,6 +20,11 @@ let
       sshKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFNCU2PbTCr6HbrCdthvfbfTeXBePXNei7ER13hwotjr hi@shaog.me" ];
     };
   };
+
+  # 文本编辑器配置信息
+  editorConfig = {
+    defaultEditor = "hx";
+  };
 in
 {
   imports = [
@@ -43,6 +48,12 @@ in
   
   # 基础功能启用
   base.enable = true;
+
+  # 全局默认文本编辑器环境变量
+  environment.sessionVariables = {
+    EDITOR = editorConfig.defaultEditor;
+    VISUAL = editorConfig.defaultEditor;
+  };
   
   # Hardware 配置
   base.hardware.type = "physical";
@@ -98,6 +109,10 @@ in
   desktop.windowManager.niri = {
     enable = true;
     terminal = "rio";
+    editor = {
+      enable = true;
+      command = "rio -e ${editorConfig.defaultEditor}";
+    };
   };
 
   desktop.audio.pipewire = {
@@ -126,6 +141,7 @@ in
   # 文件管理器与桌面门户 (Yazi & termfilechooser)
   desktop.fileManager.yazi = {
     enable = true;
+    editor = editorConfig.defaultEditor;
     terminalKeybind = {
       enable = true;
       command = "rio";
@@ -135,11 +151,13 @@ in
   # 文本编辑器 (Helix)
   desktop.editor.helix = {
     enable = true;
-    defaultEditor = true;
   };
 
   desktop.portal.termfilechooser = {
     enable = true;
+    env = {
+      EDITOR = editorConfig.defaultEditor;
+    };
   };
 
   desktop.notification.swaync = {
@@ -176,6 +194,10 @@ in
     useUserPackages = true;
     users.${hostConfig.user} = { pkgs, ... }: {
       home.stateVersion = "26.11";
+      home.sessionVariables = {
+        EDITOR = editorConfig.defaultEditor;
+        VISUAL = editorConfig.defaultEditor;
+      };
     };
   };
 
@@ -220,6 +242,7 @@ in
   # ==========================================
   desktop.terminal.rio = {
     enable = true;
+    editor.program = editorConfig.defaultEditor;
   };
 
   desktop.terminal.zsh = {
@@ -541,10 +564,6 @@ in
     {
       assertion = config.desktop.editor.helix.enable == true;
       message = "文本编辑器配置错误：Helix 未启用";
-    }
-    {
-      assertion = config.desktop.editor.defaultEditor == "hx";
-      message = "默认文本编辑器配置错误：应当配置为 hx";
     }
     {
       assertion = config.environment.sessionVariables.EDITOR == "hx";

@@ -579,12 +579,7 @@ in
     editor = {
       program = mkOption {
         type = types.str;
-        default =
-          if (config.desktop ? editor && config.desktop.editor ? defaultEditor && config.desktop.editor.defaultEditor != "") then
-            config.desktop.editor.defaultEditor
-          else
-            "vi";
-        description = "Rio 打开配置文件时调用的文本编辑器命令。";
+        description = "Rio 打开配置文件时调用的文本编辑器命令（必须显式配置，禁止提供默认 fallback）。";
       };
 
       args = mkOption {
@@ -1128,6 +1123,13 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
+      assertions = [
+        {
+          assertion = cfg.editor.program != "";
+          message = "desktop.terminal.rio: 启用了 Rio 终端模拟器时，必须显式配置文本编辑器 (desktop.terminal.rio.editor.program)，禁止提供默认 fallback。";
+        }
+      ];
+
       # 1. NixOS 系统级 Rio 软件包安装
       environment.systemPackages = [
         cfg.package

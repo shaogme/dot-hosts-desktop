@@ -205,11 +205,7 @@ in
 
       command = mkOption {
         type = types.str;
-        default =
-          if (config.desktop ? editor && config.desktop.editor ? defaultEditor && config.desktop.editor.defaultEditor != "") then
-            "${cfg.terminal} -e ${config.desktop.editor.defaultEditor}"
-          else
-            "";
+        default = "";
         description = "Niri 启动文本编辑器的命令行。";
       };
 
@@ -686,6 +682,10 @@ in
               true
           );
           message = "桌面环境配置错误：Niri 虚拟机兼容模式 (desktop.windowManager.niri.virtualization.enable) 仅允许在虚拟机环境 (base.hardware.type != \"physical\") 下开启。";
+        }
+        {
+          assertion = cfg.editor.enable -> cfg.editor.command != "";
+          message = "桌面环境配置错误：Niri 启用了文本编辑器联动 (desktop.windowManager.niri.editor.enable = true) 时，必须显式配置 editor.command，禁止提供默认 fallback。";
         }
       ];
 

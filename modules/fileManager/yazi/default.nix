@@ -390,12 +390,7 @@ in
 
     editor = mkOption {
       type = types.str;
-      default =
-        if (config.desktop ? editor && config.desktop.editor ? defaultEditor && config.desktop.editor.defaultEditor != "") then
-          config.desktop.editor.defaultEditor
-        else
-          "\${EDITOR:-nano}";
-      description = "Yazi 打开文本文件时调用的默认文本编辑器命令（如 hx、nvim、nano 等）。";
+      description = "Yazi 打开文本文件时调用的文本编辑器命令（如 hx、nvim 等，必须显式配置，禁止提供默认 fallback）。";
     };
 
     themePreset = mkOption {
@@ -552,6 +547,10 @@ in
         {
           assertion = !effectiveTerminalKeybind.enable || terminalKeybindCommand != "";
           message = "desktop.fileManager.yazi.terminalKeybind 已启用，但未指定 terminal 终端命令（如 rio）。";
+        }
+        {
+          assertion = cfg.editor != "";
+          message = "desktop.fileManager.yazi: 启用了 Yazi 文件管理器时，必须显式配置文本编辑器 (desktop.fileManager.yazi.editor)，禁止提供默认 fallback。";
         }
       ];
 
