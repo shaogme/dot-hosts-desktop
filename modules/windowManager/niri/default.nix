@@ -13,7 +13,7 @@ let
 
   toKdl = import ./lib/toKdl.nix { inherit lib; };
   defaultWindowRules = import ./rules;
-  defaultSettings = import ./core/defaultSettings.nix { inherit cfg lib; };
+  defaultSettings = import ./core/defaultSettings.nix { inherit cfg lib pkgs; };
 
 
   # 递归合并基础配置与用户自定义 settings
@@ -269,6 +269,36 @@ in
         type = types.str;
         default = "Mod+Shift+T";
         description = "在 Niri 中切换深色/浅色主题的快捷键（设为空字符串则不注册）。";
+      };
+    };
+
+    osd = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否启用 SwayOSD 现代化浮动指示弹窗服务与按键联动。";
+      };
+
+      package = mkPackageOption pkgs "swayosd" { };
+
+      systemd = {
+        enable = mkOption {
+          type = types.bool;
+          default = true;
+          description = "是否通过 systemd 用户服务管理 SwayOSD 守护进程。";
+        };
+      };
+
+      brightness = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否在 Niri 亮度快捷键中联动 SwayOSD 浮动弹窗。";
+      };
+
+      volume = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否在 Niri 音量快捷键中联动 SwayOSD 浮动弹窗。";
       };
     };
 
@@ -733,7 +763,14 @@ in
         pkgs.wl-clipboard
         pkgs.grim
         pkgs.slurp
-      ] ++ (optional (cfg.xwayland.enable && cfg.xwayland.package != null) cfg.xwayland.package);
+        pkgs.brightnessctl
+      ] ++ (optional cfg.osd.enable cfg.osd.package)
+        ++ (optional (cfg.xwayland.enable && cfg.xwayland.package != null) cfg.xwayland.package);
+
+      # 2b. 设备节点权限规则（背光控制与 OSD）
+      services.udev.packages = [
+        pkgs.brightnessctl
+      ] ++ (optional cfg.osd.enable cfg.osd.package);
 
       # 3. 会话环境变量
       environment.sessionVariables = mkMerge [
@@ -796,6 +833,29 @@ in
           spawn-sh = [ "theme-ctl toggle" ];
         };
       };
+
+      # 5c. SwayOSD 用户守护进程服务
+      systemd.user.services.swayosd = mkIf (cfg.osd.enable && cfg.osd.systemd.enable) {
+        description = "SwayOSD daemon";
+        documentation = [ "https://github.com/ErikReider/SwayOSD" ];
+        partOf = [ "graphical-session.target" ];
+        after = [ "graphical-session.target" ];
+        wantedBy = [ "graphical-session.target" ];
+        unitConfig = {
+          ConditionEnvironment = "WAYLAND_DISPLAY";
+        };
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = "${cfg.osd.package}/bin/swayosd-server";
+          Restart = "on-failure";
+          RestartSec = 1;
+        };
+      };
+
+      # 5d. Niri 自启动备选（未启用 systemd 服务管理时通过 Niri 命令行拉起）
+      desktop.windowManager.niri.autostart = mkIf (cfg.osd.enable && !cfg.osd.systemd.enable) [
+        "swayosd-server"
+      ];
     }
 
     # 6. Home Manager 自动联动
@@ -809,7 +869,9 @@ in
               pkgs.wl-clipboard
               pkgs.grim
               pkgs.slurp
-            ] ++ (optional (cfg.xwayland.enable && cfg.xwayland.package != null) cfg.xwayland.package);
+              pkgs.brightnessctl
+            ] ++ (optional cfg.osd.enable cfg.osd.package)
+              ++ (optional (cfg.xwayland.enable && cfg.xwayland.package != null) cfg.xwayland.package);
           })
         ];
       };

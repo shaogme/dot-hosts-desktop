@@ -383,6 +383,14 @@ in
       message = "状态栏配置错误：Waybar 未启用";
     }
     {
+      assertion = config.desktop.bar.waybar.backlight.enable == true;
+      message = "状态栏配置错误：Waybar 屏幕亮度模块未启用";
+    }
+    {
+      assertion = config.desktop.windowManager.niri.osd.enable == true;
+      message = "OSD 浮动指示配置错误：SwayOSD 未启用";
+    }
+    {
       assertion = config.desktop.bar.waybar.commands.terminal == "rio";
       message = "Waybar 终端命令行配置错误：应当配置为 rio";
     }

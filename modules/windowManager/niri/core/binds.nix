@@ -1,4 +1,4 @@
-{ cfg, lib }:
+{ cfg, lib, pkgs }:
 
 let
   inherit (lib) optionalAttrs listToAttrs;
@@ -106,19 +106,61 @@ in
 
   "XF86AudioRaiseVolume" = {
     _props.allow-when-locked = true;
-    spawn-sh = [ "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1+ -l 1.0" ];
+    spawn = if (cfg.osd.enable && cfg.osd.volume) then [
+      (lib.getExe' cfg.osd.package "swayosd-client")
+      "--output-volume"
+      "raise"
+      "--max-volume"
+      "100"
+    ] else [
+      "wpctl"
+      "set-volume"
+      "@DEFAULT_AUDIO_SINK@"
+      "0.1+"
+      "-l"
+      "1.0"
+    ];
   };
   "XF86AudioLowerVolume" = {
     _props.allow-when-locked = true;
-    spawn-sh = [ "wpctl set-volume @DEFAULT_AUDIO_SINK@ 0.1-" ];
+    spawn = if (cfg.osd.enable && cfg.osd.volume) then [
+      (lib.getExe' cfg.osd.package "swayosd-client")
+      "--output-volume"
+      "lower"
+      "--max-volume"
+      "100"
+    ] else [
+      "wpctl"
+      "set-volume"
+      "@DEFAULT_AUDIO_SINK@"
+      "0.1-"
+    ];
   };
   "XF86AudioMute" = {
     _props.allow-when-locked = true;
-    spawn-sh = [ "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" ];
+    spawn = if (cfg.osd.enable && cfg.osd.volume) then [
+      (lib.getExe' cfg.osd.package "swayosd-client")
+      "--output-volume"
+      "mute-toggle"
+    ] else [
+      "wpctl"
+      "set-mute"
+      "@DEFAULT_AUDIO_SINK@"
+      "toggle"
+    ];
   };
   "XF86AudioMicMute" = {
     _props.allow-when-locked = true;
-    spawn-sh = [ "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle" ];
+    spawn = if (cfg.osd.enable && cfg.osd.volume) then [
+      (lib.getExe' cfg.osd.package "swayosd-client")
+      "--input-volume"
+      "mute-toggle"
+    ] else [
+      "wpctl"
+      "set-mute"
+      "@DEFAULT_AUDIO_SOURCE@"
+      "toggle"
+    ];
   };
   "XF86AudioPlay" = {
     _props.allow-when-locked = true;
@@ -134,11 +176,29 @@ in
   };
   "XF86MonBrightnessUp" = {
     _props.allow-when-locked = true;
-    spawn = [ "brightnessctl" "--class=backlight" "set" "+10%" ];
+    spawn = if (cfg.osd.enable && cfg.osd.brightness) then [
+      (lib.getExe' cfg.osd.package "swayosd-client")
+      "--brightness"
+      "+10"
+    ] else [
+      (lib.getExe pkgs.brightnessctl)
+      "--class=backlight"
+      "set"
+      "+10%"
+    ];
   };
   "XF86MonBrightnessDown" = {
     _props.allow-when-locked = true;
-    spawn = [ "brightnessctl" "--class=backlight" "set" "10%-" ];
+    spawn = if (cfg.osd.enable && cfg.osd.brightness) then [
+      (lib.getExe' cfg.osd.package "swayosd-client")
+      "--brightness"
+      "-10"
+    ] else [
+      (lib.getExe pkgs.brightnessctl)
+      "--class=backlight"
+      "set"
+      "10%-"
+    ];
   };
 }
 // workspaceFocusBinds

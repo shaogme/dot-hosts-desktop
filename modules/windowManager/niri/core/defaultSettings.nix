@@ -1,4 +1,4 @@
-{ cfg, lib }:
+{ cfg, lib, pkgs }:
 
 let
   inherit (lib)
@@ -9,7 +9,7 @@ let
     isString
     ;
 
-  binds = import ./binds.nix { inherit cfg lib; };
+  binds = import ./binds.nix { inherit cfg lib pkgs; };
 
   # 将用户配置的 outputs 映射为 KDL output 节点
   outputsNodes = mapAttrsToList (name: outCfg: {

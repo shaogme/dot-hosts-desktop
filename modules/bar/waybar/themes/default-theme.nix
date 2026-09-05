@@ -22,6 +22,11 @@ let
     mode = "custom";
     interval = 1;
   };
+  backlightCfg = cfg.backlight or {
+    enable = true;
+    device = "";
+    scrollStep = 5.0;
+  };
 
   waybarPowerDrawScript = pkgs.writeShellScriptBin "waybar-powerdraw" ''
     if [ -f /run/desktop-power/power.json ]; then
@@ -269,6 +274,9 @@ let
       modules = [
         "custom/clock"
         "pulseaudio"
+      ]
+      ++ optional backlightCfg.enable "backlight"
+      ++ [
         "battery"
       ]
       ++ optional powerDrawCfg.enable "custom/powerdraw"
@@ -413,6 +421,19 @@ let
       scroll-step = 5;
       on-click = cfg.commands.audioControl;
       on-click-right = cfg.commands.audioMuteToggle;
+    };
+
+    backlight = {
+      format = "{icon}  {percent}%";
+      format-icons = [ "󰃞" "󰃝" "󰃟" "󰃠" ];
+      tooltip = true;
+      tooltip-format = "屏幕亮度: {percent}%\n• 滚轮滑动：微调亮度";
+      scroll-step = backlightCfg.scrollStep;
+      min-brightness = 1.0;
+    } // optionalAttrs (backlightCfg.device != "") {
+      device = backlightCfg.device;
+    } // optionalAttrs ((cfg.commands.brightnessControl or "") != "") {
+      on-click = cfg.commands.brightnessControl;
     };
 
     battery = {
@@ -617,6 +638,7 @@ let
     #custom-netspeed,
     #bluetooth,
     #pulseaudio,
+    #backlight,
     #custom-gamemode,
     #custom-notification,
     #custom-wallpaper,
@@ -630,6 +652,10 @@ let
       margin: 0 1px;
       color: @foreground;
       transition: all 0.2s ease;
+    }
+
+    #backlight:hover {
+      color: @accent;
     }
 
     #custom-gamemode.active {

@@ -131,6 +131,32 @@ in
         default = "rio -e btop";
         description = "点击实时功耗监控模块执行的命令行。";
       };
+
+      brightnessControl = mkOption {
+        type = types.str;
+        default = "";
+        description = "点击屏幕亮度控制模块执行的命令行（设为空字符串则不执行动作）。";
+      };
+    };
+
+    backlight = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否在任务栏启用屏幕亮度显示与调节组件。";
+      };
+
+      device = mkOption {
+        type = types.str;
+        default = "";
+        description = "首选背光控制设备名称（留空则由 Waybar 自动探测，如 amdgpu_bl1 或 intel_backlight）。";
+      };
+
+      scrollStep = mkOption {
+        type = types.float;
+        default = 5.0;
+        description = "鼠标滚轮调节亮度的步进比例（百分比）。";
+      };
     };
 
     niri = {
