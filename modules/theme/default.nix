@@ -835,9 +835,8 @@ in
         XCURSOR_SIZE = toString cfg.cursor.size;
       };
 
-      # 3. 部署 Darkman 配置文件（/etc/xdg/darkman/config.yaml 符合 XDG 规范，保留 /etc/darkman/config.yaml 兼容性）
+      # 3. 部署 Darkman 配置文件（符合 XDG 规范：/etc/xdg/darkman/config.yaml）
       environment.etc."xdg/darkman/config.yaml".text = darkmanConfig;
-      environment.etc."darkman/config.yaml".text = darkmanConfig;
 
       # 4. 部署主题切换钩子脚本到 XDG_DATA_DIRS
       #    Darkman 会自动搜索 $XDG_DATA_DIRS/darkman/ 下的可执行文件
@@ -866,7 +865,7 @@ in
           ExecStartPost = "${pkgs.darkman}/bin/darkman set ${cfg.mode}";
         };
         environment = {
-          XDG_CONFIG_DIRS = "/etc:/etc/xdg";
+          XDG_CONFIG_DIRS = "/etc/xdg";
           XDG_DATA_DIRS = "/etc/xdg";
         };
       };

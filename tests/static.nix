@@ -67,15 +67,11 @@ let
   darkmanConfigFile =
     if cfg.environment.etc ? "xdg/darkman/config.yaml" && cfg.environment.etc."xdg/darkman/config.yaml" ? text then
       pkgs.writeText "${name}-darkman-config" cfg.environment.etc."xdg/darkman/config.yaml".text
-    else if cfg.environment.etc ? "darkman/config.yaml" && cfg.environment.etc."darkman/config.yaml" ? text then
-      pkgs.writeText "${name}-darkman-config" cfg.environment.etc."darkman/config.yaml".text
     else
       pkgs.emptyFile;
   darkmanConfigText =
     if cfg.environment.etc ? "xdg/darkman/config.yaml" && cfg.environment.etc."xdg/darkman/config.yaml" ? text then
       cfg.environment.etc."xdg/darkman/config.yaml".text
-    else if cfg.environment.etc ? "darkman/config.yaml" && cfg.environment.etc."darkman/config.yaml" ? text then
-      cfg.environment.etc."darkman/config.yaml".text
     else
       "";
   themeHookFile =
@@ -184,8 +180,6 @@ let
   geoclueConfigText =
     if cfgThemeGeoclue.environment.etc ? "xdg/darkman/config.yaml" && cfgThemeGeoclue.environment.etc."xdg/darkman/config.yaml" ? text then
       cfgThemeGeoclue.environment.etc."xdg/darkman/config.yaml".text
-    else if cfgThemeGeoclue.environment.etc ? "darkman/config.yaml" && cfgThemeGeoclue.environment.etc."darkman/config.yaml" ? text then
-      cfgThemeGeoclue.environment.etc."darkman/config.yaml".text
     else
       "";
   geoclueHookFile = if cfgThemeGeoclue.environment.etc ? "xdg/darkman/theme-switch.sh" && cfgThemeGeoclue.environment.etc."xdg/darkman/theme-switch.sh" ? source then cfgThemeGeoclue.environment.etc."xdg/darkman/theme-switch.sh".source else pkgs.emptyFile;
@@ -224,8 +218,6 @@ let
   customDarkmanText =
     if cfgThemeCustom.environment.etc ? "xdg/darkman/config.yaml" && cfgThemeCustom.environment.etc."xdg/darkman/config.yaml" ? text then
       cfgThemeCustom.environment.etc."xdg/darkman/config.yaml".text
-    else if cfgThemeCustom.environment.etc ? "darkman/config.yaml" && cfgThemeCustom.environment.etc."darkman/config.yaml" ? text then
-      cfgThemeCustom.environment.etc."darkman/config.yaml".text
     else
       "";
   customHookFile = if cfgThemeCustom.environment.etc ? "xdg/darkman/theme-switch.sh" && cfgThemeCustom.environment.etc."xdg/darkman/theme-switch.sh" ? source then cfgThemeCustom.environment.etc."xdg/darkman/theme-switch.sh".source else pkgs.emptyFile;
@@ -243,7 +235,7 @@ let
   disabledHasThemeSeedService = cfgThemeDisabled.systemd.user.services ? theme-seed;
   disabledHasThemeSyncService = cfgThemeDisabled.systemd.user.services ? theme-sync;
   disabledHasThemeSyncPath = cfgThemeDisabled.systemd.user.paths ? theme-sync;
-  disabledHasDarkmanEtc = (cfgThemeDisabled.environment.etc ? "xdg/darkman/config.yaml") || (cfgThemeDisabled.environment.etc ? "darkman/config.yaml");
+  disabledHasDarkmanEtc = cfgThemeDisabled.environment.etc ? "xdg/darkman/config.yaml";
   disabledHasHookEtc = cfgThemeDisabled.environment.etc ? "xdg/darkman/theme-switch.sh";
   disabledHasDarkmanPkg = lib.any (p: lib.hasInfix "darkman" (p.name or p.pname or "")) cfgThemeDisabled.environment.systemPackages;
 
