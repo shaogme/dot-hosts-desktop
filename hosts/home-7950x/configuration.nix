@@ -243,10 +243,6 @@ in
     enable = true;
   };
 
-  desktop.apps.firefox = {
-    enable = true;
-  };
-
   desktop.apps.firefox-developer-edition = {
     enable = true;
   };
@@ -418,10 +414,6 @@ in
     {
       assertion = config.desktop.apps.v2rayn.enable == true;
       message = "桌面应用配置错误：desktop.apps.v2rayn 未启用";
-    }
-    {
-      assertion = config.desktop.apps.firefox.enable == true;
-      message = "桌面应用配置错误：desktop.apps.firefox 未启用";
     }
     {
       assertion = config.desktop.apps.firefox-developer-edition.enable == true;
