@@ -17,6 +17,7 @@
     ./services
     ./terminal
     ./theme
+    ./toolchain
     ./tuning
     ./wallpaper
     ./windowManager

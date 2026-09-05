@@ -283,6 +283,15 @@ pkgs.testers.nixosTest {
 
           print("--- 全局主题系统验证通过！---")
 
+      # 验证开发工具链 (Rust)
+      if ${if serverCfg.desktop.toolchain.rust.enable or false then "True" else "False"}:
+          print("--- 验证开发工具链 (Rust) ---")
+          server.succeed("which rustc")
+          server.succeed("which cargo")
+          server.succeed("rustc --version")
+          server.succeed("cargo --version")
+          print("--- 开发工具链 (Rust) 验证通过！---")
+
       print("VM 测试全部通过！")
     '';
 }

@@ -230,6 +230,13 @@ in
     enable = true;
   };
 
+  # ==========================================
+  # 开发工具链 (Rust)
+  # ==========================================
+  desktop.toolchain.rust = {
+    enable = true;
+  };
+
   # 桌面应用配置
   desktop.apps.clash-verge = {
     enable = true;
@@ -507,6 +514,10 @@ in
     {
       assertion = config.desktop.windowManager.niri.editor.enable == true;
       message = "Niri 文本编辑器联动配置错误：应当启用文本编辑器支持";
+    }
+    {
+      assertion = config.desktop.toolchain.rust.enable == true;
+      message = "开发工具链配置错误：Rust 工具链未启用";
     }
   ];
 }

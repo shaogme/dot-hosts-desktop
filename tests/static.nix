@@ -248,6 +248,12 @@ let
   # 对于 HM 禁用变体，验证其 sharedModules 不包含 gtk 清理逻辑（长度应更少或为0）
   # 由于无法直接 introspect 函数内容，至少验证启用时有模块，禁用时模块数减少
 
+  # 开发工具链 (Rust) 静态检查变量
+  rustEnabled = cfg.desktop.toolchain.rust.enable or false;
+  rustHasPackage = cfg.desktop.toolchain.rust ? package && cfg.desktop.toolchain.rust.package != null;
+  rustInSystemPackages = builtins.elem (cfg.desktop.toolchain.rust.package or null) cfg.environment.systemPackages;
+  rustHasSrcPath = (cfg.desktop.toolchain.rust.setSrcPath or false) && (cfg.environment.sessionVariables ? RUST_SRC_PATH);
+
   # 安全转义
   escape = v: lib.escapeShellArg (toString v);
 in
@@ -900,6 +906,24 @@ pkgs.runCommand "${name}-static-check" {
       exit 1
     fi
     echo "[${name}] Fcitx5 Wayland 前端静态验证通过！"
+  fi
+
+  # ── 12. 开发工具链 (Rust) 静态验证 ───────────────────────────────────
+  if [ "${if rustEnabled then "true" else "false"}" = "true" ]; then
+    echo "[${name}] 验证开发工具链 (desktop.toolchain.rust)..."
+    if [ "${if rustHasPackage then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.toolchain.rust.package 未能有效解析"
+      exit 1
+    fi
+    if [ "${if rustInSystemPackages then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.toolchain.rust.package 未被加入 environment.systemPackages"
+      exit 1
+    fi
+    if [ "${if rustHasSrcPath then "true" else "false"}" != "true" ]; then
+      echo "错误: setSrcPath 启用时 environment.sessionVariables.RUST_SRC_PATH 未设置"
+      exit 1
+    fi
+    echo "[${name}] 开发工具链 (Rust) 静态验证通过！"
   fi
 
   echo "静态检查通过！"
