@@ -143,6 +143,8 @@ pkgs.testers.nixosTest {
       if ${if (serverCfg.desktop ? bar && serverCfg.desktop.bar ? waybar && serverCfg.desktop.bar.waybar.enable) then "True" else "False"}:
           server.succeed("which waybar")
           server.succeed("test -f /etc/xdg/waybar/config.jsonc")
+          if ${if (serverCfg.desktop.bar.waybar.powerDraw.enable or false) then "True" else "False"}:
+              server.succeed("systemctl is-enabled desktop-power-daemon.service || systemctl is-active desktop-power-daemon.service")
 
       # 验证通知中心 (SwayNC)
       if ${if (serverCfg.desktop ? notification && serverCfg.desktop.notification ? swaync && serverCfg.desktop.notification.swaync.enable) then "True" else "False"}:

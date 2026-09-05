@@ -22,6 +22,10 @@ let
     + optionalString (cfg.extraStyle != "") "\n${cfg.extraStyle}";
 in
 {
+  imports = [
+    ./power-daemon.nix
+  ];
+
   options.desktop.bar.waybar = {
     enable = mkOption {
       type = types.bool;
@@ -121,6 +125,12 @@ in
         default = "anyrun-power";
         description = "点击电源管理按钮执行的电源菜单命令行。";
       };
+
+      powerDraw = mkOption {
+        type = types.str;
+        default = "rio -e btop";
+        description = "点击实时功耗监控模块执行的命令行。";
+      };
     };
 
     niri = {
@@ -134,6 +144,20 @@ in
         type = types.str;
         default = "Mod+B";
         description = "在 Niri 中切换/显隐 Waybar 的快捷键绑定（设为空字符串则不注册）。";
+      };
+    };
+
+    powerDraw = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否在任务栏启用实时硬件功耗监控模块及特权采集守护进程。";
+      };
+
+      interval = mkOption {
+        type = types.int;
+        default = 2;
+        description = "功耗监控采样与刷新时间间隔（单位：秒）。";
       };
     };
 

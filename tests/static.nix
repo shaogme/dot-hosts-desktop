@@ -53,6 +53,15 @@ let
     else
       pkgs.emptyFile;
 
+  # ── Waybar 状态栏与实时功耗监控静态验证 ───────────────────────────
+  waybarEnabled = cfg.desktop.bar.waybar.enable or false;
+  waybarPowerDrawEnabled = cfg.desktop.bar.waybar.powerDraw.enable or false;
+  waybarConfigFile =
+    if cfg.environment.etc ? "xdg/waybar/config.jsonc" && cfg.environment.etc."xdg/waybar/config.jsonc" ? text then
+      pkgs.writeText "${name}-waybar-config" cfg.environment.etc."xdg/waybar/config.jsonc".text
+    else
+      pkgs.emptyFile;
+
   # ── 主题模块静态验证（主配置） ──────────────────────────────────────────
   themeEnabled = cfg.desktop.theme.enable or false;
   darkmanConfigFile =
@@ -291,6 +300,25 @@ pkgs.runCommand "${name}-static-check" {
       exit 1
     fi
     echo "[${name}] 性能与功耗调优模块静态验证通过！"
+  '' else ""}
+
+  ${if waybarEnabled then ''
+    echo "[${name}] 正在验证 Waybar 状态栏与实时功耗监控配置..."
+    test -s "${waybarConfigFile}" || {
+      echo "错误: Waybar 配置文件为空或不存在！"
+      exit 1
+    }
+    ${if waybarPowerDrawEnabled then ''
+      if [ "${if cfg.systemd.services ? desktop-power-daemon then "true" else "false"}" != "true" ]; then
+        echo "错误: Waybar 实时功耗监控启用时 desktop-power-daemon 服务未定义"
+        exit 1
+      fi
+      grep -q "custom/powerdraw" "${waybarConfigFile}" || {
+        echo "错误: Waybar 配置文件未包含 custom/powerdraw 模块"
+        exit 1
+      }
+    '' else ""}
+    echo "[${name}] Waybar 状态栏与实时功耗监控静态验证通过！"
   '' else ""}
 
   ${if themeEnabled then ''

@@ -13,11 +13,23 @@ let
   # 优先使用用户通过 desktop.theme.palette 配置的调色板，回退至 palette.nix 默认
   paletteDark = (config.desktop.theme.palette.dark or paletteLib.palettes.dark);
   fallbackCss = paletteLib.toCss paletteDark;
+  powerDrawCfg = cfg.powerDraw or {
+    enable = true;
+    interval = 2;
+  };
   netSpeedCfg = cfg.netSpeed or {
     enable = true;
     mode = "custom";
     interval = 1;
   };
+
+  waybarPowerDrawScript = pkgs.writeShellScriptBin "waybar-powerdraw" ''
+    if [ -f /run/desktop-power/power.json ]; then
+      exec ${pkgs.coreutils}/bin/cat /run/desktop-power/power.json
+    else
+      echo '{"text":"⚡ --W","tooltip":"功耗采集守护进程未运行或初始化中...","class":"unknown"}'
+    fi
+  '';
 
   waybarNetSpeedScript = pkgs.writeShellScriptBin "waybar-netspeed" ''
     set -u
@@ -258,6 +270,9 @@ let
         "custom/clock"
         "pulseaudio"
         "battery"
+      ]
+      ++ optional powerDrawCfg.enable "custom/powerdraw"
+      ++ [
         "cpu"
         "memory"
         "custom/power"
@@ -446,6 +461,14 @@ let
       on-click = cfg.commands.netSpeed;
       tooltip = true;
     };
+  } // optionalAttrs powerDrawCfg.enable {
+    "custom/powerdraw" = {
+      exec = "${waybarPowerDrawScript}/bin/waybar-powerdraw";
+      return-type = "json";
+      interval = powerDrawCfg.interval;
+      on-click = cfg.commands.powerDraw;
+      tooltip = true;
+    };
   };
 
   style = ''
@@ -601,6 +624,7 @@ let
     #cpu,
     #memory,
     #battery,
+    #custom-powerdraw,
     #custom-power {
       padding: 0 5px;
       margin: 0 1px;
@@ -629,8 +653,28 @@ let
       color: #89b4fa;
     }
 
-    #cpu, #memory {
+    #cpu, #memory, #custom-powerdraw {
       font-size: 12px;
+    }
+
+    #custom-powerdraw {
+      font-family: "Maple Mono NF CN", "Geist", monospace;
+    }
+
+    #custom-powerdraw:hover {
+      color: @accent;
+    }
+
+    #custom-powerdraw.charging {
+      color: #a6e3a1;
+    }
+
+    #custom-powerdraw.discharging {
+      color: @warning;
+    }
+
+    #custom-powerdraw.high {
+      color: @critical;
     }
 
     #battery.warning {
@@ -690,5 +734,6 @@ in
     pkgs.jq
     pkgs.pamixer
     pkgs.pavucontrol
-  ] ++ optional (netSpeedCfg.enable && netSpeedCfg.mode == "custom") waybarNetSpeedScript;
+  ] ++ optional (netSpeedCfg.enable && netSpeedCfg.mode == "custom") waybarNetSpeedScript
+    ++ optional powerDrawCfg.enable waybarPowerDrawScript;
 }
