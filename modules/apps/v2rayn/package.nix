@@ -37,6 +37,7 @@ mkSandboxedApp.dotnetApp {
     ''DATA_DIR="''${XDG_DATA_HOME:-$HOME/.local/share}/v2rayN"''
     ''mkdir -p "$DATA_DIR/bin" "$DATA_DIR/guiConfigs" "$DATA_DIR/guiLogs"''
     ''if [ -d "@UNPACKED@/opt/v2rayN/bin" ]; then cp -rn @UNPACKED@/opt/v2rayN/bin/* "$DATA_DIR/bin/" 2>/dev/null || true; fi''
+    ''chmod -R +x "$DATA_DIR/bin" 2>/dev/null || true''
   ];
 
   icons = { hicolor.auto = true; };

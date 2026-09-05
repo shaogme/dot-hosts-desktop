@@ -114,6 +114,13 @@ let
   hasSandboxBusRw = lib.hasInfix ''"--bind-try" "\''${XDG_RUNTIME_DIR'' sandboxSrc && lib.hasInfix "/bus" sandboxSrc;
   hasRoBindBusLine = lib.hasInfix ''"--ro-bind-try" "\''${XDG_RUNTIME_DIR:-/run/user/1000}/bus"'' sandboxSrc;
   hasUseinNiri = lib.hasInfix "niri" useinSrc;
+  wrapperSrc = builtins.readFile ../modules/apps/lib/mk-sandboxed-app/mk-wrapper.nix;
+  hasWrapperProxyBypass = lib.hasInfix "sg proxy-bypass" wrapperSrc;
+  hasSandboxUnshareUserBypass = lib.hasInfix "--unshare-user" sandboxSrc && lib.hasInfix "1992" sandboxSrc;
+  socksTunEnabled = cfg.services.socks-tun.enable or false;
+  nftBypassContent = cfg.networking.nftables.tables.socks_tun_bypass.content or "";
+  hasV2raynBwrapSecurityWrapper = cfg.security.wrappers ? "v2rayn-bwrap";
+  proxyBypassGid = cfg.users.groups.proxy-bypass.gid or null;
 
   # ── 覆盖测试：主题多变体评估（基于当前 host 配置叠加 overlay） ───────
   # 变体1：强制深色模式
@@ -783,6 +790,37 @@ pkgs.runCommand "${name}-static-check" {
   fi
 
   echo "[${name}] 主题模块覆盖测试全部通过！"
+
+  # ── 10. SOCKS-TUN 与 bypassProxy 静态验证 ───────────────────────────
+  echo "[${name}] 验证 SOCKS-TUN 与 bypassProxy 路由策略..."
+  if [ "${if hasWrapperProxyBypass then "true" else "false"}" != "true" ]; then
+    echo "错误: mk-wrapper.nix 缺少 sg proxy-bypass 提权与豁免逻辑"
+    exit 1
+  fi
+  if [ "${if hasSandboxUnshareUserBypass then "true" else "false"}" = "true" ]; then
+    echo "错误: sandbox.nix 不应在 bypassProxy 中使用 --unshare-user --gid 1992（破坏宿主网络栈 sk_gid 继承）"
+    exit 1
+  fi
+  if [ "${if socksTunEnabled then "true" else "false"}" = "true" ]; then
+    if [ "${toString proxyBypassGid}" != "1992" ]; then
+      echo "错误: users.groups.proxy-bypass.gid 必须为 1992 (实际: ${toString proxyBypassGid})"
+      exit 1
+    fi
+    if [ "${if hasV2raynBwrapSecurityWrapper then "true" else "false"}" = "true" ]; then
+      echo "错误: security.wrappers 不应包含失效的 v2rayn-bwrap"
+      exit 1
+    fi
+    if ! echo ${escape nftBypassContent} | grep -q "meta skgid 1992 meta mark set 0x55 accept"; then
+      echo "错误: nftables socks_tun_bypass 缺少 meta skgid 1992 规则"
+      exit 1
+    fi
+    if ! echo ${escape nftBypassContent} | grep -q "ip daddr 127.0.0.0/8 accept"; then
+      echo "错误: nftables socks_tun_bypass 缺少 loopback accept 规则"
+      exit 1
+    fi
+    echo "[${name}] SOCKS-TUN 与 bypassProxy 静态验证通过！"
+  fi
+
   echo "静态检查通过！"
   touch $out
 ''

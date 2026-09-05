@@ -92,16 +92,10 @@ in
         [ "d %h/.sandboxes/${sandboxName} 0755 - - -" ]
         ++ (map (dir: "d %h/.sandboxes/${sandboxName}/${dir} 0755 - - -") homeDirs);
 
-      users.groups.proxy-bypass = mkIf bypassProxy { };
-    }
-    (mkIf bypassProxy {
-      security.wrappers."${pnameOf}-bwrap" = mkIf (fhsDrv != null) {
-        source = "${fhsDrv}/bin/${pnameOf}-fhs";
-        owner = "root";
-        group = "proxy-bypass";
-        setgid = true;
+      users.groups.proxy-bypass = mkIf bypassProxy {
+        gid = 1992;
       };
-    })
+    }
     (mkIf (cfg.windowRules != [ ] && config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri) {
       desktop.windowManager.niri.extraRules = cfg.windowRules;
     })

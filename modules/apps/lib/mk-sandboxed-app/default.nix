@@ -58,12 +58,15 @@ let
         inherit extraBuildCommands;
         profile = launcher.profile;
         runScript = launcher.runScript;
-        unshareUser = sandboxCfg.bypassProxy;
+        unshareUser = false;
         inherit privateTmp;
       };
       extraBwrapArgs = bwrapArgs;
 
-      wrapper = wrapperLib.mkWrapper { inherit pname binaryName fhs sandboxName; };
+      wrapper = wrapperLib.mkWrapper {
+        inherit pname binaryName fhs sandboxName;
+        bypassProxy = sandboxCfg.bypassProxy;
+      };
 
       iconsADT = typesLib.normalizeIcons { inherit icons; };
       desktopItem = desktopLib.mkDesktopItem { inherit pname binaryName desktop; };

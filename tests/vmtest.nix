@@ -51,6 +51,7 @@ pkgs.testers.nixosTest {
           server.succeed("which v2rayn")
           server.succeed("test -f /run/current-system/sw/share/applications/v2rayn.desktop")
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/256x256/apps/v2rayn.png")
+          server.succeed("grep -q 'proxy-bypass' $(which v2rayn)")
 
       if ${if serverCfg.desktop.apps.firefox.enable or false then "True" else "False"}:
           server.succeed("which firefox")

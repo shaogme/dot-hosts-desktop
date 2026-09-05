@@ -80,10 +80,6 @@
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/desktop-theme" "\${XDG_RUNTIME_DIR:-/run/user/1000}/desktop-theme"
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/darkman" "\${XDG_RUNTIME_DIR:-/run/user/1000}/darkman"
     ]
-    ++ lib.optionals bypassProxy [
-      "--unshare-user"
-      "--gid" "1992"
-    ]
     ++ lib.optionals wayland [
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}"
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/wayland-0" "\${XDG_RUNTIME_DIR:-/run/user/1000}/wayland-0"

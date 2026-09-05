@@ -362,10 +362,10 @@ in
         content = ''
           chain output {
             type route hook output priority -150;
-            meta skgid 1992 meta mark set 0x55 accept;
-            meta skuid 991 meta mark set 0x55 accept;
             ip daddr 127.0.0.0/8 accept;
             ip6 daddr ::1 accept;
+            meta skgid 1992 meta mark set 0x55 accept;
+            meta skuid 991 meta mark set 0x55 accept;
           }
           chain postrouting {
             type nat hook postrouting priority srcnat; policy accept;
