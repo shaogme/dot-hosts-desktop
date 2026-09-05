@@ -5,6 +5,7 @@
     ./apps
     ./audio
     ./bar
+    ./clipboard
     ./editor
     ./fileManager
     ./fonts

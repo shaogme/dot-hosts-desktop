@@ -216,3 +216,9 @@ in
     spawn-sh = [ cfg.editor.command ];
   };
 })
+// (optionalAttrs (cfg.clipboard.enable && cfg.clipboard.keybind != "" && cfg.clipboard.command != "") {
+  "${cfg.clipboard.keybind}" = {
+    _props.hotkey-overlay-title = "Open Clipboard History: ${cfg.clipboard.command}";
+    spawn-sh = [ cfg.clipboard.command ];
+  };
+})

@@ -131,6 +131,27 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /etc/xdg/anyrun/actions.ron")
           server.succeed("test -f /etc/anyrun/actions.ron")
 
+      # 验证启动器 (Fuzzel)
+      if ${if (serverCfg.desktop ? launcher && serverCfg.desktop.launcher ? fuzzel && serverCfg.desktop.launcher.fuzzel.enable) then "True" else "False"}:
+          server.succeed("which fuzzel")
+          server.succeed("which fuzzel-power")
+          server.succeed("which fuzzel-niri")
+          server.succeed("which fuzzel-dmenu")
+          server.succeed("test -f /etc/xdg/fuzzel/fuzzel.ini")
+          server.succeed("test -f /etc/fuzzel/fuzzel.ini")
+
+      # 验证剪贴板历史管理器 (Cliphist)
+      if ${if (serverCfg.desktop ? clipboard && serverCfg.desktop.clipboard ? cliphist && serverCfg.desktop.clipboard.cliphist.enable) then "True" else "False"}:
+          server.succeed("which cliphist")
+          server.succeed("which cliphist-pick")
+          server.succeed("which cliphist-delete")
+          server.succeed("which cliphist-wipe")
+          server.succeed("which cliphist-manage")
+          server.succeed("which wl-copy")
+          server.succeed("which wl-paste")
+          server.succeed("test -f /etc/systemd/user/cliphist.service")
+          server.succeed("test -f /etc/systemd/user/cliphist-images.service")
+
       # 验证终端 (Rio)
       if ${if (serverCfg.desktop ? terminal && serverCfg.desktop.terminal ? rio && serverCfg.desktop.terminal.rio.enable) then "True" else "False"}:
           server.succeed("which rio")

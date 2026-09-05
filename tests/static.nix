@@ -62,6 +62,24 @@ let
     else
       pkgs.emptyFile;
 
+  # ── Fuzzel 启动器与 Cliphist 剪贴板静态验证 ─────────────────────────
+  fuzzelEnabled = cfg.desktop.launcher.fuzzel.enable or false;
+  fuzzelConfigFile =
+    if cfg.environment.etc ? "xdg/fuzzel/fuzzel.ini" && cfg.environment.etc."xdg/fuzzel/fuzzel.ini" ? text then
+      pkgs.writeText "${name}-fuzzel-config" cfg.environment.etc."xdg/fuzzel/fuzzel.ini".text
+    else
+      pkgs.emptyFile;
+
+  hasFuzzelPowerPkg = lib.any (p: lib.hasInfix "fuzzel-power" (p.name or p.pname or "")) cfg.environment.systemPackages;
+  hasFuzzelNiriPkg = lib.any (p: lib.hasInfix "fuzzel-niri" (p.name or p.pname or "")) cfg.environment.systemPackages;
+  hasFuzzelDmenuPkg = lib.any (p: lib.hasInfix "fuzzel-dmenu" (p.name or p.pname or "")) cfg.environment.systemPackages;
+
+  cliphistEnabled = cfg.desktop.clipboard.cliphist.enable or false;
+  hasCliphistPickPkg = lib.any (p: lib.hasInfix "cliphist-pick" (p.name or p.pname or "")) cfg.environment.systemPackages;
+  hasCliphistDeletePkg = lib.any (p: lib.hasInfix "cliphist-delete" (p.name or p.pname or "")) cfg.environment.systemPackages;
+  hasCliphistWipePkg = lib.any (p: lib.hasInfix "cliphist-wipe" (p.name or p.pname or "")) cfg.environment.systemPackages;
+  hasCliphistManagePkg = lib.any (p: lib.hasInfix "cliphist-manage" (p.name or p.pname or "")) cfg.environment.systemPackages;
+
   # ── 主题模块静态验证（主配置） ──────────────────────────────────────────
   themeEnabled = cfg.desktop.theme.enable or false;
   darkmanConfigFile =
@@ -981,6 +999,78 @@ pkgs.runCommand "${name}-static-check" {
     ''}
     echo "[${name}] awww 壁纸模块静态验证通过！"
   fi
+
+  ${if fuzzelEnabled then ''
+    echo "[${name}] 正在验证 Fuzzel 启动器配置..."
+    test -s "${fuzzelConfigFile}" || {
+      echo "错误: Fuzzel 配置文件为空或不存在！"
+      exit 1
+    }
+    grep -q "terminal=${cfg.desktop.launcher.fuzzel.terminal}" "${fuzzelConfigFile}" || {
+      echo "错误: Fuzzel 配置文件缺少正确的 terminal 项"
+      exit 1
+    }
+    grep -q "match-mode=fzf" "${fuzzelConfigFile}" || {
+      echo "错误: Fuzzel 配置文件缺少 match-mode=fzf"
+      exit 1
+    }
+    grep -q "^background=" "${fuzzelConfigFile}" || {
+      echo "错误: Fuzzel 配置文件缺少 background 颜色配置"
+      exit 1
+    }
+    ${if (cfg.desktop.launcher.fuzzel.wrappers.powerMenu.enable or false) then ''
+      if [ "${if hasFuzzelPowerPkg then "true" else "false"}" != "true" ]; then
+        echo "错误: fuzzel.wrappers.powerMenu 启用时 systemPackages 缺少 fuzzel-power"
+        exit 1
+      fi
+    '' else ""}
+    ${if (cfg.desktop.launcher.fuzzel.wrappers.windowSwitch.enable or false) then ''
+      if [ "${if hasFuzzelNiriPkg then "true" else "false"}" != "true" ]; then
+        echo "错误: fuzzel.wrappers.windowSwitch 启用时 systemPackages 缺少 fuzzel-niri"
+        exit 1
+      fi
+    '' else ""}
+    ${if (cfg.desktop.launcher.fuzzel.wrappers.dmenuWrapper.enable or false) then ''
+      if [ "${if hasFuzzelDmenuPkg then "true" else "false"}" != "true" ]; then
+        echo "错误: fuzzel.wrappers.dmenuWrapper 启用时 systemPackages 缺少 fuzzel-dmenu"
+        exit 1
+      fi
+    '' else ""}
+    echo "[${name}] Fuzzel 启动器静态验证通过！"
+  '' else ""}
+
+  ${if cliphistEnabled then ''
+    echo "[${name}] 正在验证 Cliphist 剪贴板管理配置..."
+    if [ "${if cfg.systemd.user.services ? cliphist then "true" else "false"}" != "true" ]; then
+      echo "错误: Cliphist 启用时 systemd.user.services.cliphist 服务未定义"
+      exit 1
+    fi
+    if [ "${if cfg.desktop.clipboard.cliphist.storage.images.enable then (if cfg.systemd.user.services ? cliphist-images then "true" else "false") else "true"}" != "true" ]; then
+      echo "错误: Cliphist storage.images.enable 启用时 systemd.user.services.cliphist-images 服务未定义"
+      exit 1
+    fi
+    if echo "${cfg.systemd.user.services.cliphist.serviceConfig.ExecStart or ""}" | grep -q -- "-max-store-size"; then
+      echo "错误: Cliphist ExecStart 包含上游无效的 -max-store-size 参数"
+      exit 1
+    fi
+    if [ "${if hasCliphistPickPkg then "true" else "false"}" != "true" ]; then
+      echo "错误: Cliphist 启用时 systemPackages 缺少 cliphist-pick"
+      exit 1
+    fi
+    if [ "${if hasCliphistDeletePkg then "true" else "false"}" != "true" ]; then
+      echo "错误: Cliphist 启用时 systemPackages 缺少 cliphist-delete"
+      exit 1
+    fi
+    if [ "${if hasCliphistWipePkg then "true" else "false"}" != "true" ]; then
+      echo "错误: Cliphist 启用时 systemPackages 缺少 cliphist-wipe"
+      exit 1
+    fi
+    if [ "${if hasCliphistManagePkg then "true" else "false"}" != "true" ]; then
+      echo "错误: Cliphist 启用时 systemPackages 缺少 cliphist-manage"
+      exit 1
+    fi
+    echo "[${name}] Cliphist 剪贴板管理静态验证通过！"
+  '' else ""}
 
   echo "静态检查通过！"
   touch $out

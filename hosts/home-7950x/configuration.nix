@@ -119,6 +119,11 @@ in
       enable = true;
       command = "${terminalConfig.terminal} -e ${editorConfig.defaultEditor}";
     };
+    clipboard = {
+      enable = true;
+      command = "cliphist-pick";
+      keybind = "Ctrl+grave";
+    };
   };
 
   desktop.audio.pipewire = {
@@ -143,6 +148,39 @@ in
     terminal = {
       command = terminalConfig.terminal;
       args = "-e {}";
+    };
+  };
+
+  desktop.launcher.fuzzel = {
+    enable = true;
+    terminal = "${terminalConfig.terminal} -e";
+    font = {
+      family = "monospace";
+      size = 11;
+    };
+    layout = {
+      width = 45;
+      lines = 15;
+      prompt = " ❯ ";
+    };
+    search.matchMode = "fzf";
+    wrappers = {
+      powerMenu.enable = true;
+      windowSwitch.enable = true;
+      dmenuWrapper.enable = true;
+    };
+  };
+
+  desktop.clipboard.cliphist = {
+    enable = true;
+    storage = {
+      text.enable = true;
+      images.enable = true;
+      maxItems = 1000;
+    };
+    selector = {
+      command = "fuzzel-dmenu --with-nth 2";
+      previewThumbnails = true;
     };
   };
 
@@ -418,6 +456,26 @@ in
     {
       assertion = config.desktop.launcher.anyrun.terminal.command == terminalConfig.terminal;
       message = "Anyrun 终端命令行配置错误：应当配置为 ${terminalConfig.terminal}";
+    }
+    {
+      assertion = config.desktop.launcher.fuzzel.enable == true;
+      message = "桌面启动器配置错误：fuzzel 未启用";
+    }
+    {
+      assertion = config.desktop.launcher.fuzzel.terminal != "";
+      message = "桌面启动器配置错误：未配置 fuzzel 终端命令行";
+    }
+    {
+      assertion = config.desktop.clipboard.cliphist.enable == true;
+      message = "剪贴板服务配置错误：cliphist 未启用";
+    }
+    {
+      assertion = config.desktop.clipboard.cliphist.selector.command != "";
+      message = "剪贴板服务配置错误：未配置 cliphist 选择器交互前端";
+    }
+    {
+      assertion = config.desktop.windowManager.niri.clipboard.enable == true;
+      message = "窗口管理器配置错误：Niri 剪贴板联动未启用";
     }
 
     {

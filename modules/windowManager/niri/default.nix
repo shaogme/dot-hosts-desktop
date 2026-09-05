@@ -215,6 +215,26 @@ in
       };
     };
 
+    clipboard = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "是否在 Niri 中启用剪贴板历史管理器快捷键联动。";
+      };
+
+      command = mkOption {
+        type = types.str;
+        default = "";
+        description = "Niri 唤起剪贴板历史交互前端的命令行（必须显式配置，禁止提供默认 fallback）。";
+      };
+
+      keybind = mkOption {
+        type = types.str;
+        default = "Ctrl+`";
+        description = "在 Niri 中唤起剪贴板历史界面的快捷键绑定（设为空字符串则不注册）。";
+      };
+    };
+
     portal = {
       enable = mkOption {
         type = types.bool;
@@ -685,6 +705,10 @@ in
         {
           assertion = cfg.editor.enable -> cfg.editor.command != "";
           message = "桌面环境配置错误：Niri 启用了文本编辑器联动 (desktop.windowManager.niri.editor.enable = true) 时，必须显式配置 editor.command，禁止提供默认 fallback。";
+        }
+        {
+          assertion = cfg.clipboard.enable -> cfg.clipboard.command != "";
+          message = "桌面环境配置错误：Niri 启用了剪贴板管理器联动 (desktop.windowManager.niri.clipboard.enable = true) 时，必须显式配置 clipboard.command，禁止提供默认 fallback。";
         }
         {
           assertion = cfg.terminal != "";
