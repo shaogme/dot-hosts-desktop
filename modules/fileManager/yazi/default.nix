@@ -56,11 +56,37 @@ let
     };
   };
 
+  # 终端快捷键有效配置解析
+  effectiveTerminalKeybind =
+    if cfg.terminalKey != null then
+      cfg.terminalKey
+    else
+      cfg.terminalKeybind;
+
+  terminalKeybindKey =
+    if effectiveTerminalKeybind.key != null then
+      effectiveTerminalKeybind.key
+    else
+      effectiveTerminalKeybind.keybind;
+
+  terminalKeybindCommand =
+    if effectiveTerminalKeybind.terminal != null then
+      effectiveTerminalKeybind.terminal
+    else
+      effectiveTerminalKeybind.command;
+
+  # 终端快捷键绑定条目
+  terminalKeybindEntry = optional (effectiveTerminalKeybind.enable && terminalKeybindCommand != "") {
+    on = if isList terminalKeybindKey then terminalKeybindKey else [ terminalKeybindKey ];
+    run = ''shell "${terminalKeybindCommand}" ${optionalString effectiveTerminalKeybind.orphan "--orphan"}'';
+    desc = "在当前工作目录打开终端";
+  };
+
   # 默认快捷键预设 (keymap.toml)
   defaultKeymap = {
     mgr.prepend_keymap = [
       { on = [ "<C-q>" ]; run = "close"; desc = "关闭当前标签页或退出 Yazi"; }
-    ];
+    ] ++ terminalKeybindEntry;
   };
 
   # 主题方案合并
@@ -69,7 +95,14 @@ let
 
   # 深度合并用户配置与预设
   mergedSettings = recursiveUpdate defaultSettings cfg.settings;
-  mergedKeymap = recursiveUpdate defaultKeymap cfg.keymap;
+  baseMergedKeymap = recursiveUpdate defaultKeymap cfg.keymap;
+  mergedKeymap =
+    if cfg.keymap ? mgr && cfg.keymap.mgr ? prepend_keymap then
+      recursiveUpdate baseMergedKeymap {
+        mgr.prepend_keymap = defaultKeymap.mgr.prepend_keymap ++ cfg.keymap.mgr.prepend_keymap;
+      }
+    else
+      baseMergedKeymap;
 
   # 生成 TOML 配置文件 Derivations
   baseYaziToml = tomlFormat.generate "yazi-base.toml" mergedSettings;
@@ -257,6 +290,104 @@ in
       description = "启动 Yazi 终端文件管理器的终端模拟器命令（如 rio、kitty、foot 等）。";
     };
 
+    terminalKeybind = mkOption {
+      type = types.coercedTo types.str
+        (cmd: {
+          enable = true;
+          command = cmd;
+        })
+        (types.submodule ({ config, ... }: {
+          options = {
+            enable = mkOption {
+              type = types.bool;
+              default = false;
+              description = "是否在 Yazi 中启用通过快捷键打开终端模拟器。";
+            };
+
+            keybind = mkOption {
+              type = types.either types.str (types.listOf types.str);
+              default = if config.key != null then config.key else "<C-t>";
+              description = "在 Yazi 中唤起终端的快捷键绑定，默认按键为 <C-t>。";
+            };
+
+            key = mkOption {
+              type = types.nullOr (types.either types.str (types.listOf types.str));
+              default = null;
+              description = "keybind 的别名。";
+            };
+
+            command = mkOption {
+              type = types.str;
+              default = if config.terminal != null then config.terminal else "";
+              description = "唤起的终端模拟器命令（需用户手动指定，例如 rio）。";
+            };
+
+            terminal = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = "command 的别名。";
+            };
+
+            orphan = mkOption {
+              type = types.bool;
+              default = true;
+              description = "是否以独立进程模式启动终端（--orphan），避免阻塞 Yazi。";
+            };
+          };
+        }));
+      default = { };
+      description = "在 Yazi 中通过快捷键绑定快速调出外部终端模拟器的配置项。";
+    };
+
+    terminalKey = mkOption {
+      type = types.nullOr (types.coercedTo types.str
+        (cmd: {
+          enable = true;
+          command = cmd;
+        })
+        (types.submodule ({ config, ... }: {
+          options = {
+            enable = mkOption {
+              type = types.bool;
+              default = false;
+              description = "是否启用在当前工作目录唤起终端的快捷键绑定（需手动开启）。";
+            };
+
+            keybind = mkOption {
+              type = types.either types.str (types.listOf types.str);
+              default = if config.key != null then config.key else "<C-t>";
+              description = "在 Yazi 中唤起终端的快捷键绑定，默认按键为 <C-t>。";
+            };
+
+            key = mkOption {
+              type = types.nullOr (types.either types.str (types.listOf types.str));
+              default = null;
+              description = "keybind 的别名。";
+            };
+
+            command = mkOption {
+              type = types.str;
+              default = if config.terminal != null then config.terminal else "";
+              description = "唤起的终端模拟器命令（需用户手动指定，例如 rio）。";
+            };
+
+            terminal = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = "command 的别名。";
+            };
+
+            orphan = mkOption {
+              type = types.bool;
+              default = true;
+              description = "是否以独立进程模式启动终端（--orphan），避免阻塞 Yazi。";
+            };
+          };
+        })));
+      default = null;
+      description = "terminalKeybind 的兼容性别名配置项。";
+    };
+
     editor = mkOption {
       type = types.str;
       default =
@@ -417,6 +548,13 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
+      assertions = [
+        {
+          assertion = !effectiveTerminalKeybind.enable || terminalKeybindCommand != "";
+          message = "desktop.fileManager.yazi.terminalKeybind 已启用，但未指定 terminal 终端命令（如 rio）。";
+        }
+      ];
+
       # 1. NixOS 系统级软件包与桌面项安装
       environment.systemPackages = [
         finalPackage

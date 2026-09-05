@@ -134,6 +134,10 @@ in
   # 文件管理器与桌面门户 (Yazi & termfilechooser)
   desktop.fileManager.yazi = {
     enable = true;
+    terminalKeybind = {
+      enable = true;
+      command = "rio";
+    };
   };
 
   # 文本编辑器 (Helix)
@@ -582,6 +586,14 @@ in
     {
       assertion = config.desktop.fileManager.yazi.editor == "hx";
       message = "Yazi 默认文本编辑器配置错误：应当配置为 hx";
+    }
+    {
+      assertion = config.desktop.fileManager.yazi.terminalKeybind.enable == true;
+      message = "Yazi 终端快捷键绑定未启用";
+    }
+    {
+      assertion = config.desktop.fileManager.yazi.terminalKeybind.command == "rio";
+      message = "Yazi 终端快捷键绑定命令配置错误：应当配置为 rio";
     }
     {
       assertion = config.desktop.windowManager.niri.editor.enable == true;
