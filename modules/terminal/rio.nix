@@ -579,7 +579,11 @@ in
     editor = {
       program = mkOption {
         type = types.str;
-        default = "vi";
+        default =
+          if (config.desktop ? editor && config.desktop.editor ? defaultEditor && config.desktop.editor.defaultEditor != "") then
+            config.desktop.editor.defaultEditor
+          else
+            "vi";
         description = "Rio 打开配置文件时调用的文本编辑器命令。";
       };
 

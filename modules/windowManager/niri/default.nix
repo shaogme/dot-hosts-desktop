@@ -196,6 +196,30 @@ in
       };
     };
 
+    editor = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "是否在 Niri 中启用默认文本编辑器快捷键联动。";
+      };
+
+      command = mkOption {
+        type = types.str;
+        default =
+          if (config.desktop ? editor && config.desktop.editor ? defaultEditor && config.desktop.editor.defaultEditor != "") then
+            "${cfg.terminal} -e ${config.desktop.editor.defaultEditor}"
+          else
+            "";
+        description = "Niri 启动文本编辑器的命令行。";
+      };
+
+      keybind = mkOption {
+        type = types.str;
+        default = "";
+        description = "在 Niri 中唤起文本编辑器的快捷键绑定（设为空字符串则不注册）。";
+      };
+    };
+
     portal = {
       enable = mkOption {
         type = types.bool;

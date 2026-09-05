@@ -35,7 +35,7 @@ let
     };
     opener = {
       edit = [
-        { run = "\${EDITOR:-nano} %s"; block = true; desc = "Edit"; }
+        { run = "${cfg.editor} %s"; block = true; desc = "Edit"; }
       ];
       open = [
         { run = "xdg-open %s1"; desc = "Open"; }
@@ -255,6 +255,16 @@ in
       type = types.str;
       default = "rio";
       description = "启动 Yazi 终端文件管理器的终端模拟器命令（如 rio、kitty、foot 等）。";
+    };
+
+    editor = mkOption {
+      type = types.str;
+      default =
+        if (config.desktop ? editor && config.desktop.editor ? defaultEditor && config.desktop.editor.defaultEditor != "") then
+          config.desktop.editor.defaultEditor
+        else
+          "\${EDITOR:-nano}";
+      description = "Yazi 打开文本文件时调用的默认文本编辑器命令（如 hx、nvim、nano 等）。";
     };
 
     themePreset = mkOption {

@@ -5,6 +5,7 @@
     ./apps
     ./audio
     ./bar
+    ./editor
     ./fileManager
     ./fonts
     ./inputMethod

@@ -122,6 +122,12 @@ in
     enable = true;
   };
 
+  # 文本编辑器 (Helix)
+  desktop.editor.helix = {
+    enable = true;
+    defaultEditor = true;
+  };
+
   desktop.portal.termfilechooser = {
     enable = true;
   };
@@ -465,6 +471,26 @@ in
     {
       assertion = config.desktop.windowManager.niri.portal.filechooser == "termfilechooser";
       message = "Niri 桌面门户配置错误：FileChooser 接口应当配置为 termfilechooser";
+    }
+    {
+      assertion = config.desktop.editor.helix.enable == true;
+      message = "文本编辑器配置错误：Helix 未启用";
+    }
+    {
+      assertion = config.desktop.editor.defaultEditor == "hx";
+      message = "默认文本编辑器配置错误：应当配置为 hx";
+    }
+    {
+      assertion = config.environment.sessionVariables.EDITOR == "hx";
+      message = "环境变量 EDITOR 配置错误：应当为 hx";
+    }
+    {
+      assertion = config.desktop.fileManager.yazi.editor == "hx";
+      message = "Yazi 默认文本编辑器配置错误：应当配置为 hx";
+    }
+    {
+      assertion = config.desktop.windowManager.niri.editor.enable == true;
+      message = "Niri 文本编辑器联动配置错误：应当启用文本编辑器支持";
     }
   ];
 }

@@ -150,3 +150,9 @@ in
     spawn-sh = [ cfg.fileManager.command ];
   };
 })
+// (optionalAttrs (cfg.editor.enable && cfg.editor.keybind != "" && cfg.editor.command != "") {
+  "${cfg.editor.keybind}" = {
+    _props.hotkey-overlay-title = "Open Text Editor: ${cfg.editor.command}";
+    spawn-sh = [ cfg.editor.command ];
+  };
+})
