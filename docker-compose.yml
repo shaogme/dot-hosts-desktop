@@ -27,7 +27,8 @@ services:
     volumes:
       # Mount host source code
       - .:/workspace
-      - /workspace/.git
+      - ./.git:/workspace/.git:ro
+      - ./docker-compose.yml:/workspace/docker-compose.yml:ro
       # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
       - rust-target:/data/.cargo/target
       # Persist Cargo dependencies, crate index, and git checkouts
