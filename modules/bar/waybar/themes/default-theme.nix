@@ -146,13 +146,13 @@ let
 
   waybarMediaScript = pkgs.writeShellScriptBin "waybar-media" ''
     if ! command -v ${pkgs.playerctl}/bin/playerctl >/dev/null 2>&1; then
-      echo '{"text":" No media","tooltip":"未找到 playerctl"}'
+      echo '{"text":"  No media","tooltip":"未找到 playerctl"}'
       exit 0
     fi
 
     status=$(${pkgs.playerctl}/bin/playerctl status 2>/dev/null || echo "Stopped")
     if [ "$status" = "Stopped" ] || [ -z "$status" ]; then
-      echo '{"text":" No media","tooltip":"暂无正在播放的媒体"}'
+      echo '{"text":"  No media","tooltip":"暂无正在播放的媒体"}'
       exit 0
     fi
 
@@ -160,7 +160,7 @@ let
     artist=$(${pkgs.playerctl}/bin/playerctl metadata --format '{{artist}}' 2>/dev/null || echo "")
 
     if [ -z "$title" ]; then
-      echo '{"text":" No media","tooltip":"暂无正在播放的媒体"}'
+      echo '{"text":"  No media","tooltip":"暂无正在播放的媒体"}'
       exit 0
     fi
 
