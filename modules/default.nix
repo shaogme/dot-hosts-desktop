@@ -17,6 +17,7 @@
     ./services
     ./terminal
     ./theme
+    ./tuning
     ./wallpaper
     ./windowManager
   ];

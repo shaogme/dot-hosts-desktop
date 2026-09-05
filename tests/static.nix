@@ -132,6 +132,10 @@ let
     else
       false;
 
+  # ── 调优模块 (desktop.tuning) 静态验证变量 ────────────────────────
+  tuningEnabled = cfg.desktop.tuning.enable or false;
+  tuningMode = cfg.desktop.tuning.mode or "desktop";
+
   # ── 覆盖测试：主题多变体评估（基于当前 host 配置叠加 overlay） ───────
   # 变体1：强制深色模式
   evalThemeDark = import (pkgs.path + "/nixos/lib/eval-config.nix") {
@@ -262,6 +266,31 @@ pkgs.runCommand "${name}-static-check" {
     ${cfg.desktop.windowManager.niri.package}/bin/niri validate --config "${niriConfigFile}"
     ${cfg.desktop.windowManager.niri.package}/bin/niri validate --config "${niriGamemodeConfigFile}"
     echo "[${name}] Niri 核心与游戏模式配置合法性验证通过！"
+  '' else ""}
+
+  ${if tuningEnabled then ''
+    echo "[${name}] 正在验证性能与功耗调优模块 (desktop.tuning)..."
+    if [ "${tuningMode}" != "desktop" ] && [ "${tuningMode}" != "mobile" ] && [ "${tuningMode}" != "vm" ]; then
+      echo "错误: 未知的 tuning 模式: ${tuningMode}"
+      exit 1
+    fi
+    if [ "${if cfg.services.tlp.enable or false then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.tuning 启用时 services.tlp 应处于启用状态"
+      exit 1
+    fi
+    if [ "${if cfg.services.auto-cpufreq.enable or false then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.tuning 启用时 services.auto-cpufreq 应处于启用状态"
+      exit 1
+    fi
+    if [ "${if cfg.services.power-profiles-daemon.enable or false then "true" else "false"}" = "true" ]; then
+      echo "错误: power-profiles-daemon 与 tlp/auto-cpufreq 冲突，应处于禁用状态"
+      exit 1
+    fi
+    if [ "${if cfg.services.tuned.enable or false then "true" else "false"}" = "true" ]; then
+      echo "错误: services.tuned 与 tlp/auto-cpufreq 冲突，应处于禁用状态"
+      exit 1
+    fi
+    echo "[${name}] 性能与功耗调优模块静态验证通过！"
   '' else ""}
 
   ${if themeEnabled then ''

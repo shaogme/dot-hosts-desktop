@@ -228,6 +228,17 @@ pkgs.testers.nixosTest {
           server.succeed("sing-box check -c /etc/socks-tun/config.template.json")
           server.succeed("proxy-ctl status")
 
+      # 验证性能与功耗调优模块 (TLP + auto-cpufreq)
+      if ${if serverCfg.desktop.tuning.enable or false then "True" else "False"}:
+          print("--- 验证性能与功耗调优模块 (TLP + auto-cpufreq) ---")
+          server.succeed("which tlp")
+          server.succeed("which tlp-stat")
+          server.succeed("test -f /etc/tlp.conf")
+          server.succeed("which auto-cpufreq")
+          server.succeed("which tuning-ctl")
+          server.succeed("tuning-ctl status")
+          print("--- 性能与功耗调优模块验证通过！---")
+
       # 验证全局主题系统 (desktop.theme)
       if ${if serverCfg.desktop.theme.enable or false then "True" else "False"}:
           print("--- 验证全局主题系统 (Darkman + theme-ctl) ---")

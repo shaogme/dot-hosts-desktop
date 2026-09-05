@@ -63,8 +63,12 @@ in
       };
   };
 
-  # 性能与内存调优
-  base.performance.tuning.profile = "desktop-performance";
+  # 性能与功耗调优 (TLP + auto-cpufreq 组合优化 - 桌面端)
+  desktop.tuning = {
+    enable = true;
+    mode = "desktop";
+  };
+  base.performance.tuning.profile = "none";
   base.memory.mode = "conservative";
   # 容器引擎
   base.container.podman.enable = true;
@@ -300,8 +304,20 @@ in
       message = "内核配置错误：CachyOS 内核未启用";
     }
     {
-      assertion = config.base.performance.tuning.profile == "desktop-performance";
-      message = "性能调优配置错误：应当启用 desktop-performance 配置文件";
+      assertion = config.desktop.tuning.enable == true;
+      message = "性能调优配置错误：desktop.tuning 模块未启用";
+    }
+    {
+      assertion = config.desktop.tuning.mode == "desktop";
+      message = "性能调优配置错误：应当启用 desktop 桌面端优化模式";
+    }
+    {
+      assertion = config.services.tlp.enable == true;
+      message = "性能调优配置错误：TLP 服务未启用";
+    }
+    {
+      assertion = config.services.auto-cpufreq.enable == true;
+      message = "性能调优配置错误：auto-cpufreq 服务未启用";
     }
     {
       assertion = config.base.hardware.network.backend == "networkmanager";
