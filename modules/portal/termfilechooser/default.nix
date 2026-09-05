@@ -75,8 +75,7 @@ in
 
     terminal = mkOption {
       type = types.str;
-      default = "rio";
-      description = "唤起终端文件选择器所使用的终端模拟器（默认 rio）。";
+      description = "唤起终端文件选择器所使用的终端模拟器（必须显式配置，禁止提供默认 fallback）。";
     };
 
     termcmd = mkOption {
@@ -144,11 +143,15 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
-      # 校验：必须配置有效的包装脚本或执行命令
+      # 校验：必须配置有效的包装脚本或执行命令与终端
       assertions = [
         {
           assertion = cfg.cmd != null || cfg.wrapperScript != null;
           message = "桌面门户配置错误：xdg-desktop-portal-termfilechooser 需要配置 cmd 或 wrapperScript。请提供有效的文件选择器命令或包装脚本。";
+        }
+        {
+          assertion = cfg.terminal != "";
+          message = "desktop.portal.termfilechooser: 启用了终端文件选择器门户时，必须显式配置终端模拟器 (desktop.portal.termfilechooser.terminal)，禁止提供默认 fallback。";
         }
       ];
 
@@ -168,7 +171,7 @@ in
         extraPortals = [ cfg.package ];
       };
 
-      # 4. 配置 systemd user 服务的环境变量 PATH，确保能找到系统与用户终端（如 rio）
+      # 4. 配置 systemd user 服务的环境变量 PATH，确保能找到系统与用户终端
       systemd.user.services.xdg-desktop-portal-termfilechooser = {
         environment = {
           PATH = mkDefault "/run/wrappers/bin:/run/current-system/sw/bin:/etc/profiles/per-user/%u/bin";

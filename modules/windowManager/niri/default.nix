@@ -172,8 +172,7 @@ in
 
     terminal = mkOption {
       type = types.str;
-      default = "rio";
-      description = "Niri 默认快捷键 (Mod + Return / Mod + T) 启动的终端命令或可执行程序名称。";
+      description = "Niri 默认快捷键 (Mod + Return / Mod + T) 启动的终端命令或可执行程序名称（必须显式配置，禁止提供默认 fallback）。";
     };
 
     fileManager = {
@@ -686,6 +685,10 @@ in
         {
           assertion = cfg.editor.enable -> cfg.editor.command != "";
           message = "桌面环境配置错误：Niri 启用了文本编辑器联动 (desktop.windowManager.niri.editor.enable = true) 时，必须显式配置 editor.command，禁止提供默认 fallback。";
+        }
+        {
+          assertion = cfg.terminal != "";
+          message = "桌面环境配置错误：Niri 启用了窗口管理器 (desktop.windowManager.niri.enable = true) 时，必须显式配置 terminal，禁止提供默认 fallback。";
         }
       ];
 

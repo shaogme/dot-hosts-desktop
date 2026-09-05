@@ -132,8 +132,7 @@ in
 
     terminal = mkOption {
       type = types.str;
-      default = "rio";
-      description = "启动 Helix 文本编辑器的终端模拟器命令（如 rio、kitty 等）。";
+      description = "启动 Helix 文本编辑器的终端模拟器命令（必须显式配置，禁止提供默认 fallback）。";
     };
 
     themePreset = mkOption {
@@ -192,6 +191,12 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
+      assertions = [
+        {
+          assertion = cfg.terminal != "";
+          message = "desktop.editor.helix: 启用了 Helix 文本编辑器时，必须显式配置终端模拟器 (desktop.editor.helix.terminal)，禁止提供默认 fallback。";
+        }
+      ];
 
       # 2. NixOS 系统级软件包与桌面项安装
       environment.systemPackages = [

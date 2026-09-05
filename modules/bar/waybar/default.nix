@@ -74,38 +74,32 @@ in
 
       terminal = mkOption {
         type = types.str;
-        default = "rio";
-        description = "右键菜单图标执行的终端命令行。";
+        description = "右键菜单图标执行的终端命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       cpu = mkOption {
         type = types.str;
-        default = "rio -e btop";
-        description = "点击 CPU 监控模块执行的性能监控命令行。";
+        description = "点击 CPU 监控模块执行的性能监控命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       memory = mkOption {
         type = types.str;
-        default = "rio -e btop";
-        description = "点击内存监控模块执行的性能监控命令行。";
+        description = "点击内存监控模块执行的性能监控命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       network = mkOption {
         type = types.str;
-        default = "rio -e nmtui";
-        description = "点击网络状态模块执行的网络配置命令行。";
+        description = "点击网络状态模块执行的网络配置命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       netSpeed = mkOption {
         type = types.str;
-        default = "rio -e btop";
-        description = "点击实时网速监控模块执行的命令行。";
+        description = "点击实时网速监控模块执行的命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       bluetooth = mkOption {
         type = types.str;
-        default = "rio -e bluetuith";
-        description = "点击蓝牙状态模块执行的蓝牙管理命令行。";
+        description = "点击蓝牙状态模块执行的蓝牙管理命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       audioControl = mkOption {
@@ -128,8 +122,7 @@ in
 
       powerDraw = mkOption {
         type = types.str;
-        default = "rio -e btop";
-        description = "点击实时功耗监控模块执行的命令行。";
+        description = "点击实时功耗监控模块执行的命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       brightnessControl = mkOption {
@@ -222,6 +215,37 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
+      assertions = [
+        {
+          assertion = cfg.commands.terminal != "";
+          message = "desktop.bar.waybar: 启用了 Waybar 状态栏时，必须显式配置终端命令 (desktop.bar.waybar.commands.terminal)，禁止提供默认 fallback。";
+        }
+        {
+          assertion = cfg.commands.cpu != "";
+          message = "desktop.bar.waybar: 启用了 Waybar 状态栏时，必须显式配置 CPU 监控命令 (desktop.bar.waybar.commands.cpu)，禁止提供默认 fallback。";
+        }
+        {
+          assertion = cfg.commands.memory != "";
+          message = "desktop.bar.waybar: 启用了 Waybar 状态栏时，必须显式配置内存监控命令 (desktop.bar.waybar.commands.memory)，禁止提供默认 fallback。";
+        }
+        {
+          assertion = cfg.commands.network != "";
+          message = "desktop.bar.waybar: 启用了 Waybar 状态栏时，必须显式配置网络管理命令 (desktop.bar.waybar.commands.network)，禁止提供默认 fallback。";
+        }
+        {
+          assertion = cfg.commands.netSpeed != "";
+          message = "desktop.bar.waybar: 启用了 Waybar 状态栏时，必须显式配置网速监控命令 (desktop.bar.waybar.commands.netSpeed)，禁止提供默认 fallback。";
+        }
+        {
+          assertion = cfg.commands.bluetooth != "";
+          message = "desktop.bar.waybar: 启用了 Waybar 状态栏时，必须显式配置蓝牙管理命令 (desktop.bar.waybar.commands.bluetooth)，禁止提供默认 fallback。";
+        }
+        {
+          assertion = cfg.commands.powerDraw != "";
+          message = "desktop.bar.waybar: 启用了 Waybar 状态栏时，必须显式配置功耗监控命令 (desktop.bar.waybar.commands.powerDraw)，禁止提供默认 fallback。";
+        }
+      ];
+
       environment.systemPackages = [
         cfg.package
       ] ++ selectedTheme.extraPackages;

@@ -25,6 +25,12 @@ let
   editorConfig = {
     defaultEditor = "hx";
   };
+
+  # 终端配置信息
+  terminalConfig = rec {
+    terminal = "rio";
+    defaultTerminal = terminal;
+  };
 in
 {
   imports = [
@@ -116,10 +122,10 @@ in
   # ==========================================
   desktop.windowManager.niri = {
     enable = true;
-    terminal = "rio";
+    terminal = terminalConfig.terminal;
     editor = {
       enable = true;
-      command = "rio -e ${editorConfig.defaultEditor}";
+      command = "${terminalConfig.terminal} -e ${editorConfig.defaultEditor}";
     };
   };
 
@@ -130,18 +136,20 @@ in
   desktop.bar.waybar = {
     enable = true;
     commands = {
-      terminal = "rio";
-      cpu = "rio -e btop";
-      memory = "rio -e btop";
-      network = "rio -e nmtui";
-      bluetooth = "rio -e bluetuith";
+      terminal = terminalConfig.terminal;
+      cpu = "${terminalConfig.terminal} -e btop";
+      memory = "${terminalConfig.terminal} -e btop";
+      network = "${terminalConfig.terminal} -e nmtui";
+      netSpeed = "${terminalConfig.terminal} -e btop";
+      bluetooth = "${terminalConfig.terminal} -e bluetuith";
+      powerDraw = "${terminalConfig.terminal} -e btop";
     };
   };
 
   desktop.launcher.anyrun = {
     enable = true;
     terminal = {
-      command = "rio";
+      command = terminalConfig.terminal;
       args = "-e {}";
     };
   };
@@ -149,20 +157,23 @@ in
   # 文件管理器与桌面门户 (Yazi & termfilechooser)
   desktop.fileManager.yazi = {
     enable = true;
+    terminal = terminalConfig.terminal;
     editor = editorConfig.defaultEditor;
     terminalKeybind = {
       enable = true;
-      command = "rio";
+      command = terminalConfig.terminal;
     };
   };
 
   # 文本编辑器 (Helix)
   desktop.editor.helix = {
     enable = true;
+    terminal = terminalConfig.terminal;
   };
 
   desktop.portal.termfilechooser = {
     enable = true;
+    terminal = terminalConfig.terminal;
     env = {
       EDITOR = editorConfig.defaultEditor;
     };
@@ -254,9 +265,9 @@ in
   };
 
   # ==========================================
-  # 终端与 Shell 环境 (Terminal & Rio & Zsh & Starship)
+  # 终端与 Shell 环境 (Terminal & Zsh & Starship)
   # ==========================================
-  desktop.terminal.rio = {
+  desktop.terminal.${terminalConfig.terminal} = {
     enable = true;
     editor.program = editorConfig.defaultEditor;
   };
@@ -397,8 +408,8 @@ in
       message = "窗口管理器配置错误：Niri 未启用";
     }
     {
-      assertion = config.desktop.windowManager.niri.terminal == "rio";
-      message = "Niri 终端命令行配置错误：应当配置为 rio";
+      assertion = config.desktop.windowManager.niri.terminal == terminalConfig.terminal;
+      message = "Niri 终端命令行配置错误：应当配置为 ${terminalConfig.terminal}";
     }
     {
       assertion = config.programs.niri.enable == true;
@@ -421,16 +432,16 @@ in
       message = "OSD 浮动指示配置错误：SwayOSD 未启用";
     }
     {
-      assertion = config.desktop.bar.waybar.commands.terminal == "rio";
-      message = "Waybar 终端命令行配置错误：应当配置为 rio";
+      assertion = config.desktop.bar.waybar.commands.terminal == terminalConfig.terminal;
+      message = "Waybar 终端命令行配置错误：应当配置为 ${terminalConfig.terminal}";
     }
     {
       assertion = config.desktop.launcher.anyrun.enable == true;
       message = "桌面启动器配置错误：Anyrun 未启用";
     }
     {
-      assertion = config.desktop.launcher.anyrun.terminal.command == "rio";
-      message = "Anyrun 终端命令行配置错误：应当配置为 rio";
+      assertion = config.desktop.launcher.anyrun.terminal.command == terminalConfig.terminal;
+      message = "Anyrun 终端命令行配置错误：应当配置为 ${terminalConfig.terminal}";
     }
 
     {
@@ -527,8 +538,8 @@ in
       message = "虚拟机管理工具配置错误：virt-manager 未启用";
     }
     {
-      assertion = config.desktop.terminal.rio.enable == true;
-      message = "终端配置错误：Rio 未启用";
+      assertion = config.desktop.terminal.${terminalConfig.terminal}.enable == true;
+      message = "终端配置错误：${terminalConfig.terminal} 未启用";
     }
     {
       assertion = config.desktop.terminal.zsh.enable == true;
@@ -611,8 +622,20 @@ in
       message = "Yazi 终端快捷键绑定未启用";
     }
     {
-      assertion = config.desktop.fileManager.yazi.terminalKeybind.command == "rio";
-      message = "Yazi 终端快捷键绑定命令配置错误：应当配置为 rio";
+      assertion = config.desktop.fileManager.yazi.terminalKeybind.command == terminalConfig.terminal;
+      message = "Yazi 终端快捷键绑定命令配置错误：应当配置为 ${terminalConfig.terminal}";
+    }
+    {
+      assertion = config.desktop.fileManager.yazi.terminal == terminalConfig.terminal;
+      message = "Yazi 终端配置错误：应当配置为 ${terminalConfig.terminal}";
+    }
+    {
+      assertion = config.desktop.editor.helix.terminal == terminalConfig.terminal;
+      message = "Helix 终端配置错误：应当配置为 ${terminalConfig.terminal}";
+    }
+    {
+      assertion = config.desktop.portal.termfilechooser.terminal == terminalConfig.terminal;
+      message = "桌面门户终端配置错误：应当配置为 ${terminalConfig.terminal}";
     }
     {
       assertion = config.desktop.windowManager.niri.editor.enable == true;

@@ -286,8 +286,7 @@ in
 
     terminal = mkOption {
       type = types.str;
-      default = "rio";
-      description = "启动 Yazi 终端文件管理器的终端模拟器命令（如 rio、kitty、foot 等）。";
+      description = "启动 Yazi 终端文件管理器的终端模拟器命令（必须显式配置，禁止提供默认 fallback）。";
     };
 
     terminalKeybind = mkOption {
@@ -319,7 +318,7 @@ in
             command = mkOption {
               type = types.str;
               default = if config.terminal != null then config.terminal else "";
-              description = "唤起的终端模拟器命令（需用户手动指定，例如 rio）。";
+              description = "唤起的终端模拟器命令（需用户手动指定）。";
             };
 
             terminal = mkOption {
@@ -368,7 +367,7 @@ in
             command = mkOption {
               type = types.str;
               default = if config.terminal != null then config.terminal else "";
-              description = "唤起的终端模拟器命令（需用户手动指定，例如 rio）。";
+              description = "唤起的终端模拟器命令（需用户手动指定）。";
             };
 
             terminal = mkOption {
@@ -546,7 +545,11 @@ in
       assertions = [
         {
           assertion = !effectiveTerminalKeybind.enable || terminalKeybindCommand != "";
-          message = "desktop.fileManager.yazi.terminalKeybind 已启用，但未指定 terminal 终端命令（如 rio）。";
+          message = "desktop.fileManager.yazi.terminalKeybind 已启用，但未指定 terminal 终端命令。";
+        }
+        {
+          assertion = cfg.terminal != "";
+          message = "desktop.fileManager.yazi: 启用了 Yazi 文件管理器时，必须显式配置终端模拟器 (desktop.fileManager.yazi.terminal)，禁止提供默认 fallback。";
         }
         {
           assertion = cfg.editor != "";

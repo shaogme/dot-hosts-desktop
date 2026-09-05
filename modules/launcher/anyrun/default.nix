@@ -282,8 +282,7 @@ in
     terminal = {
       command = mkOption {
         type = types.str;
-        default = "rio";
-        description = "Anyrun 运行终端应用时调用的终端命令行或可执行文件路径。";
+        description = "Anyrun 运行终端应用时调用的终端命令行或可执行文件路径（必须显式配置，禁止提供默认 fallback）。";
       };
 
       args = mkOption {
@@ -529,6 +528,13 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
+      assertions = [
+        {
+          assertion = cfg.terminal.command != "";
+          message = "desktop.launcher.anyrun: 启用了 Anyrun 启动器时，必须显式配置终端命令 (desktop.launcher.anyrun.terminal.command)，禁止提供默认 fallback。";
+        }
+      ];
+
       environment.systemPackages = [
         cfg.package
         anyrunPowerScript
@@ -569,13 +575,13 @@ in
         enable = true;
         settings = {
           default = [
-            "rio.desktop"
+            "${cfg.terminal.command}.desktop"
           ];
           Niri = [
-            "rio.desktop"
+            "${cfg.terminal.command}.desktop"
           ];
           niri = [
-            "rio.desktop"
+            "${cfg.terminal.command}.desktop"
           ];
         };
       };
@@ -645,8 +651,8 @@ in
             };
 
             xdg.configFile = allConfigFiles // {
-              "xdg-terminals.list".text = "rio.desktop\n";
-              "niri-xdg-terminals.list".text = "rio.desktop\n";
+              "xdg-terminals.list".text = "${cfg.terminal.command}.desktop\n";
+              "niri-xdg-terminals.list".text = "${cfg.terminal.command}.desktop\n";
             };
           })
         ];
