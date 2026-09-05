@@ -65,11 +65,19 @@ let
   # ── 主题模块静态验证（主配置） ──────────────────────────────────────────
   themeEnabled = cfg.desktop.theme.enable or false;
   darkmanConfigFile =
-    if cfg.environment.etc ? "darkman/config.yaml" && cfg.environment.etc."darkman/config.yaml" ? text then
+    if cfg.environment.etc ? "xdg/darkman/config.yaml" && cfg.environment.etc."xdg/darkman/config.yaml" ? text then
+      pkgs.writeText "${name}-darkman-config" cfg.environment.etc."xdg/darkman/config.yaml".text
+    else if cfg.environment.etc ? "darkman/config.yaml" && cfg.environment.etc."darkman/config.yaml" ? text then
       pkgs.writeText "${name}-darkman-config" cfg.environment.etc."darkman/config.yaml".text
     else
       pkgs.emptyFile;
-  darkmanConfigText = if cfg.environment.etc ? "darkman/config.yaml" && cfg.environment.etc."darkman/config.yaml" ? text then cfg.environment.etc."darkman/config.yaml".text else "";
+  darkmanConfigText =
+    if cfg.environment.etc ? "xdg/darkman/config.yaml" && cfg.environment.etc."xdg/darkman/config.yaml" ? text then
+      cfg.environment.etc."xdg/darkman/config.yaml".text
+    else if cfg.environment.etc ? "darkman/config.yaml" && cfg.environment.etc."darkman/config.yaml" ? text then
+      cfg.environment.etc."darkman/config.yaml".text
+    else
+      "";
   themeHookFile =
     if cfg.environment.etc ? "xdg/darkman/theme-switch.sh" && cfg.environment.etc."xdg/darkman/theme-switch.sh" ? source then
       cfg.environment.etc."xdg/darkman/theme-switch.sh".source
@@ -173,7 +181,13 @@ let
     inherit pkgs;
   };
   cfgThemeGeoclue = evalThemeGeoclue.config;
-  geoclueConfigText = if cfgThemeGeoclue.environment.etc ? "darkman/config.yaml" && cfgThemeGeoclue.environment.etc."darkman/config.yaml" ? text then cfgThemeGeoclue.environment.etc."darkman/config.yaml".text else "";
+  geoclueConfigText =
+    if cfgThemeGeoclue.environment.etc ? "xdg/darkman/config.yaml" && cfgThemeGeoclue.environment.etc."xdg/darkman/config.yaml" ? text then
+      cfgThemeGeoclue.environment.etc."xdg/darkman/config.yaml".text
+    else if cfgThemeGeoclue.environment.etc ? "darkman/config.yaml" && cfgThemeGeoclue.environment.etc."darkman/config.yaml" ? text then
+      cfgThemeGeoclue.environment.etc."darkman/config.yaml".text
+    else
+      "";
   geoclueHookFile = if cfgThemeGeoclue.environment.etc ? "xdg/darkman/theme-switch.sh" && cfgThemeGeoclue.environment.etc."xdg/darkman/theme-switch.sh" ? source then cfgThemeGeoclue.environment.etc."xdg/darkman/theme-switch.sh".source else pkgs.emptyFile;
 
   # 变体5：全自定义主题（覆盖 dark/light/cursor/niri/layout/extraHook/wallpaper）
@@ -207,7 +221,13 @@ let
     inherit pkgs;
   };
   cfgThemeCustom = evalThemeCustom.config;
-  customDarkmanText = if cfgThemeCustom.environment.etc ? "darkman/config.yaml" && cfgThemeCustom.environment.etc."darkman/config.yaml" ? text then cfgThemeCustom.environment.etc."darkman/config.yaml".text else "";
+  customDarkmanText =
+    if cfgThemeCustom.environment.etc ? "xdg/darkman/config.yaml" && cfgThemeCustom.environment.etc."xdg/darkman/config.yaml" ? text then
+      cfgThemeCustom.environment.etc."xdg/darkman/config.yaml".text
+    else if cfgThemeCustom.environment.etc ? "darkman/config.yaml" && cfgThemeCustom.environment.etc."darkman/config.yaml" ? text then
+      cfgThemeCustom.environment.etc."darkman/config.yaml".text
+    else
+      "";
   customHookFile = if cfgThemeCustom.environment.etc ? "xdg/darkman/theme-switch.sh" && cfgThemeCustom.environment.etc."xdg/darkman/theme-switch.sh" ? source then cfgThemeCustom.environment.etc."xdg/darkman/theme-switch.sh".source else pkgs.emptyFile;
   customHasAwww = lib.hasInfix "awww-set" customDarkmanText || true; # placeholder, actual check via hook file grep in shell
   customSolarLat = toString cfgThemeCustom.desktop.theme.solar.latitude;
@@ -223,7 +243,7 @@ let
   disabledHasThemeSeedService = cfgThemeDisabled.systemd.user.services ? theme-seed;
   disabledHasThemeSyncService = cfgThemeDisabled.systemd.user.services ? theme-sync;
   disabledHasThemeSyncPath = cfgThemeDisabled.systemd.user.paths ? theme-sync;
-  disabledHasDarkmanEtc = cfgThemeDisabled.environment.etc ? "darkman/config.yaml";
+  disabledHasDarkmanEtc = (cfgThemeDisabled.environment.etc ? "xdg/darkman/config.yaml") || (cfgThemeDisabled.environment.etc ? "darkman/config.yaml");
   disabledHasHookEtc = cfgThemeDisabled.environment.etc ? "xdg/darkman/theme-switch.sh";
   disabledHasDarkmanPkg = lib.any (p: lib.hasInfix "darkman" (p.name or p.pname or "")) cfgThemeDisabled.environment.systemPackages;
 
@@ -332,6 +352,10 @@ pkgs.runCommand "${name}-static-check" {
 
     # ── 1. darkman YAML 配置文件格式与内容精确校验 ─────────────────────
     echo "[${name}] 验证 darkman YAML 配置文件..."
+    if [ "${if cfg.environment.etc ? "xdg/darkman/config.yaml" then "true" else "false"}" != "true" ]; then
+      echo "错误: environment.etc.\"xdg/darkman/config.yaml\" 未配置（XDG 规范路径）！"
+      exit 1
+    fi
     test -s "${darkmanConfigFile}" || {
       echo "错误: darkman 配置文件为空或不存在！"
       exit 1

@@ -835,7 +835,8 @@ in
         XCURSOR_SIZE = toString cfg.cursor.size;
       };
 
-      # 3. 部署 Darkman 配置文件（/etc/darkman/config.yaml 供系统级用户共享）
+      # 3. 部署 Darkman 配置文件（/etc/xdg/darkman/config.yaml 符合 XDG 规范，保留 /etc/darkman/config.yaml 兼容性）
+      environment.etc."xdg/darkman/config.yaml".text = darkmanConfig;
       environment.etc."darkman/config.yaml".text = darkmanConfig;
 
       # 4. 部署主题切换钩子脚本到 XDG_DATA_DIRS
