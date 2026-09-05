@@ -479,10 +479,6 @@ let
       margin: 0;
     }
 
-    #waybar.empty .modules-center {
-      opacity: 0;
-    }
-
     /* 居中胶囊岛风格分组容器 (Pills) */
     #group-center4,
     #group_center4,
