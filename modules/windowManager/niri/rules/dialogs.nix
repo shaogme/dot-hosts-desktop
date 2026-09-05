@@ -7,6 +7,13 @@
     default-window-height = { fixed = 600; };
   }
   {
+    match._props = {
+      app-id = "^(fcitx)$";
+      title = "^Fcitx5 Input Window$";
+    };
+    open-floating = true;
+  }
+  {
     match._props = { app-id = "^(qt5ct|qt6ct|kvantummanager)$"; };
     open-floating = true;
     default-column-width = { fixed = 850; };

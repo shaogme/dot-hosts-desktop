@@ -542,6 +542,13 @@ in
               default-column-width = { fixed = 850; };
               default-window-height = { fixed = 600; };
             }
+            {
+              match._props = {
+                app-id = "^(fcitx)$";
+                title = "^Fcitx5 Input Window$";
+              };
+              open-floating = true;
+            }
           ];
         };
       };
@@ -557,6 +564,7 @@ in
               type = "fcitx5";
               fcitx5 = {
                 addons = allAddons;
+                waylandFrontend = cfg.waylandFrontend;
                 quickPhrase = mkIf cfg.quickPhrase.enable cfg.quickPhrase.phrases;
                 settings = {
                   globalOptions = globalOptionsConfig;

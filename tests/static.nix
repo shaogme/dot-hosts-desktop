@@ -122,6 +122,16 @@ let
   hasV2raynBwrapSecurityWrapper = cfg.security.wrappers ? "v2rayn-bwrap";
   proxyBypassGid = cfg.users.groups.proxy-bypass.gid or null;
 
+  # ── 输入法与 Wayland 前端静态验证 ─────────────────────────────────
+  fcitx5Enabled = cfg.desktop.inputMethod.fcitx5.enable or false;
+  fcitx5WaylandFrontend = cfg.desktop.inputMethod.fcitx5.waylandFrontend or false;
+  hasEnvGtkImModule = cfg.environment.sessionVariables ? GTK_IM_MODULE;
+  hasHmGtkImModule =
+    if cfg ? home-manager && cfg.home-manager ? users then
+      lib.any (u: (u.home.sessionVariables or { }) ? GTK_IM_MODULE) (builtins.attrValues cfg.home-manager.users)
+    else
+      false;
+
   # ── 覆盖测试：主题多变体评估（基于当前 host 配置叠加 overlay） ───────
   # 变体1：强制深色模式
   evalThemeDark = import (pkgs.path + "/nixos/lib/eval-config.nix") {
@@ -819,6 +829,20 @@ pkgs.runCommand "${name}-static-check" {
       exit 1
     fi
     echo "[${name}] SOCKS-TUN 与 bypassProxy 静态验证通过！"
+  fi
+
+  # ── 11. 输入法与 Wayland 前端静态验证 ───────────────────────────────
+  if [ "${if fcitx5Enabled && fcitx5WaylandFrontend then "true" else "false"}" = "true" ]; then
+    echo "[${name}] 验证 Fcitx5 Wayland 前端与 GTK_IM_MODULE 环境变量..."
+    if [ "${if hasEnvGtkImModule then "true" else "false"}" = "true" ]; then
+      echo "错误: Wayland 前端启用时，environment.sessionVariables 不应设置 GTK_IM_MODULE"
+      exit 1
+    fi
+    if [ "${if hasHmGtkImModule then "true" else "false"}" = "true" ]; then
+      echo "错误: Wayland 前端启用时，Home Manager 用户 home.sessionVariables 不应设置 GTK_IM_MODULE"
+      exit 1
+    fi
+    echo "[${name}] Fcitx5 Wayland 前端静态验证通过！"
   fi
 
   echo "静态检查通过！"
