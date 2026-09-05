@@ -193,6 +193,14 @@ in
   # 内核模块: 启用 KVM 虚拟化支持 (AMD CPU)
   boot.kernelModules = [ "kvm-amd" ];
 
+  # 内核参数: 修复机械革命 GM5HG0A (8845H) 开关屏幕/休眠唤醒时 i8042 键盘控制器超时与通信失败
+  boot.kernelParams = [
+    "i8042.reset=1"
+    "i8042.nomux=1"
+    "i8042.nopnp=1"
+    "i8042.noloop=1"
+  ];
+
   # 网络配置: 使用 NetworkManager 后端
   base.hardware.network = {
     enable = true;
@@ -446,6 +454,15 @@ in
     {
       assertion = builtins.elem "kvm-amd" config.boot.kernelModules;
       message = "内核模块配置错误：kvm-amd 未启用";
+    }
+    {
+      assertion = builtins.all (param: builtins.elem param config.boot.kernelParams) [
+        "i8042.reset=1"
+        "i8042.nomux=1"
+        "i8042.nopnp=1"
+        "i8042.noloop=1"
+      ];
+      message = "内核参数配置错误：i8042 键盘控制器调优参数未完全启用";
     }
     {
       assertion = builtins.elem "kvm" config.users.users.${hostConfig.user}.extraGroups;
