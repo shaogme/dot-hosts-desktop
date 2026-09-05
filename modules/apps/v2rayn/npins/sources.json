@@ -11,10 +11,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "7.24.9",
-      "revision": "521230c40d5c180bc0727cf4003907edfae5a3e0",
-      "url": "https://api.github.com/repos/2dust/v2rayN/tarball/refs/tags/7.24.9",
-      "hash": "sha256-AHA5LYgTLMG3dikQxJbvaET6spr/pwr+Qhq4rIjQ2Zc="
+      "version": "7.25.0",
+      "revision": "d05c3439f880d4b09248468f533b17426184a1c3",
+      "url": "https://api.github.com/repos/2dust/v2rayN/tarball/refs/tags/7.25.0",
+      "hash": "sha256-L/X43ZjFc+7HTO8GC8WHPiVl1y0DgRXS+eWjitYIL8Q="
     }
   },
   "version": 8
