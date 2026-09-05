@@ -154,6 +154,13 @@ let
         desktop.theme.light.wallpaper = libVariant.mkForce "/tmp/wall-light.jpg";
       }];
     }
+    {
+      name = "awww-wallpaperdir-set";
+      description = "配置 awww.wallpaperDir 路径（覆盖 wallpaperDir!=null 分支）";
+      extraModules = [{
+        desktop.wallpaper.awww.wallpaperDir = libVariant.mkForce "/share/wallpapers";
+      }];
+    }
   ];
 
   makeThemeVariantTest = variant:

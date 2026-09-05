@@ -9,16 +9,9 @@ with lib;
 let
   awwwPkg = cfg.package;
 
-  # 默认壁纸检索目录列表
-  defaultSearchDirs = [
-    (if cfg.wallpaperDir != null then toString cfg.wallpaperDir else "")
-    "$HOME/Pictures/Wallpapers"
-    "$HOME/Pictures/wallpaper"
-    "$HOME/Pictures/Wallpapers/Anime"
-    "$HOME/Pictures/Wallpapers/Nature"
-    "/etc/wallpapers"
-  ];
-  searchDirsStr = concatStringsSep " " (filter (s: s != "") defaultSearchDirs);
+  # 壁纸检索目录列表（仅在显式配置 wallpaperDir 时生效，不设默认 fallback）
+  defaultSearchDirs = optional (cfg.wallpaperDir != null && toString cfg.wallpaperDir != "") (toString cfg.wallpaperDir);
+  searchDirsStr = escapeShellArgs defaultSearchDirs;
 
   # 基础渲染参数 (缩放、锚点方位、滤镜插值、填充背景色)
   baseRenderArgs = [
@@ -113,19 +106,26 @@ let
 
     # 收集有效搜索目录
     CANDIDATE_DIRS=()
-    if [ -n "$DIR" ] && [ -d "$DIR" ]; then
-      CANDIDATE_DIRS+=("$DIR")
+    if [ -n "$DIR" ]; then
+      if [ -d "$DIR" ]; then
+        CANDIDATE_DIRS+=("$DIR")
+      else
+        echo "错误: 指定的壁纸目录不存在: $DIR" >&2
+        exit 1
+      fi
+    ${optionalString (searchDirsStr != "") ''
     else
       for d in ${searchDirsStr}; do
-        eval exp_d="$d"
+        exp_d="''${d/#~/$HOME}"
+        exp_d="''${exp_d/#\$HOME/$HOME}"
         if [ -d "$exp_d" ]; then
           CANDIDATE_DIRS+=("$exp_d")
         fi
       done
-    fi
+    ''}fi
 
     if [ ''${#CANDIDATE_DIRS[@]} -eq 0 ]; then
-      echo "错误: 未找到任何有效的壁纸目录，请先配置壁纸目录 (cfg.wallpaperDir) 或在 ~/Pictures/Wallpapers 中放入壁纸文件" >&2
+      echo "错误: 未找到任何有效的壁纸目录，请先配置壁纸目录 (desktop.wallpaper.awww.wallpaperDir) 或指定有效壁纸目录参数" >&2
       exit 1
     fi
 
@@ -184,19 +184,26 @@ let
     OUTPUT="''${2:-}"
 
     CANDIDATE_DIRS=()
-    if [ -n "$DIR" ] && [ -d "$DIR" ]; then
-      CANDIDATE_DIRS+=("$DIR")
+    if [ -n "$DIR" ]; then
+      if [ -d "$DIR" ]; then
+        CANDIDATE_DIRS+=("$DIR")
+      else
+        echo "错误: 指定的壁纸目录不存在: $DIR" >&2
+        exit 1
+      fi
+    ${optionalString (searchDirsStr != "") ''
     else
       for d in ${searchDirsStr}; do
-        eval exp_d="$d"
+        exp_d="''${d/#~/$HOME}"
+        exp_d="''${exp_d/#\$HOME/$HOME}"
         if [ -d "$exp_d" ]; then
           CANDIDATE_DIRS+=("$exp_d")
         fi
       done
-    fi
+    ''}fi
 
     if [ ''${#CANDIDATE_DIRS[@]} -eq 0 ]; then
-      echo "错误: 未找到任何有效的壁纸目录，请先配置壁纸目录 (cfg.wallpaperDir) 或在 ~/Pictures/Wallpapers 中放入壁纸文件" >&2
+      echo "错误: 未找到任何有效的壁纸目录，请先配置壁纸目录 (desktop.wallpaper.awww.wallpaperDir) 或指定有效壁纸目录参数" >&2
       exit 1
     fi
 
@@ -243,19 +250,26 @@ let
     DIR="''${1:-}"
 
     CANDIDATE_DIRS=()
-    if [ -n "$DIR" ] && [ -d "$DIR" ]; then
-      CANDIDATE_DIRS+=("$DIR")
+    if [ -n "$DIR" ]; then
+      if [ -d "$DIR" ]; then
+        CANDIDATE_DIRS+=("$DIR")
+      else
+        echo "错误: 指定的壁纸目录不存在: $DIR" >&2
+        exit 1
+      fi
+    ${optionalString (searchDirsStr != "") ''
     else
       for d in ${searchDirsStr}; do
-        eval exp_d="$d"
+        exp_d="''${d/#~/$HOME}"
+        exp_d="''${exp_d/#\$HOME/$HOME}"
         if [ -d "$exp_d" ]; then
           CANDIDATE_DIRS+=("$exp_d")
         fi
       done
-    fi
+    ''}fi
 
     if [ ''${#CANDIDATE_DIRS[@]} -eq 0 ]; then
-      echo "错误: 未找到任何有效的壁纸目录，请先配置壁纸目录 (cfg.wallpaperDir) 或在 ~/Pictures/Wallpapers 中放入壁纸文件" >&2
+      echo "错误: 未找到任何有效的壁纸目录，请先配置壁纸目录 (desktop.wallpaper.awww.wallpaperDir) 或指定有效壁纸目录参数" >&2
       exit 1
     fi
 

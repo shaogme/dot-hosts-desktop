@@ -266,6 +266,17 @@ let
   rustInSystemPackages = builtins.elem (cfg.desktop.toolchain.rust.package or null) cfg.environment.systemPackages;
   rustHasSrcPath = (cfg.desktop.toolchain.rust.setSrcPath or false) && (cfg.environment.sessionVariables ? RUST_SRC_PATH);
 
+  # ── 壁纸模块 (desktop.wallpaper.awww) 静态检查变量 ─────────────────
+  awwwEnabled = cfg.desktop.wallpaper.awww.enable or false;
+  awwwWallpaperDir = cfg.desktop.wallpaper.awww.wallpaperDir or null;
+  awwwScripts = if awwwEnabled then import ../modules/wallpaper/awww/scripts.nix {
+    inherit pkgs lib;
+    cfg = cfg.desktop.wallpaper.awww;
+  } else null;
+  awwwRandomScriptBin = if awwwScripts != null then "${awwwScripts.awwwRandomScript}/bin/awww-random" else null;
+  awwwNextScriptBin = if awwwScripts != null then "${awwwScripts.awwwNextScript}/bin/awww-next" else null;
+  awwwSwitchScriptBin = if awwwScripts != null then "${awwwScripts.awwwSwitchScript}/bin/awww-switch" else null;
+
   # 安全转义
   escape = v: lib.escapeShellArg (toString v);
 in
@@ -940,6 +951,35 @@ pkgs.runCommand "${name}-static-check" {
       exit 1
     fi
     echo "[${name}] 开发工具链 (Rust) 静态验证通过！"
+  fi
+
+  # ── 13. 壁纸模块 (desktop.wallpaper.awww) 静态验证 ─────────────────────
+  if [ "${if awwwEnabled then "true" else "false"}" = "true" ]; then
+    echo "[${name}] 验证 awww 壁纸管理模块与检索脚本..."
+    ${if awwwWallpaperDir == null then ''
+      if grep -q "Pictures/Wallpapers" "${awwwRandomScriptBin}" || grep -q "Pictures/wallpaper" "${awwwRandomScriptBin}" || grep -q "/etc/wallpapers" "${awwwRandomScriptBin}"; then
+        echo "错误: awww-random 在 wallpaperDir 为空时不应包含 Pictures/Wallpapers、Pictures/wallpaper 或 /etc/wallpapers 回退路径"
+        exit 1
+      fi
+      if grep -q "Pictures/Wallpapers" "${awwwNextScriptBin}" || grep -q "Pictures/wallpaper" "${awwwNextScriptBin}" || grep -q "/etc/wallpapers" "${awwwNextScriptBin}"; then
+        echo "错误: awww-next 在 wallpaperDir 为空时不应包含 Pictures/Wallpapers、Pictures/wallpaper 或 /etc/wallpapers 回退路径"
+        exit 1
+      fi
+      if grep -q "Pictures/Wallpapers" "${awwwSwitchScriptBin}" || grep -q "Pictures/wallpaper" "${awwwSwitchScriptBin}" || grep -q "/etc/wallpapers" "${awwwSwitchScriptBin}"; then
+        echo "错误: awww-switch 在 wallpaperDir 为空时不应包含 Pictures/Wallpapers、Pictures/wallpaper 或 /etc/wallpapers 回退路径"
+        exit 1
+      fi
+    '' else ''
+      grep -q "${toString awwwWallpaperDir}" "${awwwRandomScriptBin}" || {
+        echo "错误: awww-random 未包含配置的 wallpaperDir (${toString awwwWallpaperDir})"
+        exit 1
+      }
+      if grep -q "Pictures/Wallpapers" "${awwwRandomScriptBin}" || grep -q "Pictures/wallpaper" "${awwwRandomScriptBin}" || grep -q "/etc/wallpapers" "${awwwRandomScriptBin}"; then
+        echo "错误: awww-random 不应包含未显式配置的默认回退路径"
+        exit 1
+      fi
+    ''}
+    echo "[${name}] awww 壁纸模块静态验证通过！"
   fi
 
   echo "静态检查通过！"

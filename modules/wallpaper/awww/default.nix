@@ -60,7 +60,7 @@ in
     wallpaperDir = mkOption {
       type = types.nullOr (types.either types.path types.str);
       default = null;
-      description = "壁纸轮播与随机选择检索目录（若未指定，默认检索 ~/Pictures/Wallpapers、~/Pictures/wallpaper 及 /etc/wallpapers）。";
+      description = "壁纸轮播与随机选择检索目录。";
     };
 
     color = mkOption {
@@ -358,6 +358,10 @@ in
         {
           assertion = cfg.wallpaper != null;
           message = "desktop.wallpaper.awww: 必须显式配置壁纸图片路径 (desktop.wallpaper.awww.wallpaper)。";
+        }
+        {
+          assertion = cfg.slideshow.enable -> (cfg.wallpaperDir != null && toString cfg.wallpaperDir != "");
+          message = "desktop.wallpaper.awww: 启用定时轮播 (desktop.wallpaper.awww.slideshow.enable) 时必须显式配置壁纸检索目录 (desktop.wallpaper.awww.wallpaperDir)。";
         }
       ];
 
