@@ -47,6 +47,11 @@ let
     esac
   '';
 
+  # 专用 Niri 窗口模糊搜索与切换器包装脚本
+  anyrunWindowScript = pkgs.writeShellScriptBin "anyrun-niri-focus" ''
+    exec ${cfg.package}/bin/anyrun --plugins ${cfg.package}/lib/libniri_focus.so "$@"
+  '';
+
   # 转换 numeric 位置与尺寸为 RON 格式
   renderNumeric = num:
     if num ? absolute && num.absolute != null then
@@ -232,6 +237,12 @@ let
     )
   '';
 
+  defaultNiriFocusRon = ''
+    Config(
+      max_entries: ${toString cfg.niri.focusPlugin.maxEntries},
+    )
+  '';
+
   # 基础配置文件集合
   baseConfigFiles = {
     "anyrun/config.ron".text = defaultConfigRon;
@@ -243,6 +254,7 @@ let
     "anyrun/translate.ron".text = defaultTranslateRon;
     "anyrun/stdin.ron".text = defaultStdinRon;
     "anyrun/websearch.ron".text = defaultWebsearchRon;
+    "anyrun/niri-focus.ron".text = defaultNiriFocusRon;
   };
 
   # 合并用户额外自定义配置文件
@@ -425,6 +437,12 @@ in
       type = types.listOf (types.either types.str types.package);
       default = [
         "${cfg.package}/lib/libapplications.so"
+      ]
+      ++ (optional (
+        (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable)
+        && cfg.niri.focusPlugin.enable
+      ) "${cfg.package}/lib/libniri_focus.so")
+      ++ [
         "${cfg.package}/lib/libactions.so"
         "${cfg.package}/lib/libsymbols.so"
         "${cfg.package}/lib/librink.so"
@@ -478,6 +496,26 @@ in
         default = [ "Mod+M" "XF86PowerOff" ];
         description = "在 Niri 中唤起 Anyrun 电源管理菜单的快捷键列表。";
       };
+
+      windowKeybind = mkOption {
+        type = types.str;
+        default = "Mod+Tab";
+        description = "在 Niri 中单独唤起 Anyrun 窗口模糊搜索/切换器的快捷键绑定（设为空字符串则不注册）。";
+      };
+
+      focusPlugin = {
+        enable = mkOption {
+          type = types.bool;
+          default = config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable;
+          description = "是否启用 Niri 窗口模糊搜索插件 (libniri_focus.so) 接入 Anyrun 全局启动器。";
+        };
+
+        maxEntries = mkOption {
+          type = types.int;
+          default = 6;
+          description = "Anyrun 窗口模糊搜索插件匹配结果的最大展示数量。";
+        };
+      };
     };
 
     homeManager = {
@@ -494,6 +532,7 @@ in
       environment.systemPackages = [
         cfg.package
         anyrunPowerScript
+        anyrunWindowScript
       ] ++ (selectedTheme.extraPackages or [ ]);
 
       # ── 主题联动：经 hookExtraPackages 追加（base 由 theme 固定） ──
@@ -566,6 +605,12 @@ in
               spawn = [ "anyrun" ];
             };
           })
+          // (optionalAttrs (cfg.niri.windowKeybind != "") {
+            "${cfg.niri.windowKeybind}" = {
+              _props.hotkey-overlay-title = "Window Switcher: Anyrun";
+              spawn = [ "anyrun-niri-focus" ];
+            };
+          })
           // (listToAttrs (map (bindStr: {
             name = bindStr;
             value = {
@@ -580,7 +625,7 @@ in
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
           ({ ... }: {
-            home.packages = [ cfg.package anyrunPowerScript ] ++ (selectedTheme.extraPackages or [ ]);
+            home.packages = [ cfg.package anyrunPowerScript anyrunWindowScript ] ++ (selectedTheme.extraPackages or [ ]);
 
             systemd.user.services.anyrun = mkIf cfg.daemon.enable {
               Unit = {
