@@ -10,7 +10,8 @@ with lib;
 
 let
   cfg = config.desktop.launcher.anyrun;
-  themes = import ./themes.nix;
+  availableThemes = import ./themes.nix { inherit pkgs lib config; };
+  selectedTheme = availableThemes.${cfg.theme} or availableThemes.default-theme;
   svgIcons = import ./icons.nix { inherit pkgs; };
 
   # 专用电源管理菜单包装脚本（纯净文本，无 emoji）
@@ -125,10 +126,10 @@ let
   '';
 
   # 生成 GTK4 CSS 样式
-  styleCss = themes.generateCss {
-    themeName = cfg.theme;
-    extraCss = cfg.extraCss;
-  };
+  finalStyleText =
+    (if cfg.style != "" then cfg.style else selectedTheme.style)
+    + optionalString (cfg.extraStyle != "") "\n${cfg.extraStyle}"
+    + optionalString (cfg.extraCss != "") "\n${cfg.extraCss}";
 
   # 默认插件配置文件定义
   defaultApplicationsRon = ''
@@ -234,7 +235,7 @@ let
   # 基础配置文件集合
   baseConfigFiles = {
     "anyrun/config.ron".text = defaultConfigRon;
-    "anyrun/style.css".text = styleCss;
+    "anyrun/style.css".text = finalStyleText;
     "anyrun/applications.ron".text = defaultApplicationsRon;
     "anyrun/actions.ron".text = defaultActionsRon;
     "anyrun/shell.ron".text = defaultShellRon;
@@ -289,9 +290,9 @@ in
     };
 
     theme = mkOption {
-      type = types.enum [ "default-theme" "catppuccin-mocha" "tokyo-night" "nord" ];
+      type = types.str;
       default = "default-theme";
-      description = "Anyrun 启动器视觉主题配色方案。默认使用 default-theme（与 Waybar default-theme 风格统一）。";
+      description = "Anyrun 启动器视觉主题配色方案。默认使用 default-theme（与全局主题系统及 Waybar default-theme 风格统一并联动切换）。";
     };
 
     position = {
@@ -441,10 +442,22 @@ in
       description = "追加写入 config.ron 的自定义 RON 配置片段。";
     };
 
+    style = mkOption {
+      type = types.lines;
+      default = "";
+      description = "自定义 Anyrun CSS 样式表内容（若设置则完全替换子主题预设）。";
+    };
+
+    extraStyle = mkOption {
+      type = types.lines;
+      default = "";
+      description = "追加到 Anyrun 样式表的自定义 CSS 规则。";
+    };
+
     extraCss = mkOption {
       type = types.lines;
       default = "";
-      description = "追加写入 style.css 的自定义 GTK4 CSS 样式。";
+      description = "追加写入 style.css 的自定义 GTK4 CSS 样式（兼容保留选项，功能等同于 extraStyle）。";
     };
 
     extraConfigFiles = mkOption {
@@ -481,7 +494,28 @@ in
       environment.systemPackages = [
         cfg.package
         anyrunPowerScript
+      ] ++ (selectedTheme.extraPackages or [ ]);
+
+      # ── 主题联动：经 hookExtraPackages 追加（base 由 theme 固定） ──
+      desktop.theme.hookExtraPackages = mkIf (config.desktop.theme.enable or false) [
+        cfg.package
+        pkgs.procps
+        pkgs.systemd
       ];
+      desktop.theme.hookFragmentsReload = mkIf (config.desktop.theme.enable or false) [''
+        # --- Anyrun 主题联动 reload（由 modules/launcher/anyrun 注入，需 anyrun 守护进程，seed 跳过） ---
+        if systemctl --user is-active anyrun.service >/dev/null 2>&1; then
+          if ! systemctl --user restart anyrun.service; then echo "[theme-switch] warn: anyrun reload failed" >&2; fi
+        elif pgrep -x anyrun >/dev/null 2>&1; then
+          if command -v pkill >/dev/null 2>&1; then
+            if ! pkill -x anyrun; then echo "[theme-switch] warn: anyrun kill failed" >&2; fi
+          elif [ -x "${pkgs.procps}/bin/pkill" ]; then
+            if ! ${pkgs.procps}/bin/pkill -x anyrun; then echo "[theme-switch] warn: anyrun kill failed" >&2; fi
+          fi
+        else
+          echo "[theme-switch] diag: anyrun not running, skipping reload" >&2
+        fi
+      ''];
 
       # 忽略 systemd-logind 对物理电源按键的默认关机动作，交由 Anyrun 电源菜单快捷键接管
       services.logind.settings = {
@@ -546,7 +580,7 @@ in
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
           ({ ... }: {
-            home.packages = [ cfg.package anyrunPowerScript ];
+            home.packages = [ cfg.package anyrunPowerScript ] ++ (selectedTheme.extraPackages or [ ]);
 
             systemd.user.services.anyrun = mkIf cfg.daemon.enable {
               Unit = {

@@ -623,6 +623,7 @@ in
         hoverBg = mkOption { type = types.str; default = paletteLib.palettes.dark.hoverBg; description = "深色模式悬停背景。"; };
         hoverBgLight = mkOption { type = types.str; default = paletteLib.palettes.dark.hoverBgLight; description = "深色模式浅悬停背景。"; };
         selectedBg = mkOption { type = types.str; default = paletteLib.palettes.dark.selectedBg; description = "深色模式选中背景。"; };
+        glow = mkOption { type = types.str; default = paletteLib.palettes.dark.glow; description = "深色模式发光/光晕色。"; };
         warning = mkOption { type = types.str; default = paletteLib.palettes.dark.warning; description = "深色模式警告色。"; };
         critical = mkOption { type = types.str; default = paletteLib.palettes.dark.critical; description = "深色模式危险色。"; };
       };
@@ -638,6 +639,7 @@ in
         hoverBg = mkOption { type = types.str; default = paletteLib.palettes.light.hoverBg; description = "浅色模式悬停背景。"; };
         hoverBgLight = mkOption { type = types.str; default = paletteLib.palettes.light.hoverBgLight; description = "浅色模式浅悬停背景。"; };
         selectedBg = mkOption { type = types.str; default = paletteLib.palettes.light.selectedBg; description = "浅色模式选中背景。"; };
+        glow = mkOption { type = types.str; default = paletteLib.palettes.light.glow; description = "浅色模式发光/光晕色。"; };
         warning = mkOption { type = types.str; default = paletteLib.palettes.light.warning; description = "浅色模式警告色。"; };
         critical = mkOption { type = types.str; default = paletteLib.palettes.light.critical; description = "浅色模式危险色。"; };
       };
@@ -803,7 +805,7 @@ in
             printf '%s' "$UNIFIED_CSS" > "$UNIFIED_DIR/colors.css" || echo "[theme-switch] warn: failed to write unified colors.css" >&2
           fi
           # 相对导入支持：写入 $XDG_CONFIG_HOME 旁的 colors.css (使 @import "colors.css" 生效)
-          for app in waybar swaync; do
+          for app in waybar swaync anyrun; do
             DST="''${XDG_CONFIG_HOME:-$HOME/.config}/$app/colors.css"
             mkdir -p "$(dirname "$DST")" || true
             if ! printf '%s' "$UNIFIED_CSS" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$DST"; then

@@ -16,6 +16,7 @@ let
       hoverBg = "rgba(255, 255, 255, 0.08)";
       hoverBgLight = "rgba(255, 255, 255, 0.12)";
       selectedBg = "rgba(137, 180, 250, 0.15)";
+      glow = "rgba(137, 180, 250, 0.35)";
       warning = "#f9e2af";
       critical = "#f38ba8";
     };
@@ -31,13 +32,14 @@ let
       hoverBg = "rgba(76, 79, 105, 0.08)";
       hoverBgLight = "rgba(76, 79, 105, 0.12)";
       selectedBg = "rgba(30, 102, 245, 0.12)";
+      glow = "rgba(30, 102, 245, 0.35)";
       warning = "#df8e1d";
       critical = "#d20f39";
     };
   };
 
-  # 将 palette 转为 GTK CSS @define-color 块 (waybar/swaync 共享超集)
-  # 包含 waybar 的 8 色 + swaync 扩展的 muted/dim/hover-light/selected-bg/accent
+  # 将 palette 转为 GTK CSS @define-color 块 (waybar/swaync/anyrun 共享超集)
+  # 包含 waybar 的 8 色 + swaync 扩展的 muted/dim/hover-light/selected-bg/accent + anyrun 兼容别名与 glow
   toCss = palette: ''
     @define-color background ${palette.background};
     @define-color background-card ${palette.backgroundCard};
@@ -50,8 +52,15 @@ let
     @define-color hover-bg ${palette.hoverBg};
     @define-color hover-bg-light ${palette.hoverBgLight};
     @define-color selected-bg ${palette.selectedBg};
+    @define-color glow-color ${palette.glow or "alpha(@accent, 0.35)"};
     @define-color warning ${palette.warning};
     @define-color critical ${palette.critical};
+
+    /* Anyrun 语义别名 */
+    @define-color bg-color ${palette.background};
+    @define-color card-bg ${palette.backgroundCard};
+    @define-color fg-color ${palette.foreground};
+    @define-color desc-color ${palette.foregroundMuted};
   '';
 
   # 生成运行时 colors.css 内容 (含文件头注释)
