@@ -295,6 +295,10 @@ let
   rustHasPackage = cfg.desktop.toolchain.rust ? package && cfg.desktop.toolchain.rust.package != null;
   rustInSystemPackages = builtins.elem (cfg.desktop.toolchain.rust.package or null) cfg.environment.systemPackages;
   rustHasSrcPath = (cfg.desktop.toolchain.rust.setSrcPath or false) && (cfg.environment.sessionVariables ? RUST_SRC_PATH);
+  rustCargoBinPath = cfg.desktop.toolchain.rust.cargoBinPath or "$HOME/.cargo/bin";
+  rustHasCargoBinInPath = (cfg.desktop.toolchain.rust.cargoBinInPath or false)
+    && (cfg.environment.sessionVariables ? PATH)
+    && (lib.hasInfix rustCargoBinPath (cfg.environment.sessionVariables.PATH or ""));
 
   # ── 壁纸模块 (desktop.wallpaper.awww) 静态检查变量 ─────────────────
   awwwEnabled = cfg.desktop.wallpaper.awww.enable or false;
@@ -992,6 +996,10 @@ pkgs.runCommand "${name}-static-check" {
     fi
     if [ "${if rustHasSrcPath then "true" else "false"}" != "true" ]; then
       echo "错误: setSrcPath 启用时 environment.sessionVariables.RUST_SRC_PATH 未设置"
+      exit 1
+    fi
+    if [ "${if rustHasCargoBinInPath then "true" else "false"}" != "true" ]; then
+      echo "错误: cargoBinInPath 启用时 environment.sessionVariables.PATH 未正确包含 Cargo bin 路径"
       exit 1
     fi
     echo "[${name}] 开发工具链 (Rust) 静态验证通过！"

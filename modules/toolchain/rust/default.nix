@@ -46,6 +46,8 @@ in
   imports = [
     (mkAliasOptionModule [ "toolchain" "rust" ] [ "desktop" "toolchain" "rust" ])
     (mkAliasOptionModule [ "desktop" "toolchains" "rust" ] [ "desktop" "toolchain" "rust" ])
+    (mkAliasOptionModule [ "desktop" "toolchain" "rust" "addCargoBinToPath" ] [ "desktop" "toolchain" "rust" "cargoBinInPath" ])
+    (mkAliasOptionModule [ "desktop" "toolchain" "rust" "addCargoToPath" ] [ "desktop" "toolchain" "rust" "cargoBinInPath" ])
   ];
 
   options.desktop.toolchain.rust = {
@@ -103,6 +105,19 @@ in
       description = "是否自动设置 RUST_SRC_PATH 环境变量指向 rust-src 源码路径。";
     };
 
+    cargoBinInPath = mkOption {
+      type = types.bool;
+      default = true;
+      description = "是否自动将 Cargo 二进制安装路径（~/.cargo/bin）添加到系统的 PATH 环境变量中。";
+    };
+
+    cargoBinPath = mkOption {
+      type = types.str;
+      default = "$HOME/.cargo/bin";
+      example = "$CARGO_HOME/bin";
+      description = "Cargo 编译安装可执行文件的目标路径（用于添加到 PATH）。";
+    };
+
     homeManager = {
       enable = mkOption {
         type = types.bool;
@@ -120,10 +135,15 @@ in
       # 2. 系统级安装 Rust 工具链与附加工具
       environment.systemPackages = [ cfg.package ] ++ cfg.extraPackages;
 
-      # 3. 配置系统会话环境变量 (RUST_SRC_PATH)
-      environment.sessionVariables = mkIf cfg.setSrcPath {
-        RUST_SRC_PATH = "${cfg.package}/lib/rustlib/src/rust/library";
-      };
+      # 3. 配置系统会话环境变量 (RUST_SRC_PATH 及 PATH)
+      environment.sessionVariables = mkMerge [
+        (mkIf cfg.setSrcPath {
+          RUST_SRC_PATH = "${cfg.package}/lib/rustlib/src/rust/library";
+        })
+        (mkIf cfg.cargoBinInPath {
+          PATH = [ cfg.cargoBinPath ];
+        })
+      ];
     }
 
     # 4. 同步集成至 Home Manager
@@ -135,6 +155,9 @@ in
             home.sessionVariables = mkIf cfg.setSrcPath {
               RUST_SRC_PATH = "${cfg.package}/lib/rustlib/src/rust/library";
             };
+            home.sessionPath = mkIf cfg.cargoBinInPath [
+              cfg.cargoBinPath
+            ];
           })
         ];
       };

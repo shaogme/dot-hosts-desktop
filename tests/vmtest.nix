@@ -311,6 +311,8 @@ pkgs.testers.nixosTest {
           server.succeed("which cargo")
           server.succeed("rustc --version")
           server.succeed("cargo --version")
+          if ${if serverCfg.desktop.toolchain.rust.cargoBinInPath or false then "True" else "False"}:
+              server.succeed("bash -l -c 'echo $PATH' | grep -q '/.cargo/bin'")
           print("--- 开发工具链 (Rust) 验证通过！---")
 
       print("VM 测试全部通过！")

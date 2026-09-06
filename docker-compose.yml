@@ -26,9 +26,9 @@ services:
     container_name: dot-hosts-desktop-dev
     volumes:
       # Mount host source code
-      - .:/workspace
-      - ./.git:/workspace/.git:ro
-      - ./docker-compose.yml:/workspace/docker-compose.yml:ro
+      - .:/workspace:Z,U
+      - ./.git:/workspace/.git:Z,U,ro
+      - ./docker-compose.yml:/workspace/docker-compose.yml:Z,U,ro
       # Isolate Rust build artifacts inside a dedicated named Docker volume (high-performance Linux ext4)
       - rust-target:/data/.cargo/target
       # Persist Cargo dependencies, crate index, and git checkouts
