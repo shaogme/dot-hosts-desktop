@@ -11,6 +11,11 @@ with lib;
 let
   cfg = config.desktop.inputMethod.fcitx5;
 
+  # 工具函数：规范化按键字符串（将 "Space" 转换为 Fcitx5 能够合法解析的 "space"）
+  normalizeKey = k:
+    if k == "Space" then "space"
+    else builtins.replaceStrings [ "+Space" ] [ "+space" ] k;
+
   # 工具函数：将列表转换为 Fcitx5 INI 索引格式 (0=..., 1=...)
   listToIndexedAttrs = list:
     builtins.listToAttrs (lib.imap0 (i: v: lib.nameValuePair (toString i) v) list);
@@ -65,11 +70,12 @@ let
       EnumerateWithTriggerKeys = true;
       EnumerateSkipFirst = false;
     };
-    "Hotkey/TriggerKeys" = listToIndexedAttrs cfg.hotkey.triggerKeys;
-    "Hotkey/PrevPage" = listToIndexedAttrs cfg.hotkey.prevPage;
-    "Hotkey/NextPage" = listToIndexedAttrs cfg.hotkey.nextPage;
-    "Hotkey/PrevCandidate" = listToIndexedAttrs cfg.hotkey.prevCandidate;
-    "Hotkey/NextCandidate" = listToIndexedAttrs cfg.hotkey.nextCandidate;
+    "Hotkey/TriggerKeys" = listToIndexedAttrs (map normalizeKey cfg.hotkey.triggerKeys);
+    "Hotkey/AltTriggerKeys" = listToIndexedAttrs (map normalizeKey cfg.hotkey.altTriggerKeys);
+    "Hotkey/PrevPage" = listToIndexedAttrs (map normalizeKey cfg.hotkey.prevPage);
+    "Hotkey/NextPage" = listToIndexedAttrs (map normalizeKey cfg.hotkey.nextPage);
+    "Hotkey/PrevCandidate" = listToIndexedAttrs (map normalizeKey cfg.hotkey.prevCandidate);
+    "Hotkey/NextCandidate" = listToIndexedAttrs (map normalizeKey cfg.hotkey.nextCandidate);
   } cfg.hotkey.extraSettings;
 
   # 5. 输入法组与列表配置 (profile)
@@ -429,8 +435,14 @@ in
     hotkey = {
       triggerKeys = mkOption {
         type = types.listOf types.str;
-        default = [ "Control+Space" "Shift_L" ];
-        description = "激活与切换输入法的热键列表。";
+        default = [ "Control+space" ];
+        description = "激活与切换输入法的热键列表（如 Control+space）。";
+      };
+
+      altTriggerKeys = mkOption {
+        type = types.listOf types.str;
+        default = [ "Shift_L" ];
+        description = "临时切换中英文状态热键（默认为 Shift_L）。";
       };
 
       prevPage = mkOption {
@@ -511,11 +523,9 @@ in
         };
       };
 
-      # 2. 系统环境软件包（提供 GUI 配置工具与控制命令）
-      environment.systemPackages = [
-        pkgs.fcitx5
-        pkgs.qt6Packages.fcitx5-configtool
-      ];
+      # 2. 系统环境软件包（由 upstream i18n.inputMethod.type = "fcitx5" 自动注入 cfg.package 即 fcitx5-with-addons，
+      #    切勿在此引入 bare unwrapped pkgs.fcitx5，避免 buildEnv 中发生符号链接覆盖导致缺失 FCITX_ADDON_DIRS）
+      environment.systemPackages = [ ];
 
       # 3. 会话环境变量（确保 X11 / Wayland / GTK / Qt / SDL / Electron / Java 全平台中文输入就绪）
       environment.sessionVariables = {
@@ -530,7 +540,7 @@ in
       # 4. Niri 桌面联动（自启动与窗口浮动规则）
       desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable) {
         autostart = mkIf cfg.niri.autostart [
-          "fcitx5 -d --replace"
+          "${config.i18n.inputMethod.package}/bin/fcitx5 -d --replace"
         ];
         windowRules = mkIf cfg.niri.windowRules {
           extraRules = [
@@ -555,23 +565,20 @@ in
     }
 
     # 5. Home Manager 用户环境联动
+    # 注意：切勿在 Home Manager 中启用 i18n.inputMethod.enable = true，因为 HM 上游会将整个 ~/.config/fcitx5
+    # 设置为只读的 pkgs.linkFarm 软链接，导致 Fcitx5 状态持久化与 Rime 运行时编译（~/.config/fcitx5/rime）报 EROFS 只读文件系统错误。
+    # NixOS 系统级模块通过 /etc/xdg/fcitx5 统一提供系统默认声明式配置，由 XDG 标准回退生效，同时保持用户 ~/.config/fcitx5 正常可读写。
     (optionalAttrs (options ? home-manager) {
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
           ({ ... }: {
-            i18n.inputMethod = {
-              enable = true;
-              type = "fcitx5";
-              fcitx5 = {
-                addons = allAddons;
-                waylandFrontend = cfg.waylandFrontend;
-                quickPhrase = mkIf cfg.quickPhrase.enable cfg.quickPhrase.phrases;
-                settings = {
-                  globalOptions = globalOptionsConfig;
-                  inputMethod = inputMethodProfile;
-                  addons = addonsConf;
-                };
-              };
+            home.sessionVariables = {
+              XMODIFIERS = "@im=fcitx";
+              QT_IM_MODULE = "fcitx";
+              SDL_IM_MODULE = "fcitx";
+              GLFW_IM_MODULE = "ibus";
+            } // optionalAttrs (!cfg.waylandFrontend) {
+              GTK_IM_MODULE = "fcitx";
             };
           })
         ];

@@ -30,7 +30,7 @@ desktop.inputMethod.fcitx5 = {
 无需任何额外配置，系统将默认应用：
 
 - 默认输入法：Rime（雾凇拼音 `rime_ice`）
-- 默认快捷键：`Ctrl + Space` / `Shift_L` 激活与切换
+- 默认快捷键：`Control + space` 激活输入法，`Shift_L` 临时切换中英文（由 Rime 内联状态管理）
 - 默认候选词：横排显示，每页 5 个词
 - 默认主题：`catppuccin-mocha-mauve`
 
@@ -124,10 +124,11 @@ desktop.inputMethod.fcitx5 = {
 | `desktop.inputMethod.fcitx5.chineseAddons.cloudPinyin.enable` | `bool` | `true` | 是否启用云拼音候选增强 |
 | `desktop.inputMethod.fcitx5.chineseAddons.cloudPinyin.backend` | `enum` | `"Baidu"` | 云拼音后端（`"Baidu"` / `"Google"`） |
 | `desktop.inputMethod.fcitx5.quickPhrase.enable` | `bool` | `true` | 是否启用快捷短语与表情符号 |
-| `desktop.inputMethod.fcitx5.hotkey.triggerKeys` | `listOf str` | `[ "Control+Space" "Shift_L" ]` | 输入法切换激活热键 |
+| `desktop.inputMethod.fcitx5.hotkey.triggerKeys` | `listOf str` | `[ "Control+space" ]` | 输入法切换激活热键（支持 Control+space 等） |
+| `desktop.inputMethod.fcitx5.hotkey.altTriggerKeys` | `listOf str` | `[ "Shift_L" ]` | 临时切换中英文状态热键 |
 | `desktop.inputMethod.fcitx5.niri.autostart` | `bool` | `true` | 是否在 Niri 启动时自启 Fcitx5 |
 | `desktop.inputMethod.fcitx5.niri.windowRules` | `bool` | `true` | 是否注册 Fcitx5 配置界面的浮动与居中规则 |
-| `desktop.inputMethod.fcitx5.homeManager.enable` | `bool` | `true` | 是否同步配置至 Home Manager |
+| `desktop.inputMethod.fcitx5.homeManager.enable` | `bool` | `true` | 是否自动同步环境变量至 Home Manager |
 
 ---
 

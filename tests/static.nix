@@ -162,6 +162,18 @@ let
       lib.any (u: (u.home.sessionVariables or { }) ? GTK_IM_MODULE) (builtins.attrValues cfg.home-manager.users)
     else
       false;
+  hasBareFcitxPkg = lib.any (p: (p.pname or "") == "fcitx5" || (p.name or "") == "fcitx5" || lib.hasPrefix "fcitx5-5." (p.name or "")) cfg.environment.systemPackages;
+  hasHmFcitxLinkFarm =
+    if cfg ? home-manager && cfg.home-manager ? users then
+      lib.any (u: (u.xdg.configFile or { }) ? fcitx5) (builtins.attrValues cfg.home-manager.users)
+    else
+      false;
+  niriAutostartList = cfg.desktop.windowManager.niri.autostart or [ ];
+  niriHasWrappedFcitxAutostart =
+    if fcitx5Enabled && (cfg.desktop.windowManager.niri.enable or false) && (cfg.desktop.inputMethod.fcitx5.niri.autostart or false) then
+      lib.any (cmd: lib.hasInfix "fcitx5-with-addons" (builtins.unsafeDiscardStringContext (toString cmd))) niriAutostartList
+    else
+      true;
 
   # ── 调优模块 (desktop.tuning) 静态验证变量 ────────────────────────
   tuningEnabled = cfg.desktop.tuning.enable or false;
@@ -940,17 +952,31 @@ pkgs.runCommand "${name}-static-check" {
   fi
 
   # ── 11. 输入法与 Wayland 前端静态验证 ───────────────────────────────
-  if [ "${if fcitx5Enabled && fcitx5WaylandFrontend then "true" else "false"}" = "true" ]; then
-    echo "[${name}] 验证 Fcitx5 Wayland 前端与 GTK_IM_MODULE 环境变量..."
-    if [ "${if hasEnvGtkImModule then "true" else "false"}" = "true" ]; then
-      echo "错误: Wayland 前端启用时，environment.sessionVariables 不应设置 GTK_IM_MODULE"
+  if [ "${if fcitx5Enabled then "true" else "false"}" = "true" ]; then
+    echo "[${name}] 验证 Fcitx5 输入法配置与环境安全性..."
+    if [ "${if hasBareFcitxPkg then "true" else "false"}" = "true" ]; then
+      echo "错误: systemPackages 不应包含 bare unwrapped fcitx5，会导致在 buildEnv 中覆盖 fcitx5-with-addons 导致丢失插件"
       exit 1
     fi
-    if [ "${if hasHmGtkImModule then "true" else "false"}" = "true" ]; then
-      echo "错误: Wayland 前端启用时，Home Manager 用户 home.sessionVariables 不应设置 GTK_IM_MODULE"
+    if [ "${if hasHmFcitxLinkFarm then "true" else "false"}" = "true" ]; then
+      echo "错误: Home Manager 不应将 ~/.config/fcitx5 链接为只读 linkFarm，会导致 Rime/状态保存报 EROFS 只读错误"
       exit 1
     fi
-    echo "[${name}] Fcitx5 Wayland 前端静态验证通过！"
+    if [ "${if niriHasWrappedFcitxAutostart then "true" else "false"}" != "true" ]; then
+      echo "错误: Niri autostart 中 fcitx5 必须使用绝对路径指向 wrapped package (fcitx5-with-addons/bin/fcitx5)"
+      exit 1
+    fi
+    ${if fcitx5WaylandFrontend then ''
+      if [ "${if hasEnvGtkImModule then "true" else "false"}" = "true" ]; then
+        echo "错误: Wayland 前端启用时，environment.sessionVariables 不应设置 GTK_IM_MODULE"
+        exit 1
+      fi
+      if [ "${if hasHmGtkImModule then "true" else "false"}" = "true" ]; then
+        echo "错误: Wayland 前端启用时，Home Manager 用户 home.sessionVariables 不应设置 GTK_IM_MODULE"
+        exit 1
+      fi
+    '' else ""}
+    echo "[${name}] Fcitx5 静态配置与集成验证通过！"
   fi
 
   # ── 12. 开发工具链 (Rust) 静态验证 ───────────────────────────────────
