@@ -315,6 +315,38 @@ pkgs.testers.nixosTest {
               server.succeed("bash -l -c 'echo $PATH' | grep -q '/.cargo/bin'")
           print("--- 开发工具链 (Rust) 验证通过！---")
 
+      # 验证跨用户自定义存储路径模块 (desktop.storage)
+      if ${if serverCfg.desktop.storage.enable or false then "True" else "False"}:
+          print("--- 验证跨用户自定义存储路径 (desktop.storage) ---")
+          # 1. 验证 /data 目录已由 tmpfiles 自动创建
+          server.succeed("test -d /data")
+
+          # 2. 验证所有者与所属组 (root:users)
+          owner = server.succeed("stat -c '%U:%G' /data").strip()
+          assert owner == "root:users", f"Owner mismatch on /data: expected root:users, got {owner}"
+
+          # 3. 验证权限模式 (2775，包含 setgid 标志位)
+          mode = server.succeed("stat -c '%a' /data").strip()
+          assert mode == "2775", f"Mode mismatch on /data: expected 2775, got {mode}"
+
+          # 4. 验证普通用户 (shaog) 在 /data 中拥有创建与写入权限
+          server.succeed("su - shaog -c 'touch /data/user-test.txt && echo hello > /data/user-test.txt'")
+          content = server.succeed("cat /data/user-test.txt").strip()
+          assert content == "hello", f"Content mismatch in /data/user-test.txt: got {content}"
+
+          # 5. 验证普通用户创建的文件自动继承 users 组 (setgid 特性)
+          file_group = server.succeed("stat -c '%G' /data/user-test.txt").strip()
+          assert file_group == "users", f"Group mismatch on /data/user-test.txt: expected users, got {file_group}"
+
+          # 6. 验证 root 创建的文件，普通用户具备读取并更新权限 (跨用户协作)
+          server.succeed("touch /data/root-test.txt && chmod 664 /data/root-test.txt")
+          server.succeed("su - shaog -c 'echo updated-by-user >> /data/root-test.txt'")
+
+          # 7. 清理测试文件
+          server.succeed("su - shaog -c 'rm -f /data/user-test.txt'")
+          server.succeed("rm -f /data/root-test.txt")
+          print("--- 跨用户自定义存储路径验证通过！---")
+
       print("VM 测试全部通过！")
     '';
 }

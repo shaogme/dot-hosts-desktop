@@ -16,6 +16,7 @@
     ./packages
     ./portal
     ./services
+    ./storage
     ./terminal
     ./theme
     ./toolchain
