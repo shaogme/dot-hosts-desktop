@@ -22,6 +22,7 @@
     , bypassProxy ? false
     , shareDownloads ? true
     , shareUserDirs ? false
+    , shareData ? true
     , shareThemeStatic ? true
     , shareThemeLive ? true
     , sharedDirs ? [ ]
@@ -45,16 +46,24 @@
         "Downloads" "下载"
       ];
 
+      defaultDataDirs = [
+        "/data"
+      ];
+
       # 静态去重: 调用侧已保证集合语义, 此处仅拼接常量 (O(1) 评估, 无 lib.unique).
       effectiveSharedDirs =
         (lib.optionals shareDownloads defaultDownloadsDirs)
+        ++ (lib.optionals shareData defaultDataDirs)
         ++ sharedDirs;
 
       effectiveRoSharedDirs =
         (lib.optionals shareUserDirs defaultUserDirs)
         ++ roSharedDirs;
 
-      formatBindArg = dir:
+      formatBindArg = rawDir:
+        let
+          dir = if rawDir != "/" && lib.hasSuffix "/" rawDir then lib.removeSuffix "/" rawDir else rawDir;
+        in
         if lib.hasPrefix "/" dir then [ dir dir ]
         else [ "\$HOME/${dir}" "\$HOME/${dir}" ];
     in
@@ -62,9 +71,13 @@
       "--tmpfs" "$HOME"
       "--bind" sandboxHome "$HOME"
     ]
-    ++ lib.optionals isolatedHome (
-      (lib.concatMap (dir: [ "--bind-try" ] ++ (formatBindArg dir)) effectiveSharedDirs)
-      ++ (lib.concatMap (dir: [ "--ro-bind-try" ] ++ (formatBindArg dir)) effectiveRoSharedDirs)
+    ++ (
+      let
+        dirsToBind = if isolatedHome then effectiveSharedDirs else (lib.filter (d: lib.hasPrefix "/" d) effectiveSharedDirs);
+        roDirsToBind = if isolatedHome then effectiveRoSharedDirs else (lib.filter (d: lib.hasPrefix "/" d) effectiveRoSharedDirs);
+      in
+      (lib.concatMap (dir: [ "--bind-try" ] ++ (formatBindArg dir)) dirsToBind)
+      ++ (lib.concatMap (dir: [ "--ro-bind-try" ] ++ (formatBindArg dir)) roDirsToBind)
     )
     # 静态快照（icons/gtk ini）：关掉会连图标一起丢，允许按 App 关 live 但保持静态。
     ++ lib.optionals (isolatedHome && shareThemeStatic) [

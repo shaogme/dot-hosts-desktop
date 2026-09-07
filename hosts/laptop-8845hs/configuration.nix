@@ -359,6 +359,21 @@ in
   };
 
   # ==========================================
+  # 自定义跨用户存储路径配置 (/data)
+  # ==========================================
+  desktop.storage = {
+    enable = true;
+    paths = {
+      "/data" = {
+        user = "root";
+        group = "users";
+        mode = "2775";
+        acl.enable = true;
+      };
+    };
+  };
+
+  # ==========================================
   # 透明代理服务 (sing-box SOCKS5 TUN)
   # ==========================================
   services.socks-tun = {
@@ -702,6 +717,22 @@ in
     {
       assertion = config.desktop.toolchain.rust.enable == true;
       message = "开发工具链配置错误：Rust 工具链未启用";
+    }
+    {
+      assertion = config.desktop.storage.enable == true;
+      message = "存储配置错误：desktop.storage 未启用";
+    }
+    {
+      assertion = config.desktop.storage.paths ? "/data";
+      message = "存储配置错误：未配置 /data 跨用户存储路径";
+    }
+    {
+      assertion = config.desktop.storage.paths."/data".mode == "2775";
+      message = "存储配置错误：/data 目录模式应为 2775";
+    }
+    {
+      assertion = config.desktop.storage.paths."/data".group == "users";
+      message = "存储配置错误：/data 目录所属组应为 users";
     }
   ];
 }

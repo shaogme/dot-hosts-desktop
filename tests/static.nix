@@ -311,6 +311,16 @@ let
   awwwNextScriptBin = if awwwScripts != null then "${awwwScripts.awwwNextScript}/bin/awww-next" else null;
   awwwSwitchScriptBin = if awwwScripts != null then "${awwwScripts.awwwSwitchScript}/bin/awww-switch" else null;
 
+  # ── 跨用户存储路径模块 (desktop.storage) 静态验证变量 ─────────────────
+  storageEnabled = cfg.desktop.storage.enable or false;
+  storageHasData = (cfg.desktop.storage.paths or { }) ? "/data";
+  storageDataMode = cfg.desktop.storage.paths."/data".mode or "";
+  storageDataGroup = cfg.desktop.storage.paths."/data".group or "";
+  hasStorageTmpfilesData = lib.any (r: lib.hasInfix "d /data" r || lib.hasInfix "d /data " r) (cfg.systemd.tmpfiles.rules or [ ]);
+  hasSandboxShareData = lib.hasInfix "shareData" sandboxSrc && lib.hasInfix "/data" sandboxSrc;
+  typesSrc = builtins.readFile ../modules/apps/lib/mk-sandboxed-app/types.nix;
+  hasTypesShareData = lib.hasInfix "shareData = true" typesSrc;
+
   # 安全转义
   escape = v: lib.escapeShellArg (toString v);
 in
@@ -1105,6 +1115,36 @@ pkgs.runCommand "${name}-static-check" {
     fi
     echo "[${name}] Cliphist 剪贴板管理静态验证通过！"
   '' else ""}
+
+  # ── 14. 跨用户存储路径模块 (desktop.storage) 静态验证 ─────────────────────
+  if [ "${if storageEnabled then "true" else "false"}" = "true" ]; then
+    echo "[${name}] 正在验证跨用户存储路径管理 (desktop.storage)..."
+    if [ "${if storageHasData then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.storage 启用时 paths 中未配置 /data"
+      exit 1
+    fi
+    if [ "${storageDataMode}" != "2775" ] && [ "${storageDataMode}" != "0775" ]; then
+      echo "错误: /data 存储模式应为 2775 或 0775 (实际: ${storageDataMode})"
+      exit 1
+    fi
+    if [ "${storageDataGroup}" != "users" ]; then
+      echo "错误: /data 存储组应为 users (实际: ${storageDataGroup})"
+      exit 1
+    fi
+    if [ "${if hasStorageTmpfilesData then "true" else "false"}" != "true" ]; then
+      echo "错误: systemd.tmpfiles.rules 中缺少 /data 的创建规则"
+      exit 1
+    fi
+    if [ "${if hasSandboxShareData then "true" else "false"}" != "true" ]; then
+      echo "错误: sandbox.nix 缺少 shareData 与 /data 挂载逻辑"
+      exit 1
+    fi
+    if [ "${if hasTypesShareData then "true" else "false"}" != "true" ]; then
+      echo "错误: types.nix 缺少 shareData = true 默认项"
+      exit 1
+    fi
+    echo "[${name}] 跨用户存储路径管理 (desktop.storage) 静态验证通过！"
+  fi
 
   echo "静态检查通过！"
   touch $out
