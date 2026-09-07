@@ -1,0 +1,11 @@
+{
+  "pins": {
+    "microsoft-edge": {
+      "type": "Url",
+      "url": "https://packages.microsoft.com/repos/edge/pool/main/m/microsoft-edge-stable/microsoft-edge-stable_152.0.4191.66-1_amd64.deb",
+      "unpack": false,
+      "hash": "sha256-GGwZ+dYHnRdO+7TvMxzMHhHRObb3qOo7DbdfmxfiXw0="
+    }
+  },
+  "version": 8
+}

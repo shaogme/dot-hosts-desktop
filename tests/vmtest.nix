@@ -95,6 +95,22 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/vscode-insiders.png")
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/512x512/apps/code-insiders.png")
 
+      if ${if serverCfg.desktop.apps.microsoft-edge.enable or false then "True" else "False"}:
+          server.succeed("which microsoft-edge")
+          server.succeed("which edge")
+          server.succeed("which microsoft-edge-stable")
+          server.succeed("test -f /run/current-system/sw/share/applications/microsoft-edge.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/microsoft-edge.png")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/edge.png")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/microsoft-edge-stable.png")
+
+      if ${if serverCfg.desktop.apps.microsoft-edge-dev.enable or false then "True" else "False"}:
+          server.succeed("which microsoft-edge-dev")
+          server.succeed("which edge-dev")
+          server.succeed("test -f /run/current-system/sw/share/applications/microsoft-edge-dev.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/microsoft-edge-dev.png")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/edge-dev.png")
+
       # 验证登录管理器 (tuigreet)
       if ${if serverCfg.desktop.loginManager.tuigreet.enable or false then "True" else "False"}:
           server.succeed("which tuigreet")
