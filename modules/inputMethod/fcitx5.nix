@@ -524,8 +524,12 @@ in
       };
 
       # 2. 系统环境软件包（由 upstream i18n.inputMethod.type = "fcitx5" 自动注入 cfg.package 即 fcitx5-with-addons，
-      #    切勿在此引入 bare unwrapped pkgs.fcitx5，避免 buildEnv 中发生符号链接覆盖导致缺失 FCITX_ADDON_DIRS）
-      environment.systemPackages = [ ];
+      #    切勿在此引入 bare unwrapped pkgs.fcitx5，避免 buildEnv 中发生符号链接覆盖导致缺失 FCITX_ADDON_DIRS；
+      #    引入 xprop 与 setxkbmap 以满足 XWayland/XIM 检测及 fcitx5-diagnose 工具链需求）
+      environment.systemPackages = [
+        pkgs.xprop
+        pkgs.setxkbmap
+      ];
 
       # 3. 会话环境变量（确保 X11 / Wayland / GTK / Qt / SDL / Electron / Java 全平台中文输入就绪）
       environment.sessionVariables = {

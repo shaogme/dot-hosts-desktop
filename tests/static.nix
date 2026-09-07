@@ -163,6 +163,8 @@ let
     else
       false;
   hasBareFcitxPkg = lib.any (p: (p.pname or "") == "fcitx5" || (p.name or "") == "fcitx5" || lib.hasPrefix "fcitx5-5." (p.name or "")) cfg.environment.systemPackages;
+  hasXpropPkg = lib.any (p: (p.pname or "") == "xprop" || (p.name or "") == "xprop" || lib.hasPrefix "xprop-" (p.name or "")) cfg.environment.systemPackages;
+  hasSetxkbmapPkg = lib.any (p: (p.pname or "") == "setxkbmap" || (p.name or "") == "setxkbmap" || lib.hasPrefix "setxkbmap-" (p.name or "")) cfg.environment.systemPackages;
   hasHmFcitxLinkFarm =
     if cfg ? home-manager && cfg.home-manager ? users then
       lib.any (u: (u.xdg.configFile or { }) ? fcitx5) (builtins.attrValues cfg.home-manager.users)
@@ -970,6 +972,14 @@ pkgs.runCommand "${name}-static-check" {
     echo "[${name}] 验证 Fcitx5 输入法配置与环境安全性..."
     if [ "${if hasBareFcitxPkg then "true" else "false"}" = "true" ]; then
       echo "错误: systemPackages 不应包含 bare unwrapped fcitx5，会导致在 buildEnv 中覆盖 fcitx5-with-addons 导致丢失插件"
+      exit 1
+    fi
+    if [ "${if hasXpropPkg then "true" else "false"}" != "true" ]; then
+      echo "错误: systemPackages 应包含 xprop 以支持 XWayland/XIM 诊断与检测"
+      exit 1
+    fi
+    if [ "${if hasSetxkbmapPkg then "true" else "false"}" != "true" ]; then
+      echo "错误: systemPackages 应包含 setxkbmap 以支持键盘布局诊断"
       exit 1
     fi
     if [ "${if hasHmFcitxLinkFarm then "true" else "false"}" = "true" ]; then

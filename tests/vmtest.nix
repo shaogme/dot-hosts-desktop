@@ -252,6 +252,8 @@ pkgs.testers.nixosTest {
           server.succeed("which fcitx5")
           server.succeed("which fcitx5-remote")
           server.succeed("which fcitx5-configtool")
+          server.succeed("which xprop")
+          server.succeed("which setxkbmap")
           server.succeed("test -f /etc/xdg/fcitx5/config")
           server.succeed("test -f /etc/xdg/fcitx5/profile")
           server.succeed("grep -q 'Name=rime' /etc/xdg/fcitx5/profile")
