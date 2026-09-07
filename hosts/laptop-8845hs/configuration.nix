@@ -55,6 +55,15 @@ in
   # 基础功能启用
   base.enable = true;
 
+  security.pam.loginLimits = [
+    {
+      domain = "*";
+      type = "-";          # 同时设置 soft 和 hard
+      item = "memlock";
+      value = "10485760";  # 10 GiB (单位为 KB)
+    }
+  ];
+
   # 全局默认文本编辑器环境变量
   environment.sessionVariables = {
     EDITOR = editorConfig.defaultEditor;
