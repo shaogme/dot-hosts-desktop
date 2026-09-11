@@ -544,6 +544,66 @@ in
             example = { x = 1920; y = 0; };
             description = "全局坐标系中的显示器相对位置。";
           };
+
+          variableRefreshRate = mkOption {
+            type = types.nullOr (types.either (types.either types.bool (types.enum [ "on-demand" ])) (types.submodule {
+              options = {
+                enable = mkOption {
+                  type = types.bool;
+                  default = true;
+                  description = "是否启用 Variable Refresh Rate。";
+                };
+                onDemand = mkOption {
+                  type = types.bool;
+                  default = false;
+                  description = "是否仅按需开启 Variable Refresh Rate (on-demand=true)。";
+                };
+              };
+            }));
+            default = null;
+            example = true;
+            description = "是否为该显示输出启用 Variable refresh rate (可变刷新率/VRR)。设为 true 开启，false 关闭，'on-demand' 按需开启。";
+          };
+
+          vrr = mkOption {
+            type = types.nullOr (types.either (types.either types.bool (types.enum [ "on-demand" ])) (types.submodule {
+              options = {
+                enable = mkOption {
+                  type = types.bool;
+                  default = true;
+                  description = "是否启用 Variable Refresh Rate。";
+                };
+                onDemand = mkOption {
+                  type = types.bool;
+                  default = false;
+                  description = "是否仅按需开启 Variable Refresh Rate (on-demand=true)。";
+                };
+              };
+            }));
+            default = null;
+            example = true;
+            description = "variableRefreshRate 的简写别名。";
+          };
+
+          "variable-refresh-rate" = mkOption {
+            type = types.nullOr (types.either (types.either types.bool (types.enum [ "on-demand" ])) (types.submodule {
+              options = {
+                enable = mkOption {
+                  type = types.bool;
+                  default = true;
+                  description = "是否启用 Variable Refresh Rate。";
+                };
+                onDemand = mkOption {
+                  type = types.bool;
+                  default = false;
+                  description = "是否仅按需开启 Variable Refresh Rate (on-demand=true)。";
+                };
+              };
+            }));
+            default = null;
+            example = true;
+            description = "variableRefreshRate 的 kebab-case 别名。";
+          };
         };
       });
       default = { };

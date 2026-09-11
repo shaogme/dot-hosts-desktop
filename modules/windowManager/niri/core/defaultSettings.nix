@@ -27,7 +27,38 @@ let
           y = outCfg.position.y;
         };
       };
-    });
+    })
+    // (optionalAttrs (outCfg.enable && (let
+      vrrVal =
+        if outCfg.vrr != null then outCfg.vrr
+        else if (outCfg ? "variable-refresh-rate" && outCfg."variable-refresh-rate" != null) then outCfg."variable-refresh-rate"
+        else outCfg.variableRefreshRate;
+      isEnabled =
+        if vrrVal == null || vrrVal == false then false
+        else if vrrVal == true || vrrVal == "on-demand" then true
+        else if isAttrs vrrVal then (vrrVal.enable or true)
+        else false;
+    in isEnabled)) (
+      let
+        vrrVal =
+          if outCfg.vrr != null then outCfg.vrr
+          else if (outCfg ? "variable-refresh-rate" && outCfg."variable-refresh-rate" != null) then outCfg."variable-refresh-rate"
+          else outCfg.variableRefreshRate;
+        isOnDemand =
+          if vrrVal == "on-demand" then true
+          else if isAttrs vrrVal then (vrrVal.onDemand or vrrVal.on-demand or false)
+          else false;
+      in
+      if isOnDemand then {
+        variable-refresh-rate = {
+          _props = {
+            on-demand = true;
+          };
+        };
+      } else {
+        variable-refresh-rate = { };
+      }
+    ));
   }) cfg.outputs;
 
   # 将 autostart / extraSpawn 转换为 spawn-at-startup / spawn-sh-at-startup 节点

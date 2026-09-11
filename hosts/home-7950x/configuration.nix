@@ -133,6 +133,13 @@ in
       command = "cliphist-pick";
       keybind = "Ctrl+grave";
     };
+    outputs = {
+      "Guangxi Century Innovation Display Electronics Co., Ltd 27M2V-D 0000000000000" = {
+        mode = "3840x2160@144.000";
+        scale = 1.75;
+        variableRefreshRate = true;
+      };
+    };
   };
 
   desktop.audio.pipewire = {
@@ -504,6 +511,17 @@ in
     {
       assertion = config.desktop.windowManager.niri.clipboard.enable == true;
       message = "窗口管理器配置错误：Niri 剪贴板联动未启用";
+    }
+    {
+      assertion =
+        let
+          out = config.desktop.windowManager.niri.outputs."Guangxi Century Innovation Display Electronics Co., Ltd 27M2V-D 0000000000000" or null;
+        in
+        out != null
+        && out.mode == "3840x2160@144.000"
+        && out.scale == 1.75
+        && (out.variableRefreshRate == true || out.vrr == true);
+      message = "显示输出配置错误：27M2V-D 显示器未正确配置 VRR、缩放或分辨率";
     }
 
     {
