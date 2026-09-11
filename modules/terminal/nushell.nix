@@ -155,11 +155,16 @@ in
 
   config = mkIf cfg.enable (mkMerge [
     {
-      # 1. NixOS 系统级 Nushell 支持（插件注册与 Vendor Autoload）
+      # 1. NixOS 系统级 Nushell 支持
+      # 注意：当启用 Home Manager 时，Home Manager 会在系统构建期预编译 plugin.msgpackz 并以只读方式软链接至用户目录。
+      # 若此时 NixOS 层面设置 plugins，NixOS 会在 vendor/autoload 下生成 50-nixos-plugins.nu 脚本，
+      # 在用户每次交互式启动 Nushell 时执行 plugin add 尝试写入已为只读软链接的 plugin.msgpackz，导致
+      # "Read-only filesystem or storage medium" 崩溃。因此启用 HM 时，系统级 autoloads 必须置空。
       programs.nushell = {
         enable = true;
         package = cfg.package;
-        plugins = cfg.plugins;
+        plugins = mkIf (!cfg.homeManager.enable) cfg.plugins;
+        autoloads = mkIf cfg.homeManager.enable (mkForce [ ]);
       };
 
       # 2. 将 Nushell 设置为系统及用户的默认登录 Shell 与系统合法 Shell
