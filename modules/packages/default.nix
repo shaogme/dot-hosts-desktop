@@ -6,11 +6,33 @@ let
   cfg = config.desktop.packages;
 in
 {
+  imports = [
+    # 提供 desktop.packages.environment 与 desktop.packages.base 互通别名
+    (lib.mkAliasOptionModule [ "desktop" "packages" "environment" ] [ "desktop" "packages" "base" ])
+  ];
+
   options.desktop.packages = {
     enable = mkOption {
       type = types.bool;
       default = true;
       description = "是否启用桌面与开发常见软件包集合模块。";
+    };
+
+    base = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否安装底层运行库与系统开发基础环境包（如 openssl, libbpf, libxcrypt 等）。";
+      };
+      packages = mkOption {
+        type = types.listOf types.package;
+        default = with pkgs; [
+          openssl
+          libbpf
+          libxcrypt
+        ];
+        description = "基础环境包列表。";
+      };
     };
 
     development = {
@@ -182,7 +204,8 @@ in
 
   config = mkIf cfg.enable {
     environment.systemPackages =
-      optionals cfg.development.enable cfg.development.packages
+      optionals cfg.base.enable cfg.base.packages
+      ++ optionals cfg.development.enable cfg.development.packages
       ++ optionals cfg.containers.enable cfg.containers.packages
       ++ optionals cfg.cli.enable cfg.cli.packages
       ++ optionals cfg.system.enable cfg.system.packages

@@ -150,7 +150,7 @@ let
 
   # 调优状态查看命令行工具
   tuningCtlScript = pkgs.writeShellScriptBin "tuning-ctl" ''
-    export PATH="${lib.makeBinPath [ pkgs.coreutils pkgs.systemd pkgs.gnugrep pkgs.tlp pkgs.auto-cpufreq ]}:$PATH"
+    export PATH="${lib.makeBinPath [ pkgs.coreutils pkgs.systemd pkgs.gnugrep config.services.tlp.package pkgs.auto-cpufreq ]}:$PATH"
 
     case "''${1:-}" in
       status|"")
@@ -330,9 +330,10 @@ in
     };
 
     # 3. 注入系统工具包
+    # 注意：services.tlp 与 services.auto-cpufreq 启用时已自动将对应的软件包
+    # （包含网络管理器联动 RDW 的 config.services.tlp.package 以及 pkgs.auto-cpufreq）
+    # 注入 environment.systemPackages。此处避免重复添加裸 pkgs.tlp 引起 buildEnv 冲突。
     environment.systemPackages = [
-      pkgs.tlp
-      pkgs.auto-cpufreq
       tuningCtlScript
     ];
   };
