@@ -240,12 +240,11 @@ pkgs.testers.nixosTest {
           server.succeed("fc-match serif")
           server.succeed("fc-match monospace")
 
-      # 验证终端与 Shell 环境 (Zsh & Starship)
-      if ${if serverCfg.desktop.terminal.zsh.enable or false then "True" else "False"}:
-          server.succeed("which zsh")
-          server.succeed("test -f /etc/zshrc")
+      # 验证终端与 Shell 环境 (Nushell & Starship)
+      if ${if serverCfg.desktop.terminal.nushell.enable or false then "True" else "False"}:
+          server.succeed("which nu")
           user_shell = server.succeed("getent passwd shaog | cut -d: -f7").strip()
-          assert "zsh" in user_shell, f"User shell mismatch: expected zsh in path, got {user_shell}"
+          assert "nu" in user_shell, f"User shell mismatch: expected nu in path, got {user_shell}"
 
       # 验证输入法框架 (Fcitx5) 与 Rime 引擎
       if ${if serverCfg.desktop.inputMethod.fcitx5.enable or false then "True" else "False"}:

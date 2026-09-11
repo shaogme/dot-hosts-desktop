@@ -20,10 +20,10 @@ in
       description = "使用的 Starship 软件包。";
     };
 
-    enableZshIntegration = mkOption {
+    enableNushellIntegration = mkOption {
       type = types.bool;
       default = true;
-      description = "是否自动集成进 Zsh（在 Zsh 启动时加载 Starship 提示符环境）。";
+      description = "是否自动集成进 Nushell（在 Nushell 启动时加载 Starship 提示符环境）。";
     };
 
     enableBashIntegration = mkOption {
@@ -95,7 +95,7 @@ in
       ];
     }
 
-    # 3. Home Manager 用户级 Starship 支持与 Zsh 自动深度集成
+    # 3. Home Manager 用户级 Starship 支持与 Nushell 自动深度集成
     (optionalAttrs (options ? home-manager) {
       home-manager = mkIf cfg.homeManager.enable {
         sharedModules = [
@@ -103,7 +103,7 @@ in
             programs.starship = {
               enable = true;
               package = cfg.package;
-              enableZshIntegration = cfg.enableZshIntegration;
+              enableNushellIntegration = cfg.enableNushellIntegration;
               enableBashIntegration = cfg.enableBashIntegration;
               enableFishIntegration = cfg.enableFishIntegration;
               settings = cfg.settings;

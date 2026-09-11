@@ -284,14 +284,14 @@ in
   };
 
   # ==========================================
-  # 终端与 Shell 环境 (Terminal & Zsh & Starship)
+  # 终端与 Shell 环境 (Terminal & Nushell & Starship)
   # ==========================================
   desktop.terminal.${terminalConfig.terminal} = {
     enable = true;
     editor.program = editorConfig.defaultEditor;
   };
 
-  desktop.terminal.zsh = {
+  desktop.terminal.nushell = {
     enable = true;
   };
 
@@ -563,8 +563,8 @@ in
       message = "终端配置错误：${terminalConfig.terminal} 未启用";
     }
     {
-      assertion = config.desktop.terminal.zsh.enable == true;
-      message = "终端配置错误：Zsh 未启用";
+      assertion = config.desktop.terminal.nushell.enable == true;
+      message = "终端配置错误：Nushell 未启用";
     }
     {
       assertion = config.desktop.terminal.starship.enable == true;

@@ -305,21 +305,21 @@ in
   users.users.${hostConfig.user} = {
     isNormalUser = true;
     description = "Shaog";
-    shell = pkgs.zsh;
+    shell = pkgs.nushell;
     extraGroups = [ "wheel" "networkmanager" "video" "audio" "input" "kvm" "libvirtd" "proxy-bypass" ];
     initialHashedPassword = hostConfig.auth.rootHash;
     openssh.authorizedKeys.keys = hostConfig.auth.sshKeys;
   };
 
   # ==========================================
-  # 终端与 Shell 环境 (Terminal & Zsh & Starship)
+  # 终端与 Shell 环境 (Terminal & Nushell & Starship)
   # ==========================================
   desktop.terminal.${terminalConfig.terminal} = {
     enable = true;
     editor.program = editorConfig.defaultEditor;
   };
 
-  desktop.terminal.zsh = {
+  desktop.terminal.nushell = {
     enable = true;
   };
 
@@ -632,24 +632,24 @@ in
       message = "终端配置错误：${terminalConfig.terminal} 未启用";
     }
     {
-      assertion = config.desktop.terminal.zsh.enable == true;
-      message = "终端配置错误：Zsh 未启用";
+      assertion = config.desktop.terminal.nushell.enable == true;
+      message = "终端配置错误：Nushell 未启用";
     }
     {
       assertion = config.desktop.terminal.starship.enable == true;
       message = "终端配置错误：Starship 未启用";
     }
     {
-      assertion = config.programs.zsh.enable == true;
-      message = "系统 Shell 配置错误：Zsh 系统级支持未启用";
+      assertion = config.programs.nushell.enable == true;
+      message = "系统 Shell 配置错误：Nushell 系统级支持未启用";
     }
     {
       assertion = config.programs.starship.enable == true;
       message = "系统 Shell 配置错误：Starship 系统级支持未启用";
     }
     {
-      assertion = config.users.defaultUserShell == pkgs.zsh || config.users.users.${hostConfig.user}.shell == pkgs.zsh;
-      message = "默认 Shell 配置错误：用户默认 Shell 应当为 Zsh";
+      assertion = config.users.defaultUserShell == pkgs.nushell || config.users.users.${hostConfig.user}.shell == pkgs.nushell;
+      message = "默认 Shell 配置错误：用户默认 Shell 应当为 Nushell";
     }
     {
       assertion = config.desktop.inputMethod.fcitx5.enable == true;
