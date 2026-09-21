@@ -12,7 +12,7 @@ in
 mkSandboxedApp.firefoxApp {
   pname = "firefox-developer-edition";
   inherit version;
-  src = { tarball = sources.firefox-developer-edition; };
+  src = { tarball = mkSandboxedApp.fetchWithRetry sources.firefox-developer-edition; };
   execPath = "firefox";
 
   aliases = [ "firefox-devedition" ];

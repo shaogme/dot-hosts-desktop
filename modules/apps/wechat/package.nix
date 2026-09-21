@@ -11,9 +11,8 @@ let
     if match != null then builtins.head match
     else throw "wechat: Could not parse version from URL: ${wechatPin.url}";
 
-  src = pkgs.fetchurl {
-    url = wechatPin.url;
-    hash = wechatPin.hash;
+  src = mkSandboxedApp.fetchWithRetry {
+    pin = wechatPin;
     curlOptsList = [ "-A" "debian APT-HTTP/1.3 (1.6.11)" ];
   };
 in

@@ -13,7 +13,7 @@ in
 mkSandboxedApp.electronApp {
   pname = "qq";
   inherit version;
-  src = { deb = sources.qq; };
+  src = { deb = mkSandboxedApp.fetchWithRetry sources.qq; };
   execPath = "opt/QQ/qq";
   runInDirectory = "opt/QQ";
 

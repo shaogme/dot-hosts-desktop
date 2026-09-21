@@ -2,6 +2,7 @@
 
 let
   typesLib = import ./types.nix { inherit lib; };
+  fetchWithRetry = import ../fetch-with-retry.nix { inherit pkgs lib; };
 in
 {
   # 多架构映射.
@@ -22,7 +23,7 @@ in
   mkUnpacked = { pname, version, srcADT, postUnpackHooks ? [ ] }:
     let
       postUnpack = typesLib.resolvePostUnpack { inherit postUnpackHooks; };
-      file = srcADT.file;
+      file = fetchWithRetry.ensureFetched srcADT.file;
       outFile = typesLib.srcOutPath file;
     in
     if srcADT.kind == "deb" then

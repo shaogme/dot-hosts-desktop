@@ -18,7 +18,7 @@ in
 mkSandboxedApp.dotnetApp {
   pname = "v2rayn";
   inherit version;
-  src = { deb = builtins.fetchurl debUrl; };
+  src = { deb = mkSandboxedApp.fetchWithRetry debUrl; };
   execPath = "opt/v2rayN/v2rayN";
   runInDirectory = "opt/v2rayN";
 

@@ -9,7 +9,7 @@ in
 mkSandboxedApp.webkitApp {
   pname = "clash-verge";
   inherit version;
-  src = { deb = builtins.fetchurl debUrl; };
+  src = { deb = mkSandboxedApp.fetchWithRetry debUrl; };
   execPath = "bin/clash-verge";
 
   sandbox = {

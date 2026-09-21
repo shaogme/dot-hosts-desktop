@@ -13,7 +13,7 @@ in
 mkSandboxedApp.electronApp {
   pname = "vscode-insiders";
   inherit version;
-  src = { deb = sources.vscode-insiders; };
+  src = { deb = mkSandboxedApp.fetchWithRetry sources.vscode-insiders; };
   execPath = "share/code-insiders/bin/code-insiders";
 
   sandbox = { homeDirs = [ ".config/Code - Insiders" ".vscode-insiders" ]; };

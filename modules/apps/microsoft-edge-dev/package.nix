@@ -13,7 +13,7 @@ in
 mkSandboxedApp.electronApp {
   pname = "microsoft-edge-dev";
   inherit version;
-  src = { deb = sources.microsoft-edge-dev; };
+  src = { deb = mkSandboxedApp.fetchWithRetry sources.microsoft-edge-dev; };
   execPath = "opt/microsoft/msedge-dev/microsoft-edge-dev";
 
   fhsBase = mkSandboxedApp.extend mkSandboxedApp.fhsBases.desktop-gui-electron-media (pkgs: [

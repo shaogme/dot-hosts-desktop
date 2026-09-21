@@ -13,7 +13,7 @@ in
 mkSandboxedApp.electronApp {
   pname = "vscode";
   inherit version;
-  src = { deb = sources.vscode; };
+  src = { deb = mkSandboxedApp.fetchWithRetry sources.vscode; };
   execPath = "share/code/bin/code";
 
   sandbox = { homeDirs = [ ".config/Code" ".vscode" ]; };

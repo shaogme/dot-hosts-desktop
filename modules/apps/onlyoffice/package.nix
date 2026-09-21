@@ -16,7 +16,7 @@ in
 mkSandboxedApp.qtApp {
   pname = "onlyoffice";
   inherit version;
-  src = { deb = builtins.fetchurl debUrl; };
+  src = { deb = mkSandboxedApp.fetchWithRetry debUrl; };
   execPath = "opt/onlyoffice/desktopeditors/DesktopEditors";
   runInDirectory = "opt/onlyoffice/desktopeditors";
 

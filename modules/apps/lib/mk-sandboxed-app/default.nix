@@ -9,6 +9,7 @@ let
   launcherLib = import ./mk-launcher-env.nix { inherit pkgs lib; };
   wrapperLib = import ./mk-wrapper.nix { inherit pkgs lib; };
   desktopLib = import ./mk-desktop.nix { inherit pkgs lib; };
+  fetchWithRetry = import ../fetch-with-retry.nix { inherit pkgs lib; };
 
   # 核心装配 (纯静态管线, 无运行时分支).
   mkCore =
@@ -115,6 +116,8 @@ let
 
 in
 {
+  inherit fetchWithRetry;
+  fetchDeb = fetchWithRetry;
   inherit base desktopApp electronApp firefoxApp qtApp webkitApp dotnetApp;
   inherit (fhsBasesLib) fhsBases combine extend;
 }

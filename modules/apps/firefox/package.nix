@@ -12,7 +12,7 @@ in
 mkSandboxedApp.firefoxApp {
   pname = "firefox";
   inherit version;
-  src = { tarball = sources.firefox; };
+  src = { tarball = mkSandboxedApp.fetchWithRetry sources.firefox; };
   execPath = "firefox";
 
   # 沙箱与文件访问隔离规则: 共享宿主下载目录 (读写) 与常用用户目录 (只读)
