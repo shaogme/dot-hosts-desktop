@@ -24,6 +24,8 @@ pkgs.testers.nixosTest {
       serverCfg = nodes.server;
       hostName = serverCfg.networking.hostName;
       hasPodman = serverCfg.base.container.podman.enable or false;
+      normalUsers = pkgs.lib.filterAttrs (_: u: u.isNormalUser) serverCfg.users.users;
+      testUser = if normalUsers != {} then builtins.head (builtins.attrNames normalUsers) else "shaog";
     in
     ''
       # 等待系统启动完成
@@ -252,7 +254,7 @@ pkgs.testers.nixosTest {
       # 验证终端与 Shell 环境 (Nushell & Starship)
       if ${if serverCfg.desktop.terminal.nushell.enable or false then "True" else "False"}:
           server.succeed("which nu")
-          user_shell = server.succeed("getent passwd shaog | cut -d: -f7").strip()
+          user_shell = server.succeed("getent passwd ${testUser} | cut -d: -f7").strip()
           assert "nu" in user_shell, f"User shell mismatch: expected nu in path, got {user_shell}"
 
       # 验证输入法框架 (Fcitx5) 与 Rime 引擎
@@ -355,8 +357,8 @@ pkgs.testers.nixosTest {
           mode = server.succeed("stat -c '%a' /data").strip()
           assert mode == "2775", f"Mode mismatch on /data: expected 2775, got {mode}"
 
-          # 4. 验证普通用户 (shaog) 在 /data 中拥有创建与写入权限
-          server.succeed("su - shaog -c 'touch /data/user-test.txt && echo hello > /data/user-test.txt'")
+          # 4. 验证普通用户 (${testUser}) 在 /data 中拥有创建与写入权限（显式通过 bash 执行，避免受默认 shell 如 nushell 语法影响）
+          server.succeed("su -s $(which bash) -l ${testUser} -c 'touch /data/user-test.txt && echo hello > /data/user-test.txt'")
           content = server.succeed("cat /data/user-test.txt").strip()
           assert content == "hello", f"Content mismatch in /data/user-test.txt: got {content}"
 
@@ -366,10 +368,10 @@ pkgs.testers.nixosTest {
 
           # 6. 验证 root 创建的文件，普通用户具备读取并更新权限 (跨用户协作)
           server.succeed("touch /data/root-test.txt && chmod 664 /data/root-test.txt")
-          server.succeed("su - shaog -c 'echo updated-by-user >> /data/root-test.txt'")
+          server.succeed("su -s $(which bash) -l ${testUser} -c 'echo updated-by-user >> /data/root-test.txt'")
 
           # 7. 清理测试文件
-          server.succeed("su - shaog -c 'rm -f /data/user-test.txt'")
+          server.succeed("su -s $(which bash) -l ${testUser} -c 'rm -f /data/user-test.txt'")
           server.succeed("rm -f /data/root-test.txt")
           print("--- 跨用户自定义存储路径验证通过！---")
 
