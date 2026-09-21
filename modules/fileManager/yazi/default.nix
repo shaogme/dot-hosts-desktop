@@ -14,6 +14,8 @@ let
 
   tomlFormat = pkgs.formats.toml { };
 
+  hasVideoPlayer = cfg.videoPlayer != null && cfg.videoPlayer != "";
+
   # 默认基础配置预设 (yazi.toml)
   defaultSettings = {
     mgr = {
@@ -43,14 +45,18 @@ let
       reveal = [
         { run = "xdg-open %d1"; desc = "Reveal"; }
       ];
+    } // optionalAttrs hasVideoPlayer {
+      play = [
+        { run = ''${cfg.videoPlayer} "$@"''; orphan = true; desc = "Play"; }
+      ];
     };
     open = {
       rules = [
         { url = "*/"; use = [ "edit" "open" "reveal" ]; }
         { mime = "text/*"; use = [ "edit" "reveal" ]; }
         { mime = "image/*"; use = [ "open" "reveal" ]; }
-        { mime = "video/*"; use = [ "open" "reveal" ]; }
-        { mime = "audio/*"; use = [ "open" "reveal" ]; }
+        { mime = "video/*"; use = if hasVideoPlayer then [ "play" "open" "reveal" ] else [ "open" "reveal" ]; }
+        { mime = "audio/*"; use = if hasVideoPlayer then [ "play" "open" "reveal" ] else [ "open" "reveal" ]; }
         { url = "*"; use = [ "open" "reveal" ]; }
       ];
     };
@@ -390,6 +396,12 @@ in
     editor = mkOption {
       type = types.str;
       description = "Yazi 打开文本文件时调用的文本编辑器命令（如 hx、nvim 等，必须显式配置，禁止提供默认 fallback）。";
+    };
+
+    videoPlayer = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = "Yazi 播放音视频文件调用的媒体播放器命令。若为 null 或空字符串，则回退至系统默认打开程序 (xdg-open)。";
     };
 
     themePreset = mkOption {

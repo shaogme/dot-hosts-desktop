@@ -383,10 +383,18 @@ pkgs.testers.nixosTest {
           # 验证安全删除与恢复 (unbury) 功能
           server.succeed("touch /tmp/test-rip.txt && rip /tmp/test-rip.txt")
           server.succeed("test ! -e /tmp/test-rip.txt")
-          server.succeed("rip -u /tmp/test-rip.txt")
+          server.succeed("rip -u")
           server.succeed("test -f /tmp/test-rip.txt")
           server.succeed("rm -f /tmp/test-rip.txt")
           print("--- 回收站模块 (rip2) 验证通过！---")
+      
+      # 验证视频播放器 (MPV)
+      if ${if (serverCfg.desktop ? videoPlayer && serverCfg.desktop.videoPlayer ? mpv && serverCfg.desktop.videoPlayer.mpv.enable) then "True" else "False"}:
+          print("--- 验证视频播放器模块 (MPV) ---")
+          server.succeed("which mpv")
+          server.succeed("test -f /etc/xdg/mpv/mpv.conf || test -f /etc/mpv/mpv.conf")
+          server.succeed("test -f /run/current-system/sw/share/applications/mpv.desktop")
+          print("--- 视频播放器模块 (MPV) 验证通过！---")
 
       print("VM 测试全部通过！")
     '';

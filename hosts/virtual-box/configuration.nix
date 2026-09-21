@@ -187,6 +187,7 @@ in
     enable = true;
     terminal = terminalConfig.terminal;
     editor = editorConfig.defaultEditor;
+    videoPlayer = "mpv";
     terminalKeybind = {
       enable = true;
       command = terminalConfig.terminal;
@@ -197,6 +198,11 @@ in
   desktop.editor.helix = {
     enable = true;
     terminal = terminalConfig.terminal;
+  };
+
+  # 视频播放器 (MPV)
+  desktop.videoPlayer.mpv = {
+    enable = true;
   };
 
   desktop.portal.termfilechooser = {
@@ -680,6 +686,14 @@ in
     {
       assertion = config.desktop.trash.rip2.enable == true;
       message = "回收站配置错误：desktop.trash.rip2 未启用";
+    }
+    {
+      assertion = config.desktop.videoPlayer.mpv.enable == true;
+      message = "视频播放器配置错误：desktop.videoPlayer.mpv 未启用";
+    }
+    {
+      assertion = config.desktop.fileManager.yazi.videoPlayer == "mpv";
+      message = "Yazi 视频播放器配置错误：应当配置为 mpv";
     }
   ];
 }

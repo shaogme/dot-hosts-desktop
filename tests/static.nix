@@ -328,6 +328,11 @@ let
   hasRipPkg = lib.any (p: (p.pname or p.name or "") == "rip2" || lib.hasPrefix "rip2-" (p.name or "")) cfg.environment.systemPackages;
   hasRmAlias = (cfg.environment.shellAliases.rm or "") == "rip";
 
+  # ── 视频播放器模块 (desktop.videoPlayer.mpv) 静态检查变量 ─────────────────
+  videoPlayerMpvEnabled = cfg.desktop.videoPlayer.mpv.enable or false;
+  hasMpvPkg = lib.any (p: (p.pname or p.name or "") == "mpv" || lib.hasPrefix "mpv-" (p.name or "")) cfg.environment.systemPackages;
+  yaziVideoPlayer = cfg.desktop.fileManager.yazi.videoPlayer or null;
+
   # 安全转义
   escape = v: lib.escapeShellArg (toString v);
 in
@@ -1173,6 +1178,20 @@ pkgs.runCommand "${name}-static-check" {
       exit 1
     fi
     echo "[${name}] 回收站模块 (desktop.trash.rip2) 静态验证通过！"
+  fi
+
+  # ── 16. 视频播放器模块 (desktop.videoPlayer.mpv) 静态验证 ─────────────────────
+  if [ "${if videoPlayerMpvEnabled then "true" else "false"}" = "true" ]; then
+    echo "[${name}] 正在验证视频播放器模块 (desktop.videoPlayer.mpv)..."
+    if [ "${if hasMpvPkg then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.videoPlayer.mpv 启用时 environment.systemPackages 应包含 mpv"
+      exit 1
+    fi
+    if [ "${if (yaziVideoPlayer == "mpv") then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.videoPlayer.mpv 启用时 Yazi 应手动绑定 videoPlayer 为 mpv"
+      exit 1
+    fi
+    echo "[${name}] 视频播放器模块 (desktop.videoPlayer.mpv) 静态验证通过！"
   fi
 
   echo "静态检查通过！"

@@ -22,6 +22,7 @@
     ./toolchain
     ./trash
     ./tuning
+    ./videoPlayer
     ./wallpaper
     ./windowManager
   ];
