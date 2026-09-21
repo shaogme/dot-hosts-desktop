@@ -323,6 +323,11 @@ let
   typesSrc = builtins.readFile ../modules/apps/lib/mk-sandboxed-app/types.nix;
   hasTypesShareData = lib.hasInfix "shareData = true" typesSrc;
 
+  # ── 回收站模块 (desktop.trash.rip2) 静态检查变量 ─────────────────
+  trashRip2Enabled = cfg.desktop.trash.rip2.enable or false;
+  hasRipPkg = lib.any (p: (p.pname or p.name or "") == "rip2" || lib.hasPrefix "rip2-" (p.name or "")) cfg.environment.systemPackages;
+  hasRmAlias = (cfg.environment.shellAliases.rm or "") == "rip";
+
   # 安全转义
   escape = v: lib.escapeShellArg (toString v);
 in
@@ -1154,6 +1159,20 @@ pkgs.runCommand "${name}-static-check" {
       exit 1
     fi
     echo "[${name}] 跨用户存储路径管理 (desktop.storage) 静态验证通过！"
+  fi
+
+  # ── 15. 回收站模块 (desktop.trash.rip2) 静态验证 ─────────────────────
+  if [ "${if trashRip2Enabled then "true" else "false"}" = "true" ]; then
+    echo "[${name}] 正在验证回收站模块 (desktop.trash.rip2)..."
+    if [ "${if hasRipPkg then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.trash.rip2 启用时 environment.systemPackages 应包含 rip2"
+      exit 1
+    fi
+    if [ "${if hasRmAlias then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.trash.rip2 启用且 enableAliases=true 时 environment.shellAliases 应包含 rm=rip 别名"
+      exit 1
+    fi
+    echo "[${name}] 回收站模块 (desktop.trash.rip2) 静态验证通过！"
   fi
 
   echo "静态检查通过！"

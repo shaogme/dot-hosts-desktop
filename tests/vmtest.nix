@@ -375,6 +375,19 @@ pkgs.testers.nixosTest {
           server.succeed("rm -f /data/root-test.txt")
           print("--- 跨用户自定义存储路径验证通过！---")
 
+      # 验证回收站模块 (rip2)
+      if ${if (serverCfg.desktop ? trash && serverCfg.desktop.trash ? rip2 && serverCfg.desktop.trash.rip2.enable) then "True" else "False"}:
+          print("--- 验证回收站模块 (rip2) ---")
+          server.succeed("which rip")
+          server.succeed("rip --version")
+          # 验证安全删除与恢复 (unbury) 功能
+          server.succeed("touch /tmp/test-rip.txt && rip /tmp/test-rip.txt")
+          server.succeed("test ! -e /tmp/test-rip.txt")
+          server.succeed("rip -u /tmp/test-rip.txt")
+          server.succeed("test -f /tmp/test-rip.txt")
+          server.succeed("rm -f /tmp/test-rip.txt")
+          print("--- 回收站模块 (rip2) 验证通过！---")
+
       print("VM 测试全部通过！")
     '';
 }

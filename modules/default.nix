@@ -20,6 +20,7 @@
     ./terminal
     ./theme
     ./toolchain
+    ./trash
     ./tuning
     ./wallpaper
     ./windowManager

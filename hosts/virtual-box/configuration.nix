@@ -366,6 +366,13 @@ in
   };
 
   # ==========================================
+  # 回收站与安全删除 (rip2)
+  # ==========================================
+  desktop.trash.rip2 = {
+    enable = true;
+  };
+
+  # ==========================================
   # 透明代理服务 (sing-box SOCKS5 TUN)
   # ==========================================
   services.socks-tun = {
@@ -669,6 +676,10 @@ in
     {
       assertion = config.desktop.storage.paths."/data".group == "users";
       message = "存储配置错误：/data 目录所属组应为 users";
+    }
+    {
+      assertion = config.desktop.trash.rip2.enable == true;
+      message = "回收站配置错误：desktop.trash.rip2 未启用";
     }
   ];
 }
