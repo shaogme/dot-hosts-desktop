@@ -371,6 +371,10 @@ in
     enable = true;
   };
 
+  desktop.apps.onlyoffice = {
+    enable = true;
+  };
+
   # ==========================================
   # 自定义跨用户存储路径配置 (/data)
   # ==========================================
@@ -589,6 +593,10 @@ in
     {
       assertion = config.desktop.apps.microsoft-edge.enable == true;
       message = "桌面应用配置错误：desktop.apps.microsoft-edge 未启用";
+    }
+    {
+      assertion = config.desktop.apps.onlyoffice.enable == true;
+      message = "桌面应用配置错误：desktop.apps.onlyoffice 未启用";
     }
     {
       assertion = config.desktop.fonts.enable == true;

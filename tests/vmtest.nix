@@ -111,6 +111,15 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/microsoft-edge-dev.png")
           server.succeed("test -f /run/current-system/sw/share/icons/hicolor/128x128/apps/edge-dev.png")
 
+      if ${if serverCfg.desktop.apps.onlyoffice.enable or false then "True" else "False"}:
+          server.succeed("which onlyoffice")
+          server.succeed("which onlyoffice-desktopeditors")
+          server.succeed("which desktopeditors")
+          server.succeed("test -f /run/current-system/sw/share/applications/onlyoffice.desktop")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/256x256/apps/onlyoffice.png")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/256x256/apps/onlyoffice-desktopeditors.png")
+          server.succeed("test -f /run/current-system/sw/share/icons/hicolor/256x256/apps/desktopeditors.png")
+
       # 验证登录管理器 (tuigreet)
       if ${if serverCfg.desktop.loginManager.tuigreet.enable or false then "True" else "False"}:
           server.succeed("which tuigreet")

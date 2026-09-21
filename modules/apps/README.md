@@ -398,3 +398,5 @@ fi
 | **Visual Studio Code Insiders** | Electron, Media, 官方重定向 | [`vscode-insiders/default.nix`](./vscode-insiders/default.nix) · [`vscode-insiders/package.nix`](./vscode-insiders/package.nix) | *(npins MutableUrl 原生托管)* |
 | **Microsoft Edge** | Chromium/Electron, Media, 微软 APT 源 Packages.gz 解析 | [`microsoft-edge/default.nix`](./microsoft-edge/default.nix) · [`microsoft-edge/package.nix`](./microsoft-edge/package.nix) | [`microsoft-edge/update.sh`](./microsoft-edge/update.sh) |
 | **Microsoft Edge Dev** | Chromium/Electron, Media, 微软 APT 源 Packages.gz 解析 | [`microsoft-edge-dev/default.nix`](./microsoft-edge-dev/default.nix) · [`microsoft-edge-dev/package.nix`](./microsoft-edge-dev/package.nix) | [`microsoft-edge-dev/update.sh`](./microsoft-edge-dev/update.sh) |
+| **ONLYOFFICE (Desktop Editors)** | Qt5/CEF, Media, XCB, GitHub Release 依赖 | [`onlyoffice/default.nix`](./onlyoffice/default.nix) · [`onlyoffice/package.nix`](./onlyoffice/package.nix) | *(标准 npins 托管)* |
+
