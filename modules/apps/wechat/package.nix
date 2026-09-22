@@ -23,18 +23,36 @@ mkSandboxedApp.qtApp {
   execPath = "opt/apps/com.tencent.wechat/files/wechat";
   runInDirectory = "opt/apps/com.tencent.wechat/files";
 
+  # 扩展 Qt 基底，确保 XKB 键盘配置可用
+  fhsBase = mkSandboxedApp.extend mkSandboxedApp.fhsBases.desktop-gui-electron-media-xcb-qt (pkgs: [
+    pkgs.xkeyboard_config
+  ]);
+
   sandbox = { homeDirs = [ ".xwechat" "Documents/WeChat_Data" "xwechat_files" ]; };
 
   env = {
-    QT_QPA_PLATFORM = "wayland;xcb";
-    QT_WAYLAND_DISABLE_WINDOWDECORATION = "1";
+    QT_QPA_PLATFORM = "xcb";
     QT_AUTO_SCREEN_SCALE_FACTOR = "1";
     QT_SCALE_FACTOR_ROUNDING_POLICY = "PassThrough";
+    QT_XKB_CONFIG_ROOT = "${pkgs.xkeyboard_config}/share/X11/xkb";
+    XKB_CONFIG_ROOT = "${pkgs.xkeyboard_config}/share/X11/xkb";
+    QTCOMPOSE = "${pkgs.libx11}/share/X11/locale";
   };
 
-  # 虚拟环境兼容: 提供 /usr/bin/lsblk 符号链接, 避免微信调用 lsblk 探测块设备时报错
+  # 虚拟环境兼容: 提供 /usr/bin/lsblk 脚本, 避免微信调用 lsblk 探测块设备时因 coreutils 报错
   fhsExtraCommands = [
-    "ln -sf ${pkgs.coreutils}/bin/true $out/usr/bin/lsblk"
+    ''
+      mkdir -p $out/usr/bin
+      cat << 'EOF' > $out/usr/bin/lsblk
+#!/bin/sh
+exit 0
+EOF
+      chmod +x $out/usr/bin/lsblk
+    ''
+  ];
+
+  preRunHooks = [
+    ''mkdir -p "$HOME/.xwechat/crashinfo/attachments"''
   ];
 
   postUnpackHooks = [

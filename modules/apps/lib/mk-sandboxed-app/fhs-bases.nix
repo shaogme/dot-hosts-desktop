@@ -71,11 +71,13 @@ let
       pkgs.libxscrnsaver
       pkgs.libxshmfence
       pkgs.libxkbfile
+      pkgs.xkeyboard_config
     ];
 
     wayland = pkgs: [
       pkgs.wayland
       pkgs.libxkbcommon
+      pkgs.xkeyboard_config
     ];
 
     graphics = pkgs: [
