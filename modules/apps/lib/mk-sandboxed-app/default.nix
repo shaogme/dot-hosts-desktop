@@ -100,6 +100,10 @@ let
   firefoxApp = args: withDefaults {
     fhsBase = fhsBasesLib.fhsBases.desktop-gui-media;
     icons = { firefox = { }; };
+    env = {
+      MOZ_LEGACY_PROFILES = "1";
+      MOZ_ALLOW_DOWNGRADE = "1";
+    };
   } args;
 
   qtApp = args: withDefaults {
