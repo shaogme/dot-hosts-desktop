@@ -10,6 +10,7 @@ let
     , hash ? ""
     , sha256 ? ""
     , name ? baseNameOf url
+    , pname ? null
     , unpack ? false
     , retries ? defaultRetries
     , retryDelay ? defaultRetryDelay
@@ -26,12 +27,25 @@ let
         else
           throw "fetchAria2: URL '${url}' 缺少 hash 或 sha256 校验码";
 
+      targetFileName =
+        let
+          noQuery = builtins.head (lib.splitString "?" (baseNameOf url));
+          noFragment = builtins.head (lib.splitString "#" noQuery);
+        in
+        if name != "" && name != (baseNameOf url) then
+          name
+        else if noFragment != "" then
+          noFragment
+        else
+          "download";
+
       allAria2Opts =
         (lib.optional (userAgent != null) "--user-agent=${userAgent}")
         ++ (map (h: "--header=${h}") headers)
         ++ extraAria2Opts;
 
       escapedOpts = lib.concatMapStringsSep " " lib.escapeShellArg allAria2Opts;
+      pnameLine = if pname != null then "echo \">>> [fetchAria2] 关联软件包: ${pname}\"" else "";
     in
     if unpack then
       # 若要求直接解包为目录树（如部分 Tarball），交由 fetchzip 处理保证 NAR 递归 Hash 一致性
@@ -80,11 +94,18 @@ let
             CONCURRENCY=16
           fi
 
-          echo "fetchAria2: CPU cores detected: $CORES, adaptive concurrency: $CONCURRENCY"
-
-          # 3. 创建临时工作目录，执行分块多线程并发下载与断点续传
-          DL_DIR=$(mktemp -d)
+          # 3. 规范化目标文件名，保证在控制台与进度摘要中清晰可辨
+          TARGET_FILE=${lib.escapeShellArg targetFileName}
+          DL_DIR="$TMPDIR/aria2-download"
+          mkdir -p "$DL_DIR"
           trap 'rm -rf "$DL_DIR"' EXIT
+
+          echo "================================================================================"
+          ${pnameLine}
+          echo ">>> [fetchAria2] 正在下载目标文件: $TARGET_FILE"
+          echo ">>> [fetchAria2] 下载源地址 (URL): ${url}"
+          echo ">>> [fetchAria2] CPU 核心数: $CORES | 并发连接数: $CONCURRENCY"
+          echo "================================================================================"
 
           ${pkgs.aria2}/bin/aria2c \
             --no-conf \
@@ -100,14 +121,15 @@ let
             --connect-timeout=30 \
             --timeout=60 \
             --console-log-level=warn \
-            --summary-interval=5 \
+            --summary-interval=0 \
+            --download-result=full \
             --dir="$DL_DIR" \
-            --out="downloaded_file" \
+            --out="$TARGET_FILE" \
             ${escapedOpts} \
             ${lib.escapeShellArg url}
 
           # 4. 移动至目标 FOD 输出
-          mv "$DL_DIR/downloaded_file" "$out"
+          mv "$DL_DIR/$TARGET_FILE" "$out"
         '';
       };
 
@@ -153,7 +175,8 @@ let
         fetchAria2 {
           inherit (pinObj) url hash;
           unpack = pinObj.unpack or false;
-          name = pinObj.name or (baseNameOf pinObj.url);
+          name = extraOpts.name or pinObj.name or (baseNameOf pinObj.url);
+          pname = extraOpts.pname or pinObj.pname or null;
           retries = extraOpts.retries or defaultRetries;
           retryDelay = extraOpts.retryDelay or defaultRetryDelay;
           userAgent = extraOpts.userAgent or null;
@@ -171,6 +194,7 @@ let
           arg.hash or arg.sha256
             or (throw "fetchWithRetry: URL '${arg.url}' 缺少 hash 或 sha256 校验码");
         name = arg.name or (baseNameOf arg.url);
+        pname = arg.pname or null;
         unpack = arg.unpack or false;
         retries = arg.retries or defaultRetries;
         retryDelay = arg.retryDelay or defaultRetryDelay;
