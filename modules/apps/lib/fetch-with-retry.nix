@@ -4,25 +4,112 @@ let
   defaultRetries = 5;
   defaultRetryDelay = 3;
 
-  # 默认的 curl 弹性重试参数集:
-  # --retry 5: 重试 5 次
-  # --retry-delay 3: 每次重试等待 3 秒
-  # --retry-all-errors: 对所有瞬态错误（包括网络断开、超时、429/5xx 等）均进行重试
-  # --retry-connrefused: 针对连接被拒绝的情况亦进行重试
-  makeRetryCurlOpts =
-    { retries ? defaultRetries
+  # 基于 aria2 的多线程分块并发下载与断点续传 FOD Fetcher
+  fetchAria2 =
+    { url
+    , hash ? ""
+    , sha256 ? ""
+    , name ? baseNameOf url
+    , unpack ? false
+    , retries ? defaultRetries
     , retryDelay ? defaultRetryDelay
-    , curlOptsList ? [ ]
+    , userAgent ? null
+    , headers ? [ ]
+    , extraAria2Opts ? [ ]
     }:
-    [
-      "--retry"
-      (toString retries)
-      "--retry-delay"
-      (toString retryDelay)
-      "--retry-all-errors"
-      "--retry-connrefused"
-    ]
-    ++ curlOptsList;
+    let
+      finalHash =
+        if hash != "" then
+          hash
+        else if sha256 != "" then
+          sha256
+        else
+          throw "fetchAria2: URL '${url}' 缺少 hash 或 sha256 校验码";
+
+      allAria2Opts =
+        (lib.optional (userAgent != null) "--user-agent=${userAgent}")
+        ++ (map (h: "--header=${h}") headers)
+        ++ extraAria2Opts;
+
+      escapedOpts = lib.concatMapStringsSep " " lib.escapeShellArg allAria2Opts;
+    in
+    if unpack then
+      # 若要求直接解包为目录树（如部分 Tarball），交由 fetchzip 处理保证 NAR 递归 Hash 一致性
+      pkgs.fetchzip {
+        inherit url name;
+        hash = finalHash;
+      }
+    else
+      pkgs.stdenvNoCC.mkDerivation {
+        name = lib.strings.sanitizeDerivationName name;
+        nativeBuildInputs = [
+          pkgs.aria2
+          pkgs.coreutils
+        ];
+
+        outputHashMode = "flat";
+        outputHash = finalHash;
+        outputHashAlgo =
+          if lib.hasPrefix "sha256-" finalHash || lib.hasPrefix "sha512-" finalHash then
+            null
+          else
+            "sha256";
+
+        preferLocalBuild = true;
+        enableParallelBuilding = false;
+
+        dontUnpack = true;
+        dontConfigure = true;
+        dontBuild = true;
+
+        installPhase = ''
+          export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+
+          # 1. 动态自适应探测 CPU 核心数
+          # 优先读取 Nix 构建环境注入的 NIX_BUILD_CORES；若未指定或 <=0，则探测系统可用逻辑核心数
+          CORES="''${NIX_BUILD_CORES:-0}"
+          if [ -z "$CORES" ] || [ "$CORES" -le 0 ]; then
+            CORES=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
+          fi
+
+          # 2. 计算自适应并发数 (限制在 [2, 16] 安全区间，兼顾吞吐加速与防范 CDN 429 限流)
+          CONCURRENCY=$CORES
+          if [ "$CONCURRENCY" -lt 2 ]; then
+            CONCURRENCY=2
+          elif [ "$CONCURRENCY" -gt 16 ]; then
+            CONCURRENCY=16
+          fi
+
+          echo "fetchAria2: CPU cores detected: $CORES, adaptive concurrency: $CONCURRENCY"
+
+          # 3. 创建临时工作目录，执行分块多线程并发下载与断点续传
+          DL_DIR=$(mktemp -d)
+          trap 'rm -rf "$DL_DIR"' EXIT
+
+          ${pkgs.aria2}/bin/aria2c \
+            --no-conf \
+            --auto-file-renaming=false \
+            --allow-overwrite=true \
+            --ca-certificate="$SSL_CERT_FILE" \
+            --split="$CONCURRENCY" \
+            --max-connection-per-server="$CONCURRENCY" \
+            --min-split-size="2M" \
+            --continue=true \
+            --max-tries=${toString retries} \
+            --retry-wait=${toString retryDelay} \
+            --connect-timeout=30 \
+            --timeout=60 \
+            --console-log-level=warn \
+            --summary-interval=5 \
+            --dir="$DL_DIR" \
+            --out="downloaded_file" \
+            ${escapedOpts} \
+            ${lib.escapeShellArg url}
+
+          # 4. 移动至目标 FOD 输出
+          mv "$DL_DIR/downloaded_file" "$out"
+        '';
+      };
 
   # 通用下载抓取/封装实现（不限定 deb，支持 deb/tarball/zip/各类通用安装包与源码）
   fetchWithRetryFn =
@@ -45,17 +132,12 @@ let
           arg
         else
           { };
-      retryOpts = makeRetryCurlOpts {
-        retries = extraOpts.retries or defaultRetries;
-        retryDelay = extraOpts.retryDelay or defaultRetryDelay;
-        curlOptsList = extraOpts.curlOptsList or [ ];
-      };
     in
     if lib.isDerivation arg || builtins.isPath arg then
       arg
     else if pinObj != null then
       let
-        # npins 函子解析：注入 pkgs 实例化为 derivation，同时保留 NPINS_OVERRIDE 机制
+        # npins 函子解析：优先检查是否有本地路径覆盖 (NPINS_OVERRIDE_<NAME>)
         resolved =
           if builtins.isFunction pinObj || pinObj ? __functor then
             pinObj { inherit pkgs; }
@@ -63,24 +145,38 @@ let
             pinObj;
         rawOut = resolved.outPath or resolved;
       in
-      if lib.isDerivation rawOut then
-        rawOut.overrideAttrs (old: {
-          curlOptsList = retryOpts ++ (old.curlOptsList or [ ]);
-        })
+      if builtins.isPath rawOut || (builtins.isString rawOut && !lib.isDerivation rawOut && builtins.pathExists rawOut) then
+        # 本地覆盖路径直接透传
+        rawOut
+      else if pinObj ? url && pinObj ? hash then
+        # 命中 URL/Tarball 类型的 npins 依赖，直接通过 aria2 多线程并发与断点续传拉取
+        fetchAria2 {
+          inherit (pinObj) url hash;
+          unpack = pinObj.unpack or false;
+          name = pinObj.name or (baseNameOf pinObj.url);
+          retries = extraOpts.retries or defaultRetries;
+          retryDelay = extraOpts.retryDelay or defaultRetryDelay;
+          userAgent = extraOpts.userAgent or null;
+          headers = extraOpts.headers or [ ];
+          extraAria2Opts = extraOpts.extraAria2Opts or [ ];
+        }
+      else if lib.isDerivation rawOut then
+        rawOut
       else
         rawOut
     else if builtins.isAttrs arg && arg ? url then
-      let
-        unpack = arg.unpack or false;
-        fetcher = if unpack then pkgs.fetchzip else pkgs.fetchurl;
-      in
-      fetcher {
+      fetchAria2 {
         inherit (arg) url;
         hash =
           arg.hash or arg.sha256
             or (throw "fetchWithRetry: URL '${arg.url}' 缺少 hash 或 sha256 校验码");
         name = arg.name or (baseNameOf arg.url);
-        curlOptsList = retryOpts ++ (arg.curlOptsList or [ ]);
+        unpack = arg.unpack or false;
+        retries = arg.retries or defaultRetries;
+        retryDelay = arg.retryDelay or defaultRetryDelay;
+        userAgent = arg.userAgent or null;
+        headers = arg.headers or [ ];
+        extraAria2Opts = arg.extraAria2Opts or [ ];
       }
     else if builtins.isString arg then
       if lib.hasPrefix "http://" arg || lib.hasPrefix "https://" arg then
@@ -108,5 +204,5 @@ let
 in
 {
   __functor = _self: fetchWithRetryFn;
-  inherit ensureFetched makeRetryCurlOpts defaultRetries defaultRetryDelay;
+  inherit ensureFetched fetchAria2 defaultRetries defaultRetryDelay;
 }

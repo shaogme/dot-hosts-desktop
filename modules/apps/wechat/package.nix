@@ -13,7 +13,7 @@ let
 
   src = mkSandboxedApp.fetchWithRetry {
     pin = wechatPin;
-    curlOptsList = [ "-A" "debian APT-HTTP/1.3 (1.6.11)" ];
+    userAgent = "debian APT-HTTP/1.3 (1.6.11)";
   };
 in
 mkSandboxedApp.qtApp {

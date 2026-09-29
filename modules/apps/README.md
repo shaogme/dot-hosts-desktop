@@ -19,7 +19,7 @@
   - [`mk-desktop.nix`](./lib/mk-sandboxed-app/mk-desktop.nix): `desktopItem` + 图标（单次 `find -exec`）+ 别名（`linkFarm`）。
   - [`mk-fhs-env.nix`](./lib/mk-sandboxed-app/mk-fhs-env.nix): 专用 FHS 构造器。
 - **[`lib/mk-app-module.nix`](./lib/mk-app-module.nix)**: 统一 NixOS 模块生成器（`options.desktop.apps.<name>`、别名支持、`systemd.user.tmpfiles` 沙箱目录声明、`security.wrappers` 特权切换、Niri 规则集成）。
-- **[`lib/fetch-with-retry.nix`](./lib/fetch-with-retry.nix)**: 统一通用源码与安装包下载重试机制（对外 API 为 `mkSandboxedApp.fetchWithRetry` / `fetchWithRetry`，兼容 `fetchDeb` 别名，通用支持 deb / tarball / zip / 独立二进制等各类安装包与源码；支持自动桥接 npins pin、自定义重试次数与延迟、自动追加 `--retry 5 --retry-delay 3 --retry-all-errors --retry-connrefused`，在构建期由 FOD 弹性重试，避免 eval 期下载失败与单点网络抖动）。
+- **[`lib/fetch-with-retry.nix`](./lib/fetch-with-retry.nix)**: 统一通用源码与安装包多线程分块下载与断点续传机制（对外 API 为 `mkSandboxedApp.fetchWithRetry` / `fetchWithRetry`，兼容 `fetchDeb` 别名，通用支持 deb / tarball / zip / 独立二进制等各类安装包与源码；底层集成 `aria2c`，在构建期通过 `$NIX_BUILD_CORES` / `nproc` 根据宿主机 CPU 核心数自适应设定并发连接与分段数（`[2, 16]` 安全区间），原生支持原地断点续传、段级弹性重试与声明式请求配置（`userAgent` / `headers` / `extraAria2Opts`），在构建期由 FOD 执行，彻底消除评估期因 CDN 抖动中断构建的问题）。
 
 ---
 
@@ -304,12 +304,12 @@ NEW_HASH=$(nix hash convert --hash-algo sha256 --to sri "$SHA256_HEX")
 # (如果处于非 dry-run 状态，将 { type: "Url", url: "$NEW_URL", unpack: false, hash: "$NEW_HASH" } 写入 sources.json)
 ```
 
-- **`package.nix` 配合**：在 [`wechat/package.nix`](./wechat/package.nix) 中通过 `mkSandboxedApp.fetchWithRetry` 传入专属的 `curlOptsList`（自动附加强制重试机制）：
+- **`package.nix` 配合**：在 [`wechat/package.nix`](./wechat/package.nix) 中通过 `mkSandboxedApp.fetchWithRetry` 传入专属的 `userAgent`：
 
   ```nix
   src = mkSandboxedApp.fetchWithRetry {
     pin = wechatPin;
-    curlOptsList = [ "-A" "debian APT-HTTP/1.3 (1.6.11)" ];
+    userAgent = "debian APT-HTTP/1.3 (1.6.11)";
   };
   ```
 
@@ -355,7 +355,7 @@ fi
 为了实现真正的“零手动介入更新”，建议 `package.nix` 与 `update.sh` 采用如下解耦规范：
 
 1. **版本号动态提取**：永远不要在 `package.nix` 中硬编码固定版本号。对于 `type = "Url"` 或 `type = "Tarball"`，使用 `builtins.match` 从 `sources.<name>.url` 中动态提取。
-2. **源码引用直通与下载重试**：将 `sources.<name>` 包裹为 `src = { deb = mkSandboxedApp.fetchWithRetry sources.<name>; }` / `src = { tarball = mkSandboxedApp.fetchWithRetry sources.<name>; }` ADT（或通过 `mkSandboxedApp.fetchWithRetry` 传递特定 header 后同样包裹），由管线静态分发解包和 FHS 组装。`fetchWithRetry` 通用支持各类安装包与源码（deb / tarball / zip 等），会自动注入 curl 弹性重试参数（`--retry 5 --retry-delay 3 --retry-all-errors --retry-connrefused`），由 Nix 统一在构建期作为 Fixed-Output Derivation 执行并支持断点续传与网络容错，彻底消除评估期因 CDN 抖动中断构建的问题；解包管线内部亦包含 `ensureFetched` 兜底转换。
+2. **源码引用直通与多线程下载重试**：将 `sources.<name>` 包裹为 `src = { deb = mkSandboxedApp.fetchWithRetry sources.<name>; }` / `src = { tarball = mkSandboxedApp.fetchWithRetry sources.<name>; }` ADT（或通过 `mkSandboxedApp.fetchWithRetry` 传递特定 header 后同样包裹），由管线静态分发解包和 FHS 组装。`fetchWithRetry` 通用支持各类安装包与源码（deb / tarball / zip 等），底层基于 `aria2c` 实现多线程分块并发下载与断点续传，构建期根据 CPU 核心数自适应计算并发连接数（`[2, 16]` 安全区间），原生支持 `userAgent`、`headers` 与 `extraAria2Opts` 等声明式参数，由 Nix 统一在构建期作为 Fixed-Output Derivation 执行并支持分段原地容错重试，彻底消除评估期因 CDN 抖动中断构建的问题；解包管线内部亦包含 `ensureFetched` 兜底转换。
 3. **一键全量维护**：执行 `bash scripts/update-npins.sh` 时，所有定制应用的 `update.sh` 会自动拉取最新版本，`npins/sources.json` 自动锁定哈希，Nix 配置无需任何手动代码修改即可构建最新版。
 
 ---
