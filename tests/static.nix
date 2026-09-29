@@ -333,6 +333,11 @@ let
   hasMpvPkg = lib.any (p: (p.pname or p.name or "") == "mpv" || lib.hasPrefix "mpv-" (p.name or "")) cfg.environment.systemPackages;
   yaziVideoPlayer = cfg.desktop.fileManager.yazi.videoPlayer or null;
 
+  # ── 录屏软件模块 (desktop.screenRecorder.obs) 静态检查变量 ─────────────────
+  screenRecorderObsEnabled = cfg.desktop.screenRecorder.obs.enable or false;
+  hasObsPkg = lib.any (p: (p.pname or p.name or "") == "obs-studio" || (p.pname or p.name or "") == "wrapped-obs-studio" || lib.hasInfix "obs-studio" (p.name or "")) cfg.environment.systemPackages;
+  obsPluginsCount = builtins.length (cfg.desktop.screenRecorder.obs.plugins or [ ]);
+
   # 安全转义
   escape = v: lib.escapeShellArg (toString v);
 in
@@ -1192,6 +1197,20 @@ pkgs.runCommand "${name}-static-check" {
       exit 1
     fi
     echo "[${name}] 视频播放器模块 (desktop.videoPlayer.mpv) 静态验证通过！"
+  fi
+
+  # ── 17. 录屏软件模块 (desktop.screenRecorder.obs) 静态验证 ─────────────────────
+  if [ "${if screenRecorderObsEnabled then "true" else "false"}" = "true" ]; then
+    echo "[${name}] 正在验证录屏软件模块 (desktop.screenRecorder.obs)..."
+    if [ "${if hasObsPkg then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.screenRecorder.obs 启用时 environment.systemPackages 应包含 obs-studio"
+      exit 1
+    fi
+    if [ "${toString obsPluginsCount}" -le "0" ]; then
+      echo "错误: desktop.screenRecorder.obs 默认应包含扩展插件"
+      exit 1
+    fi
+    echo "[${name}] 录屏软件模块 (desktop.screenRecorder.obs) 静态验证通过！"
   fi
 
   echo "静态检查通过！"

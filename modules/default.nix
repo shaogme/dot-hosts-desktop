@@ -15,6 +15,7 @@
     ./notification
     ./packages
     ./portal
+    ./screenRecorder
     ./services
     ./storage
     ./terminal

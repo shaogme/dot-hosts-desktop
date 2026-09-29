@@ -8,6 +8,7 @@
     ./fonts
     ./inputMethod
     ./packages
+    ./screenRecorder
     ./services
     ./storage
     ./terminal

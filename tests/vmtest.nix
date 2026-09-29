@@ -396,6 +396,13 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /run/current-system/sw/share/applications/mpv.desktop")
           print("--- 视频播放器模块 (MPV) 验证通过！---")
 
+      # 验证录屏软件 (OBS Studio)
+      if ${if (serverCfg.desktop ? screenRecorder && serverCfg.desktop.screenRecorder ? obs && serverCfg.desktop.screenRecorder.obs.enable) then "True" else "False"}:
+          print("--- 验证录屏软件模块 (OBS Studio) ---")
+          server.succeed("which obs")
+          server.succeed("test -f /run/current-system/sw/share/applications/com.obsproject.Studio.desktop")
+          print("--- 录屏软件模块 (OBS Studio) 验证通过！---")
+
       print("VM 测试全部通过！")
     '';
 }
