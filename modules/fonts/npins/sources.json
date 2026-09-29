@@ -15,6 +15,12 @@
       "revision": "50b79b80fcad30ada8c4ab3bd7d0ce9fba002411",
       "url": "https://api.github.com/repos/shaogme/fonts/tarball/refs/tags/tsanger-jinkai/v2026.9.1",
       "hash": "sha256-jQ1Betjlirjb6ESKVpm9vZqJjWZWu5IIZezF35klgyc="
+    },
+    "win-fonts": {
+      "type": "Url",
+      "url": "https://github.com/liblaf/fonts/releases/download/Win10/Win10-Chinese_Simplified.zip",
+      "unpack": false,
+      "hash": "sha256-Vgy/DLttqSoLE0LTuLhT2MwA86l1OUrQFJ1JRsW7hhU="
     }
   },
   "version": 8

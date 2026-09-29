@@ -29,6 +29,29 @@ let
         platforms = platforms.all;
       };
     };
+
+  officeFontsPackage = pkgs.stdenvNoCC.mkDerivation {
+    pname = "office-fonts";
+    version = "10.0";
+    src = sources.win-fonts;
+    nativeBuildInputs = [ pkgs.unzip ];
+    unpackPhase = ''
+      runHook preUnpack
+      unzip -q $src
+      runHook postUnpack
+    '';
+    installPhase = ''
+      runHook preInstall
+      mkdir -p $out/share/fonts/truetype
+      find . -maxdepth 1 -type f \( -iname "*.ttf" -o -iname "*.ttc" -o -iname "*.otf" \) \
+        -exec install -Dm644 {} $out/share/fonts/truetype/ \;
+      runHook postInstall
+    '';
+    meta = with lib; {
+      description = "Microsoft Office and Windows standard fonts collection (SimSun, YaHei, DengXian, etc.)";
+      platforms = platforms.all;
+    };
+  };
 in
 {
   options.desktop.fonts = {
@@ -205,6 +228,22 @@ in
       };
     };
 
+    # Office 常用办公与公文字体（宋体、黑体、楷体、仿宋、微软雅黑、等线、西文及公式符号等）
+    office = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "是否启用 Microsoft Office / WPS / ONLYOFFICE 常用中西文办公字体包（含宋体、黑体、仿宋、楷体、微软雅黑、等线等）。";
+      };
+      packages = mkOption {
+        type = types.listOf types.package;
+        default = [
+          officeFontsPackage
+        ];
+        description = "Office 常用字体软件包列表。";
+      };
+    };
+
     # 自定义附加字体
     extraPackages = mkOption {
       type = types.listOf types.package;
@@ -223,6 +262,7 @@ in
         ++ (optionals cfg.nerdFonts.enable cfg.nerdFonts.packages)
         ++ (optional cfg.emoji.enable cfg.emoji.package)
         ++ (optionals cfg.fallback.enable cfg.fallback.packages)
+        ++ (optionals cfg.office.enable cfg.office.packages)
         ++ cfg.extraPackages;
       defaultText = literalExpression "汇总后的全部启用字体包";
       description = "系统安装的字体包集合。";
@@ -349,6 +389,29 @@ in
         packages = cfg.packages;
         fontconfig = mkIf cfg.fontconfig.enable {
           enable = true;
+          localConf = mkIf cfg.office.enable ''
+            <?xml version="1.0"?>
+            <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+            <fontconfig>
+              <!-- 兼容老旧 Windows 公文中的 FangSong_GB2312 与 KaiTi_GB2312 别名 -->
+              <match target="pattern">
+                <test qual="any" name="family"><string>FangSong_GB2312</string></test>
+                <edit name="family" mode="assign" binding="strong"><string>FangSong</string></edit>
+              </match>
+              <match target="pattern">
+                <test qual="any" name="family"><string>仿宋_GB2312</string></test>
+                <edit name="family" mode="assign" binding="strong"><string>仿宋</string></edit>
+              </match>
+              <match target="pattern">
+                <test qual="any" name="family"><string>KaiTi_GB2312</string></test>
+                <edit name="family" mode="assign" binding="strong"><string>KaiTi</string></edit>
+              </match>
+              <match target="pattern">
+                <test qual="any" name="family"><string>楷体_GB2312</string></test>
+                <edit name="family" mode="assign" binding="strong"><string>楷体</string></edit>
+              </match>
+            </fontconfig>
+          '';
           defaultFonts = {
             serif = cfg.fontconfig.defaultFonts.serif;
             sansSerif = cfg.fontconfig.defaultFonts.sansSerif;
