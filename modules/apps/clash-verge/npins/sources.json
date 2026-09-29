@@ -11,10 +11,10 @@
       "version_upper_bound": null,
       "release_prefix": null,
       "submodules": false,
-      "version": "v2.5.2",
-      "revision": "28f2efc504059b1dc75c793618b775c8e1b2a5f1",
-      "url": "https://api.github.com/repos/clash-verge-rev/clash-verge-rev/tarball/refs/tags/v2.5.2",
-      "hash": "sha256-5Txjuzq91D+FfBHaXenES4eprIdIKHUFMOKtrHSdbw4="
+      "version": "v2.5.6",
+      "revision": "2a125909e71c26e98fc4b12a4d0eb25b91e2761b",
+      "url": "https://api.github.com/repos/clash-verge-rev/clash-verge-rev/tarball/refs/tags/v2.5.6",
+      "hash": "sha256-VRr9OfhlY/EG8LTPIBjm8SXaf6AVakQVeKPrjf9webA="
     }
   },
   "version": 8
