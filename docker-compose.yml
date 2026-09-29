@@ -56,7 +56,7 @@ services:
     <<: *podman-engine
   dev:
     <<: *app-base
-    container_name: coding-images-dev
+    container_name: dot-hosts-desktop-dev
     depends_on:
       podman:
         condition: service_healthy

@@ -64,6 +64,8 @@ mkSandboxedApp.qtApp {
     QT_XKB_CONFIG_ROOT = "${pkgs.xkeyboard_config}/share/X11/xkb";
     QTCOMPOSE = "${pkgs.libx11}/share/X11/locale";
     GST_PLUGIN_SYSTEM_PATH_1_0 = "/usr/lib/gstreamer-1.0:/usr/lib64/gstreamer-1.0";
+    # 显式指定 NixOS 系统字体目录，使 ONLYOFFICE 核心引擎在扫描字体时检索宿主机通过 fonts.packages 安装的全部字体（含 Office 字体）
+    CUSTOM_FONTS_PATH = "/run/current-system/sw/share/X11/fonts";
   };
 
   postUnpackHooks = [
@@ -94,6 +96,29 @@ mkSandboxedApp.qtApp {
       if [ -f "$out/bin/onlyoffice-desktopeditors" ]; then
         sed -i "s|/opt/onlyoffice/desktopeditors|$out/opt/onlyoffice/desktopeditors|g" "$out/bin/onlyoffice-desktopeditors" 2>/dev/null || true
       fi
+
+      # ──────────────────────────────────────────────────────────────────────────
+      # 修复 ONLYOFFICE 内部字体扫描引擎忽略软链接 (DT_LNK) 的缺陷：
+      #
+      # 背景与根因：
+      # ONLYOFFICE 编辑器正文排版引擎不走系统的 Fontconfig，而是通过 NSDirectory::GetFiles2
+      # 遍历目录项查找字体文件。在 Linux 下该函数只直接处理 DT_REG(8) 与 DT_DIR(4)，
+      # 对于非 0 的其他类型全部跳过丢弃（遗漏了软链接 DT_LNK = 10）。而在 NixOS 中，
+      # 系统 /usr/share/fonts 与 /run/current-system/sw/share/X11/fonts 均为符号链接农场，
+      # 导致 ONLYOFFICE 遍历后识别到的系统字体数量为 0，中文正文渲染成乱码豆腐块，
+      # 下拉列表亦无法选到任何中文字体。
+      #
+      # 修复机制：
+      # patch-libkernel.py 通过精确匹配 NSDirectory::GetFiles2 中的指令序列，
+      # 将 `test %al, %al; jne ...` 指令替换为 4 个 NOP，使得遇到 DT_LNK 时透传落入
+      # 后方的 stat() 判定逻辑中，从而透明解析出指向的物理字体文件及子目录。
+      #
+      # 严格错误校验：
+      # patch-libkernel.py 会在目标符号范围内校验机器码特征，若随版本升级导致特征不匹配
+      # 或匹配出现歧义，脚本会抛出异常退出（返回非 0 状态码），使构建立即失败并打印
+      # 调试指引，防止未修补产物带病上线。
+      # ──────────────────────────────────────────────────────────────────────────
+      ${pkgs.python3}/bin/python3 ${./patch-libkernel.py} "$out/opt/onlyoffice/desktopeditors/converter/libkernel.so"
     ''
   ];
 
