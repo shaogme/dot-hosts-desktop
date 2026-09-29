@@ -20,12 +20,20 @@ mkSandboxedApp.qtApp {
   execPath = "opt/onlyoffice/desktopeditors/DesktopEditors";
   runInDirectory = "opt/onlyoffice/desktopeditors";
 
-  # 扩展 Qt 基底，补充多媒体编解码、XKB 配置、udev shim 与默认中文字体支持
+  # 扩展 Qt 基底，补充多媒体编解码（GStreamer全套插件、x265、libva）、辅助功能（speechd）、XKB 配置、udev shim 与默认中文字体支持
   fhsBase = mkSandboxedApp.extend mkSandboxedApp.fhsBases.desktop-gui-electron-media-xcb-qt (pkgs: [
     pkgs.gst_all_1.gstreamer
     pkgs.gst_all_1.gst-plugins-base
-    pkgs.xkeyboard_config
+    pkgs.gst_all_1.gst-plugins-good
+    pkgs.gst_all_1.gst-plugins-bad
+    pkgs.gst_all_1.gst-plugins-ugly
+    pkgs.gst_all_1.gst-libav
     pkgs.libudev0-shim
+    pkgs.speechd
+    pkgs.x265
+    pkgs.libva
+    pkgs.libvpx
+    pkgs.xkeyboard_config
     pkgs.noto-fonts-cjk-sans
   ]);
 
@@ -46,10 +54,16 @@ mkSandboxedApp.qtApp {
     ];
   };
 
+  # 设置内部依赖库搜索路径，解决 converter 内部依赖库 (如 libUnicodeConverter.so 等) 缺失的问题
+  preRunHooks = [
+    ''export LD_LIBRARY_PATH="@UNPACKED@/opt/onlyoffice/desktopeditors:@UNPACKED@/opt/onlyoffice/desktopeditors/converter''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"''
+  ];
+
   env = {
     QT_QPA_PLATFORM = "xcb";
     QT_XKB_CONFIG_ROOT = "${pkgs.xkeyboard_config}/share/X11/xkb";
     QTCOMPOSE = "${pkgs.libx11}/share/X11/locale";
+    GST_PLUGIN_SYSTEM_PATH_1_0 = "/usr/lib/gstreamer-1.0:/usr/lib64/gstreamer-1.0";
   };
 
   postUnpackHooks = [
