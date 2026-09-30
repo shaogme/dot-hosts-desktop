@@ -82,6 +82,9 @@ in
   "Print" = { screenshot = { }; };
   "Ctrl+Print" = { screenshot-screen = { }; };
   "Alt+Print" = { screenshot-window = { }; };
+  "Mod+P" = { screenshot = { }; };
+  "Mod+Ctrl+P" = { screenshot-screen = { }; };
+  "Mod+Alt+P" = { screenshot-window = { }; };
 
   "Mod+WheelScrollDown" = {
     _props.cooldown-ms = 150;
