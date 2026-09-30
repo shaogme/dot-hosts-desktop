@@ -235,6 +235,68 @@ in
       };
     };
 
+    screenshot = {
+      enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "是否在 Niri 中启用自定义截屏工具联动。若为 false 则保持 Niri 原生内置截屏动作。";
+      };
+
+      command = mkOption {
+        type = types.str;
+        default = "";
+        description = "Niri 唤起自定义区域/交互式截屏的命令行（默认按键 Print 与 Mod+P 唤起）。";
+      };
+
+      screenCommand = mkOption {
+        type = types.str;
+        default = "";
+        description = "Niri 唤起自定义全屏截屏的命令行（默认按键 Ctrl+Print 与 Mod+Ctrl+P 唤起，设为空则回退到原生 screenshot-screen）。";
+      };
+
+      windowCommand = mkOption {
+        type = types.str;
+        default = "";
+        description = "Niri 唤起自定义窗口截屏的命令行（默认按键 Alt+Print 与 Mod+Alt+P 唤起，设为空则回退到原生 screenshot-window）。";
+      };
+
+      keybind = mkOption {
+        type = types.str;
+        default = "Print";
+        description = "在 Niri 中唤起区域截屏的主快捷键绑定（设为空字符串则不注册）。";
+      };
+
+      altKeybind = mkOption {
+        type = types.str;
+        default = "Mod+P";
+        description = "在 Niri 中唤起区域截屏的辅助快捷键绑定（设为空字符串则不注册）。";
+      };
+
+      screenKeybind = mkOption {
+        type = types.str;
+        default = "Ctrl+Print";
+        description = "在 Niri 中唤起全屏截屏的主快捷键绑定（设为空字符串则不注册）。";
+      };
+
+      altScreenKeybind = mkOption {
+        type = types.str;
+        default = "Mod+Ctrl+P";
+        description = "在 Niri 中唤起全屏截屏的辅助快捷键绑定（设为空字符串则不注册）。";
+      };
+
+      windowKeybind = mkOption {
+        type = types.str;
+        default = "Alt+Print";
+        description = "在 Niri 中唤起窗口截屏的主快捷键绑定（设为空字符串则不注册）。";
+      };
+
+      altWindowKeybind = mkOption {
+        type = types.str;
+        default = "Mod+Alt+P";
+        description = "在 Niri 中唤起窗口截屏的辅助快捷键绑定（设为空字符串则不注册）。";
+      };
+    };
+
     portal = {
       enable = mkOption {
         type = types.bool;
@@ -769,6 +831,10 @@ in
         {
           assertion = cfg.clipboard.enable -> cfg.clipboard.command != "";
           message = "桌面环境配置错误：Niri 启用了剪贴板管理器联动 (desktop.windowManager.niri.clipboard.enable = true) 时，必须显式配置 clipboard.command，禁止提供默认 fallback。";
+        }
+        {
+          assertion = cfg.screenshot.enable -> cfg.screenshot.command != "";
+          message = "桌面环境配置错误：Niri 启用了自定义截屏工具联动 (desktop.windowManager.niri.screenshot.enable = true) 时，必须显式配置 screenshot.command，禁止提供默认 fallback。";
         }
         {
           assertion = cfg.terminal != "";

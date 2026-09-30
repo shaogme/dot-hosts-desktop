@@ -403,6 +403,15 @@ pkgs.testers.nixosTest {
           server.succeed("test -f /run/current-system/sw/share/applications/com.obsproject.Studio.desktop")
           print("--- 录屏软件模块 (OBS Studio) 验证通过！---")
 
+      # 验证截屏软件 (Satty)
+      if ${if (serverCfg.desktop ? screenshot && serverCfg.desktop.screenshot ? satty && serverCfg.desktop.screenshot.satty.enable) then "True" else "False"}:
+          print("--- 验证截屏软件模块 (Satty) ---")
+          server.succeed("which satty")
+          server.succeed("which satty-screenshot")
+          server.succeed("test -f /etc/xdg/satty/config.toml")
+          server.succeed("test -f /run/current-system/sw/share/applications/satty.desktop")
+          print("--- 截屏软件模块 (Satty) 验证通过！---")
+
       print("VM 测试全部通过！")
     '';
 }
