@@ -452,5 +452,6 @@ fi
 | **Microsoft Edge** | Chromium/Electron, Media, 微软 APT 源 Packages.gz 解析 | [`microsoft-edge/default.nix`](./microsoft-edge/default.nix) · [`microsoft-edge/package.nix`](./microsoft-edge/package.nix) | [`microsoft-edge/update.sh`](./microsoft-edge/update.sh) |
 | **Microsoft Edge Dev** | Chromium/Electron, Media, 微软 APT 源 Packages.gz 解析 | [`microsoft-edge-dev/default.nix`](./microsoft-edge-dev/default.nix) · [`microsoft-edge-dev/package.nix`](./microsoft-edge-dev/package.nix) | [`microsoft-edge-dev/update.sh`](./microsoft-edge-dev/update.sh) |
 | **ONLYOFFICE (Desktop Editors)** | Qt5/CEF, Media, XCB, GitHub Release 依赖 | [`onlyoffice/default.nix`](./onlyoffice/default.nix) · [`onlyoffice/package.nix`](./onlyoffice/package.nix) | *(标准 npins 托管)* |
+| **Telegram Desktop** | Static Qt6, Wayland/X11, WebKitGTK, GitHub Release Tarball | [`telegram-desktop/default.nix`](./telegram-desktop/default.nix) · [`telegram-desktop/package.nix`](./telegram-desktop/package.nix) | [`telegram-desktop/update.sh`](./telegram-desktop/update.sh) |
 | **Wine (Windows 兼容环境)** | New WoW64, DXVK 2.x, Office CJK 字体, 交互式沙箱容器 | [`wine/default.nix`](./wine/default.nix) · [`wine/package.nix`](./wine/package.nix) | *(系统内置运行时)* |
 
