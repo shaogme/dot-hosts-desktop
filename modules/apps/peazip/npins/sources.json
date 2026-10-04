@@ -1,0 +1,11 @@
+{
+  "pins": {
+    "peazip": {
+      "type": "Url",
+      "url": "https://github.com/peazip/PeaZip/releases/download/11.3.0/peazip_11.3.0.LINUX.Qt6-1_amd64.deb",
+      "unpack": false,
+      "hash": "sha256-glwet6wgdQKnPTSG0MnCZMQAS7i2YErxnK1c5Ai0riI="
+    }
+  },
+  "version": 8
+}

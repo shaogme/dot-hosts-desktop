@@ -14,5 +14,6 @@
     microsoft-edge.enable = lib.mkDefault true;
     wine.enable = lib.mkDefault true;
     telegram-desktop.enable = lib.mkDefault true;
+    peazip.enable = lib.mkDefault true;
   };
 }
