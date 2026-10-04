@@ -8,13 +8,14 @@
 
 为消除各 App 在 FHS 依赖、Bubblewrap 沙箱隔离、包装脚本与 Desktop 快捷方式创建中的样板代码，仓库在 [`modules/apps/lib/`](./lib/) 下提供了统一的抽象工具库（静态特化管线，零 `for` 循环遍历与运行时分支）：
 
-- **[`lib/mk-sandboxed-app/`](./lib/mk-sandboxed-app/)**: 统一沙箱应用构建器目录，对外 API 为 `mkSandboxedApp.{base,desktopApp,electronApp,firefoxApp,qtApp,webkitApp,dotnetApp}` 特化构造器与 `fhsBases` 共享基底：
+- **[`lib/mk-sandboxed-app/`](./lib/mk-sandboxed-app/)**: 统一沙箱应用构建器目录，对外 API 为 `mkSandboxedApp.{base,desktopApp,electronApp,firefoxApp,qtApp,webkitApp,dotnetApp,wineApp}` 特化构造器与 `fhsBases` 共享基底：
   - [`default.nix`](./lib/mk-sandboxed-app/default.nix): 对外装配（`mkCore` 纯静态管线）。
-  - [`types.nix`](./lib/mk-sandboxed-app/types.nix): ADT 定义（`Src` / `Icons` / `Sandbox` / `Env`，封闭集合，未知字段直接 `throw`）。
-  - [`fhs-bases.nix`](./lib/mk-sandboxed-app/fhs-bases.nix): 共享 FHS 基底（`desktop-gui` 等高频组合预计算，`listToAttrs` O(n) 去重）。
+  - [`types.nix`](./lib/mk-sandboxed-app/types.nix): ADT 定义（`Src` / `Icons` / `Sandbox` / `Env` / `Wine`，封闭集合，未知字段直接 `throw`）。
+  - [`fhs-bases.nix`](./lib/mk-sandboxed-app/fhs-bases.nix): 共享 FHS 基底（`desktop-gui`、`desktop-gui-wine` 等高频组合预计算，`listToAttrs` O(n) 去重）。
   - [`sandbox.nix`](./lib/mk-sandboxed-app/sandbox.nix): 类型化 bwrap 参数生成器。
-  - [`mk-unpacked.nix`](./lib/mk-sandboxed-app/mk-unpacked.nix): `Src` ADT 静态分发解包（含 `resolveArch`）。
+  - [`mk-unpacked.nix`](./lib/mk-sandboxed-app/mk-unpacked.nix): `Src` ADT 静态分发解包（含 `resolveArch`，原生支持 deb / tarball / zip / nsis / inno / msi 等无头解包）。
   - [`mk-launcher-env.nix`](./lib/mk-sandboxed-app/mk-launcher-env.nix): FHS `/etc/profile` 预烘焙环境（零 `for`/`grep`/`cat`）。
+  - [`mk-wine-launcher.nix`](./lib/mk-sandboxed-app/mk-wine-launcher.nix): 专有 Wine 声明式前缀状态机引擎、CJK 注册表生成与 Windows 字体注入器。
   - [`mk-wrapper.nix`](./lib/mk-sandboxed-app/mk-wrapper.nix): 扁平 wrapper（`exec` + 单 `mkdir` 回退）。
   - [`mk-desktop.nix`](./lib/mk-sandboxed-app/mk-desktop.nix): `desktopItem` + 图标（单次 `find -exec`）+ 别名（`linkFarm`）。
   - [`mk-fhs-env.nix`](./lib/mk-sandboxed-app/mk-fhs-env.nix): 专用 FHS 构造器。
@@ -104,11 +105,60 @@ mkSandboxedApp.webkitApp {
 }
 ```
 
-> 构造器选型：`base`（显式 `fhsBase`）· `desktopApp` · `electronApp` · `firefoxApp`（默认 `icons.firefox`）· `qtApp` · `webkitApp` · `dotnetApp`。
-> `src` 仅接受 ADT（`{ deb = …; }` | `{ tarball = …; }` | `{ custom = …; }`）；
-> `sandbox` 为封闭集合（未知字段直接 `throw`），持久目录统一声明于 `sandbox.homeDirs`（由模块层 `systemd.user.tmpfiles` 预建）；
+> 构造器选型：`base`（显式 `fhsBase`）· `desktopApp` · `electronApp` · `firefoxApp`（默认 `icons.firefox`）· `qtApp` · `webkitApp` · `dotnetApp` · `wineApp`（专有 Wine New WoW64 运行时与声明式前缀状态机）。
+> `src` 仅接受 ADT（`{ deb = …; }` | `{ tarball = …; }` | `{ zip = …; }` | `{ nsis = …; }` | `{ inno = …; }` | `{ msi = …; }` | `{ custom = …; }`）；
+> `sandbox` 为封闭集合（未知字段直接 `throw`），持久目录统一声明于 `sandbox.homeDirs`（由模块层 `systemd.user.tmpfiles` 预建，`wineApp` 自动预建 `wineprefix` 并开启 `privateTmp`）；
 > `icons` 仅接受 ADT（`{ hicolor.auto = true; }` | `{ firefox = {}; }` | `{ none = true; }`）；
 > 启动钩子仅接受静态字符串列表（`preRunHooks` / `fhsExtraCommands` / `postUnpackHooks` / `postBuildHooks`，`@UNPACKED@` 在构建期替换为解包路径）。
+
+#### 附：Wine 应用程序声明范例 (`wineApp`)
+
+针对 Windows 应用程序（通过 Portable Zip、NSIS 官方安装包、InnoSetup 安装包或 MSI 分发）：
+
+```nix
+{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
+
+let
+  sources = import ./npins;
+in
+mkSandboxedApp.wineApp {
+  pname = "<app-name>";
+  version = "1.0.0";
+
+  # 构建期无头解包: 支持 nsis, inno, msi, zip (杜绝运行期弹窗安装向导)
+  src = { nsis = mkSandboxedApp.fetchWithRetry sources.<pin-name>; };
+  winExecPath = "<relative/path/to/executable.exe>";
+
+  wine = {
+    arch = "win64"; # "win64" (默认) 或 "win32"
+    dxvk = false;   # 若为 3D/DirectX 应用，设为 true 可自动装配 Vulkan DXVK 2.x
+    fonts = {
+      enableOfficeFonts = true;   # 自动软链接 modules/fonts 微软中文字体 (SimSun/YaHei)
+      enableCjkFallback = true;   # 自动下发 FontSubstitutes 与 FontLink 注册表映射
+      enableFontSmoothing = true; # 开启 ClearType 抗锯齿平滑渲染
+    };
+    dllOverrides = {
+      riched20 = "native,builtin";
+    };
+    drives = {
+      "d:" = "Downloads"; # 映射受控的虚拟 D: 盘 (自动收敛危险的全局 Z: 盘)
+    };
+  };
+
+  sandbox = {
+    shareDownloads = true;
+    sharedDirs = [ "Documents" ];
+  };
+
+  desktop = {
+    desktopName = "<App Display Name>";
+    genericName = "<Category Name>";
+    comment = "<Description>";
+    categories = [ "Utility" ];
+    icon = "<app-name>";
+  };
+}
+```
 
 ---
 
@@ -370,6 +420,7 @@ fi
 | **`desktop-gui-webkitgtk`** | `webkitApp` 默认：桌面基底 + WebKitGTK 4.1 与 libsoup3（如 Clash Verge Rev、Tauri 应用） |
 | **`desktop-gui-dotnet`** | `dotnetApp` 默认：桌面基底 + .NET CoreCLR 运行时依赖（ICU、SQLite 等，如 v2rayN） |
 | **`desktop-gui-media`** | `firefoxApp` 默认：桌面基底 + 完整多媒体与安全编解码库（FFmpeg、libvpx、NSS、NSPR 等，如 Firefox） |
+| **`desktop-gui-wine`** | `wineApp` 默认：桌面基底 + Wine 纯 64 位 New WoW64 运行时 + 完整 GStreamer 多媒体编解码 + Vulkan/OpenGL 驱动 + Samba/CUPS/SANE + 字体排版设施 |
 
 ---
 
@@ -401,4 +452,5 @@ fi
 | **Microsoft Edge** | Chromium/Electron, Media, 微软 APT 源 Packages.gz 解析 | [`microsoft-edge/default.nix`](./microsoft-edge/default.nix) · [`microsoft-edge/package.nix`](./microsoft-edge/package.nix) | [`microsoft-edge/update.sh`](./microsoft-edge/update.sh) |
 | **Microsoft Edge Dev** | Chromium/Electron, Media, 微软 APT 源 Packages.gz 解析 | [`microsoft-edge-dev/default.nix`](./microsoft-edge-dev/default.nix) · [`microsoft-edge-dev/package.nix`](./microsoft-edge-dev/package.nix) | [`microsoft-edge-dev/update.sh`](./microsoft-edge-dev/update.sh) |
 | **ONLYOFFICE (Desktop Editors)** | Qt5/CEF, Media, XCB, GitHub Release 依赖 | [`onlyoffice/default.nix`](./onlyoffice/default.nix) · [`onlyoffice/package.nix`](./onlyoffice/package.nix) | *(标准 npins 托管)* |
+| **Wine (Windows 兼容环境)** | New WoW64, DXVK 2.x, Office CJK 字体, 交互式沙箱容器 | [`wine/default.nix`](./wine/default.nix) · [`wine/package.nix`](./wine/package.nix) | *(系统内置运行时)* |
 

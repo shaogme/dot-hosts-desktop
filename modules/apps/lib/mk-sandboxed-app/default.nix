@@ -7,6 +7,7 @@ let
   sandboxLib = import ./sandbox.nix { inherit lib; };
   fhsEnvLib = import ./mk-fhs-env.nix { inherit pkgs lib; };
   launcherLib = import ./mk-launcher-env.nix { inherit pkgs lib; };
+  wineLauncherLib = import ./mk-wine-launcher.nix { inherit pkgs lib; };
   wrapperLib = import ./mk-wrapper.nix { inherit pkgs lib; };
   desktopLib = import ./mk-desktop.nix { inherit pkgs lib; };
   fetchWithRetry = import ../fetch-with-retry.nix { inherit pkgs lib; };
@@ -16,7 +17,10 @@ let
     { pname
     , version
     , src
-    , execPath
+    , execPath ? null
+    , winExecPath ? null
+    , wine ? null
+    , officeFontsPackage ? null
     , binaryName ? pname
     , fhsBase
     , sandbox ? { }
@@ -33,12 +37,25 @@ let
     , privateTmp ? true
     }:
     let
+      isWine = winExecPath != null || wine != null;
+      _checkExec =
+        if !isWine && execPath == null then
+          throw "mkSandboxedApp: 必须提供 execPath (若为 wineApp 可省略 winExecPath 以进入通用 Wine 容器模式)"
+        else true;
+
       srcADT = typesLib.normalizeSrc { inherit src; };
       unpacked = unpackedLib.mkUnpacked {
         inherit pname version srcADT postUnpackHooks;
       };
 
-      sandboxCfg = typesLib.normalizeSandbox { inherit sandbox pname; };
+      rawSandboxCfg = typesLib.normalizeSandbox { inherit sandbox pname; };
+      sandboxCfg = rawSandboxCfg // {
+        homeDirs =
+          if isWine then
+            lib.unique (rawSandboxCfg.homeDirs ++ [ "wineprefix" ])
+          else
+            rawSandboxCfg.homeDirs;
+      };
       sandboxName = sandboxCfg.name;
       bwrapArgs = sandboxLib.makeBwrapArgs ({
         inherit sandboxName;
@@ -46,11 +63,23 @@ let
 
       staticEnv = typesLib.normalizeEnv { inherit env; };
 
-      launcher = launcherLib.mkLauncherEnv {
-        inherit pname unpacked execPath;
-        env = staticEnv;
-        inherit preRunHooks runInDirectory;
-      };
+      launcher =
+        if isWine then
+          let
+            wineCfg = typesLib.normalizeWine (if wine != null then wine else { });
+            wineLauncherArgs = {
+              inherit pname unpacked winExecPath wineCfg sandboxName;
+              env = staticEnv;
+              inherit preRunHooks runInDirectory;
+            } // (lib.optionalAttrs (officeFontsPackage != null) { inherit officeFontsPackage; });
+          in
+          wineLauncherLib.mkWineLauncherEnv wineLauncherArgs
+        else
+          launcherLib.mkLauncherEnv {
+            inherit pname unpacked execPath;
+            env = staticEnv;
+            inherit preRunHooks runInDirectory;
+          };
 
       extraBuildCommands = typesLib.resolveExtraBuildCommands { inherit fhsExtraCommands; };
 
@@ -60,7 +89,7 @@ let
         profile = launcher.profile;
         runScript = launcher.runScript;
         unshareUser = false;
-        inherit privateTmp;
+        privateTmp = if isWine then true else privateTmp;
       };
       extraBwrapArgs = bwrapArgs;
 
@@ -80,6 +109,7 @@ let
         homeDirs = lib.unique (sandboxCfg.homeDirs or [ ]);
       };
     in
+    assert _checkExec;
     desktopLib.mkFinalPackage {
       inherit pname version wrapper desktopItem iconsDrv aliasesDrv postBuildHooks unpacked fhs appMeta;
       windowRules = lib.unique windowRules;
@@ -118,10 +148,25 @@ let
     fhsBase = fhsBasesLib.fhsBases.desktop-gui-dotnet;
   } args;
 
+  wineApp = args:
+    let
+      wineNormalized = typesLib.normalizeWine (args.wine or { });
+      customFhs =
+        if wineNormalized.dxvk then
+          fhsBasesLib.extend fhsBasesLib.fhsBases.desktop-gui-wine (p: [ p.dxvk ])
+        else
+          fhsBasesLib.fhsBases.desktop-gui-wine;
+    in
+    withDefaults {
+      fhsBase = customFhs;
+      wine = wineNormalized;
+      privateTmp = true;
+    } args;
+
 in
 {
   inherit fetchWithRetry;
   fetchDeb = fetchWithRetry;
-  inherit base desktopApp electronApp firefoxApp qtApp webkitApp dotnetApp;
+  inherit base desktopApp electronApp firefoxApp qtApp webkitApp dotnetApp wineApp;
   inherit (fhsBasesLib) fhsBases combine extend;
 }

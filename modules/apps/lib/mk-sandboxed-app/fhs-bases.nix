@@ -178,6 +178,45 @@ let
       pkgs.libxcb-errors
     ];
 
+    wine = pkgs: [
+      pkgs.wineWow64Packages.stagingFull
+      pkgs.vulkan-loader
+      pkgs.vulkan-tools
+      pkgs.mesa
+      pkgs.libGL
+      pkgs.libGLU
+      pkgs.libdrm
+      pkgs.libva
+      pkgs.pipewire
+      pkgs.alsa-lib
+      pkgs.libpulseaudio
+      pkgs.gst_all_1.gstreamer
+      pkgs.gst_all_1.gst-plugins-base
+      pkgs.gst_all_1.gst-plugins-good
+      pkgs.gst_all_1.gst-plugins-bad
+      pkgs.gst_all_1.gst-plugins-ugly
+      pkgs.gst_all_1.gst-libav
+      pkgs.gnutls
+      pkgs.openssl
+      pkgs.samba
+      pkgs.cups
+      pkgs.sane-backends
+      pkgs.fontconfig.lib
+      pkgs.freetype
+      pkgs.harfbuzz
+      pkgs.cabextract
+      pkgs.gnupg
+      pkgs.libxcursor
+      pkgs.libxi
+      pkgs.libxinerama
+      pkgs.libxcomposite
+      pkgs.libxfixes
+      pkgs.libxrandr
+      pkgs.xkeyboard_config
+      pkgs.p7zip
+      pkgs.winetricks
+    ];
+
     desktop-gui = pkgs:
       base pkgs
       ++ x11 pkgs
@@ -207,6 +246,7 @@ let
     media = b "media" P.media;
     electron = b "electron" P.electron;
     xcb = b "xcb" P.xcb;
+    wine = b "wine" P.wine;
 
     desktop-gui = b "desktop-gui" P.desktop-gui;
 
@@ -216,6 +256,7 @@ let
     desktop-gui-electron-media-xcb-qt = combine [ desktop-gui electron media xcb qt ];
     desktop-gui-webkitgtk = combine [ desktop-gui webkitgtk ];
     desktop-gui-dotnet = combine [ desktop-gui dotnet ];
+    desktop-gui-wine = combine [ desktop-gui wine media ];
   };
 in
 {

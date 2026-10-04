@@ -44,6 +44,75 @@ in
           ${postUnpack}
         '';
       }
+    else if srcADT.kind == "zip" then
+      pkgs.stdenv.mkDerivation {
+        pname = "${pname}-unpacked";
+        inherit version;
+        src = outFile;
+        nativeBuildInputs = [ pkgs.p7zip ];
+        dontBuild = true;
+        dontConfigure = true;
+        unpackPhase = ''
+          mkdir -p $out
+          7z x -y "$src" -o$out/
+        '';
+        installPhase = ''
+          ${postUnpack}
+        '';
+      }
+    else if srcADT.kind == "nsis" then
+      pkgs.stdenv.mkDerivation {
+        pname = "${pname}-unpacked";
+        inherit version;
+        src = outFile;
+        nativeBuildInputs = [ pkgs.p7zip ];
+        dontBuild = true;
+        dontConfigure = true;
+        unpackPhase = ''
+          mkdir -p $out
+          7z x -y "$src" -o$out/
+          rm -rf $out/\$PLUGINSDIR $out/\$_OUTDIR 2>/dev/null || true
+        '';
+        installPhase = ''
+          ${postUnpack}
+        '';
+      }
+    else if srcADT.kind == "inno" then
+      pkgs.stdenv.mkDerivation {
+        pname = "${pname}-unpacked";
+        inherit version;
+        src = outFile;
+        nativeBuildInputs = [ pkgs.innoextract ];
+        dontBuild = true;
+        dontConfigure = true;
+        unpackPhase = ''
+          mkdir -p $out
+          innoextract --silent --extract --output-dir "$out" "$src"
+          if [ -d "$out/app" ]; then
+            cp -a --reflink=auto $out/app/* $out/ 2>/dev/null || cp -a $out/app/* $out/
+            rm -rf $out/app
+          fi
+        '';
+        installPhase = ''
+          ${postUnpack}
+        '';
+      }
+    else if srcADT.kind == "msi" then
+      pkgs.stdenv.mkDerivation {
+        pname = "${pname}-unpacked";
+        inherit version;
+        src = outFile;
+        nativeBuildInputs = [ pkgs.msitools ];
+        dontBuild = true;
+        dontConfigure = true;
+        unpackPhase = ''
+          mkdir -p $out
+          msiextract "$src" -C "$out"
+        '';
+        installPhase = ''
+          ${postUnpack}
+        '';
+      }
     else if srcADT.kind == "tarball" then
       if lib.isDerivation file || builtins.isPath file then
         if postUnpackHooks == [ ] then file

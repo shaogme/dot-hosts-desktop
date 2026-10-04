@@ -12,5 +12,6 @@
     qq.enable = lib.mkDefault true;
     vscode-insiders.enable = lib.mkDefault true;
     microsoft-edge.enable = lib.mkDefault true;
+    wine.enable = lib.mkDefault true;
   };
 }

@@ -4,11 +4,15 @@ rec {
   # ── Src ADT (仅接受 ADT, 无 srcType 字符串分发) ──
   #   src = { deb = <file>; }
   #       | { tarball = <file>; stripRoot ? bool; }
+  #       | { zip = <file>; }
+  #       | { nsis = <file>; }
+  #       | { inno = <file>; }
+  #       | { msi = <file>; }
   #       | { custom = <drv | path>; }
   # 返回: { kind; file; stripRoot; }
   normalizeSrc = { src, stripRoot ? true }:
     if !(builtins.isAttrs src) then
-      throw "mkSandboxedApp: src 必须为 ADT attrset ({ deb = ...; } | { tarball = ...; } | { custom = ...; }), 实际类型 ${builtins.typeOf src}"
+      throw "mkSandboxedApp: src 必须为 ADT attrset ({ deb = ...; } | { tarball = ...; } | { zip = ...; } | { nsis = ...; } | { inno = ...; } | { msi = ...; } | { custom = ...; }), 实际类型 ${builtins.typeOf src}"
     else if src ? deb then
       {
         kind = "deb";
@@ -21,10 +25,18 @@ rec {
         file = src.tarball;
         stripRoot = if src ? stripRoot then src.stripRoot else stripRoot;
       }
+    else if src ? zip then
+      { kind = "zip"; file = src.zip; inherit stripRoot; }
+    else if src ? nsis then
+      { kind = "nsis"; file = src.nsis; inherit stripRoot; }
+    else if src ? inno then
+      { kind = "inno"; file = src.inno; inherit stripRoot; }
+    else if src ? msi then
+      { kind = "msi"; file = src.msi; inherit stripRoot; }
     else if src ? custom then
       { kind = "custom"; file = src.custom; inherit stripRoot; }
     else
-      throw "mkSandboxedApp: src ADT 缺少 deb|tarball|custom 键 (实际键: ${lib.concatStringsSep "," (builtins.attrNames src)})";
+      throw "mkSandboxedApp: src ADT 缺少 deb|tarball|zip|nsis|inno|msi|custom 键 (实际键: ${lib.concatStringsSep "," (builtins.attrNames src)})";
 
   # npins set (含 outPath) 显式展开为 store 路径, 避免 builtins.isPath 误判.
   srcOutPath = file:
@@ -143,4 +155,70 @@ rec {
       throw "mkSandboxedApp: postUnpackHooks 必须为 string 列表"
     else
       lib.concatStringsSep "\n" (map toString postUnpackHooks);
+
+  # ── Wine 类型化子模块 (封闭 attrset, 未知字段 throw) ──
+  wineFontsDefaults = {
+    enableOfficeFonts = true;
+    enableCjkFallback = true;
+    enableFontSmoothing = true;
+    customFonts = [ ];
+  };
+
+  allowedWineFontsKeys = builtins.attrNames wineFontsDefaults;
+
+  normalizeWineFonts = raw:
+    let
+      fonts = if builtins.isAttrs raw && raw ? fonts && builtins.isAttrs raw.fonts then raw.fonts else raw;
+    in
+    if !(builtins.isAttrs fonts) then
+      throw "mkSandboxedApp: wine.fonts 必须为 attrset"
+    else
+      let
+        unknown = lib.filter (k: !(builtins.elem k allowedWineFontsKeys)) (builtins.attrNames fonts);
+      in
+      if unknown != [ ] then
+        throw "mkSandboxedApp: wine.fonts 含未知字段 [${lib.concatStringsSep ", " unknown}] (允许: ${lib.concatStringsSep ", " allowedWineFontsKeys})"
+      else
+        wineFontsDefaults // fonts;
+
+  wineDefaults = {
+    package = null;
+    arch = "win64";
+    dxvk = false;
+    fonts = wineFontsDefaults;
+    registry = { };
+    regFiles = [ ];
+    dllOverrides = { };
+    drives = {
+      "d:" = "Downloads";
+    };
+    tricks = [ ];
+    dpi = null;
+    waitWineserver = true;
+    debug = "-all";
+  };
+
+  allowedWineKeys = builtins.attrNames wineDefaults;
+
+  normalizeWine = raw:
+    let
+      wine = if builtins.isAttrs raw && raw ? wine && builtins.isAttrs raw.wine then raw.wine else raw;
+    in
+    if !(builtins.isAttrs wine) then
+      throw "mkSandboxedApp: wine 必须为 attrset"
+    else
+      let
+        unknown = lib.filter (k: !(builtins.elem k allowedWineKeys)) (builtins.attrNames wine);
+        normalizedFonts = normalizeWineFonts (wine.fonts or { });
+        arch = wine.arch or "win64";
+        _checkArch =
+          if arch != "win64" && arch != "win32" then
+            throw "mkSandboxedApp: wine.arch 必须为 'win64' 或 'win32' (实际: '${arch}')"
+          else true;
+      in
+      if unknown != [ ] then
+        throw "mkSandboxedApp: wine 含未知字段 [${lib.concatStringsSep ", " unknown}] (允许: ${lib.concatStringsSep ", " allowedWineKeys})"
+      else
+        assert _checkArch;
+        wineDefaults // wine // { fonts = normalizedFonts; };
 }
