@@ -16,7 +16,7 @@ mkSandboxedApp.desktopApp {
   execPath = "Telegram";
 
   # ──────────────────────────────────────────────────────────────────────────
-  # 动态链接与运行时依赖分析：
+  # 动态链接与运行时依赖深度分析：
   #
   # 1. 直接 ELF 动态链接 (DT_NEEDED):
   #    - glibc: libc.so.6, libm.so.6, libdl.so.2, libpthread.so.0, librt.so.1, ld-linux-x86-64.so.2
@@ -66,11 +66,21 @@ mkSandboxedApp.desktopApp {
 
   postUnpackHooks = [
     ''
-      mkdir -p $out/share/icons/hicolor/256x256/apps $out/share/pixmaps
-      for name in telegram telegram-desktop org.telegram.desktop; do
-        cp ${./telegram.png} "$out/share/icons/hicolor/256x256/apps/$name.png"
-        cp ${./telegram.png} "$out/share/pixmaps/$name.png"
+      iconsDir="${./icons}"
+      for s in 16 32 48 64 128 256 512; do
+        res="''${s}x''${s}"
+        mkdir -p "$out/share/icons/hicolor/$res/apps"
+        src="$iconsDir/icon$s.png"
+        for name in telegram-desktop org.telegram.desktop telegram Telegram; do
+          cp "$src" "$out/share/icons/hicolor/$res/apps/$name.png"
+        done
       done
+
+      mkdir -p "$out/share/pixmaps"
+      for name in telegram-desktop org.telegram.desktop telegram Telegram; do
+        cp "$iconsDir/icon256.png" "$out/share/pixmaps/$name.png"
+      done
+
       chmod +x $out/Telegram $out/Updater 2>/dev/null || true
     ''
   ];
