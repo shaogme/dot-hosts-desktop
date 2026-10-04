@@ -2,6 +2,8 @@
 
 let
   # O(n) 去重 (attrset 插入, 替代 lib.unique O(n²)).
+  # 注意：禁止使用 p.pname 作为 key，因为同名不同主版本的包 (如 qt5.qtbase 与 qt6.qtbase)
+  # 会因 pname 相同 ("qtbase") 导致后者被静默覆盖丢弃。优先使用 outPath / name 进行安全去重。
   dedupePkgs = list:
     builtins.attrValues
       (builtins.listToAttrs
@@ -9,7 +11,8 @@ let
           (p:
             let
               key =
-                if builtins.isAttrs p then (p.pname or p.name or (builtins.toString (p.outPath or p)))
+                if builtins.isAttrs p && p ? outPath then builtins.unsafeDiscardStringContext (builtins.toString p.outPath)
+                else if builtins.isAttrs p && p ? name then p.name
                 else builtins.toString p;
             in
             { name = key; value = p; })
