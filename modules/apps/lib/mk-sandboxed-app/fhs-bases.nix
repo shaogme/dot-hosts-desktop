@@ -218,6 +218,10 @@ let
       pkgs.xkeyboard_config
       pkgs.p7zip
       pkgs.winetricks
+      pkgs.unzip
+      pkgs.which
+      pkgs.zenity
+      pkgs.wget
     ];
 
     desktop-gui = pkgs:

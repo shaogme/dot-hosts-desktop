@@ -69,6 +69,7 @@ mkSandboxedApp.wineApp {
       "wineprefix"
       "Downloads"
       "Games"
+      ".cache/winetricks"
     ];
   };
 

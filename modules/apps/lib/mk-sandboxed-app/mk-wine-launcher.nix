@@ -218,13 +218,14 @@ in
         }
 
         setup_drives() {
-          # 收敛全局 Z: 盘，避免任意遍历宿主文件系统
-          rm -f "$PREFIX_DIR/dosdevices/z:" 2>/dev/null || true
+          # 确保全局 Z: 盘正确映射至沙箱根目录，保证 Wine 能够将沙箱内的 Linux 绝对路径 (如 /tmp, /data, ~/.cache)
+          # 透明转换为 Windows DOS 路径，避免 ShellExecuteEx 因盘符缺失找不到文件
+          ln -sfn "/" "$PREFIX_DIR/dosdevices/z:" 2>/dev/null || true
 
-          # 声明式映射虚拟驱动器盘符
+          # 声明式映射常用虚拟驱动器盘符 (如 D: 映射到 Downloads, E: 映射到 Games)
           ${lib.concatStringsSep "\n" (lib.mapAttrsToList (drive: target: ''
             mkdir -p "$SANDBOX_ROOT/${target}"
-            ln -sf "$SANDBOX_ROOT/${target}" "$PREFIX_DIR/dosdevices/${drive}" 2>/dev/null || true
+            ln -sfn "$SANDBOX_ROOT/${target}" "$PREFIX_DIR/dosdevices/${drive}" 2>/dev/null || true
           '') wineCfg.drives)}
         }
 
@@ -251,7 +252,7 @@ in
             fi
           ''}
 
-          # 5. 虚拟驱动器盘符收敛
+          # 5. 虚拟驱动器盘符初始化
           setup_drives
 
           # 6. 写入版本标记
@@ -263,6 +264,9 @@ in
           apply_registries
           setup_drives
           echo "$CURRENT_HASH" > "$META_FILE"
+        else
+          # 每次启动确保盘符软链接健康
+          setup_drives
         fi
 
         # ── 预执行钩子 ──
@@ -272,8 +276,19 @@ in
         ${if runDir != null then "cd \"${runDir}\"" else ""}
 
         # ── 启动主应用程序与多命令路由 ──
-        CMD_BASE="$(basename "$0" 2>/dev/null || echo "")"
-        case "$CMD_BASE" in
+        CALL_CMD="''${SANDBOX_CALL_CMD:-$(basename "$0" 2>/dev/null || echo "")}"
+
+        # 兼容直接输入 `wine winetricks ...` 或 `wine winecfg` 的调用方式
+        if [ "$CALL_CMD" = "wine" ] || [ "$CALL_CMD" = "${pname}" ] || [ -z "$CALL_CMD" ] || [ "$CALL_CMD" = "${pname}-wine-run" ]; then
+          case "''${1:-}" in
+            winetricks|winecfg|wineserver|regedit|winefile|wineboot)
+              CALL_CMD="$1"
+              shift
+              ;;
+          esac
+        fi
+
+        case "$CALL_CMD" in
           winecfg)
             wine winecfg "$@"
             APP_EXIT_CODE=$?
@@ -316,8 +331,10 @@ in
             ;;
         esac
 
-        # ── 进程清理与守护 ──
-        ${lib.optionalString wineCfg.waitWineserver "wineserver -w"}
+        # ── 进程清理与守护 (非 wineserver 命令时等待) ──
+        if [ "$CALL_CMD" != "wineserver" ]; then
+          ${lib.optionalString wineCfg.waitWineserver "wineserver -w"}
+        fi
 
         exit $APP_EXIT_CODE
       '';
