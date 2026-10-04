@@ -139,6 +139,11 @@ in
     firewall.trustedInterfaces = [ "virbr0" ];
   };
 
+  systemd.tmpfiles.rules = [
+    "w /sys/kernel/mm/ksm/run - - - - 1"
+    "w /sys/kernel/mm/ksm/advisor_mode - - - - scan"
+  ];
+  
   # Virt-Manager 图形管理工具
   programs.virt-manager.enable = true;
   programs.dconf.enable = true;
