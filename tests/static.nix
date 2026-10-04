@@ -338,6 +338,16 @@ let
   hasObsPkg = lib.any (p: (p.pname or p.name or "") == "obs-studio" || (p.pname or p.name or "") == "wrapped-obs-studio" || lib.hasInfix "obs-studio" (p.name or "")) cfg.environment.systemPackages;
   obsPluginsCount = builtins.length (cfg.desktop.screenRecorder.obs.plugins or [ ]);
 
+  # ── 截屏软件模块 (desktop.screenshot.satty) 静态检查变量 ─────────────────
+  screenshotSattyEnabled = cfg.desktop.screenshot.satty.enable or false;
+  hasSattyPkg = lib.any (p: (p.pname or p.name or "") == "satty" || lib.hasPrefix "satty-" (p.name or "")) cfg.environment.systemPackages;
+  hasSattyScreenshotPkg = lib.any (p: lib.hasInfix "satty-screenshot" (p.name or p.pname or "")) cfg.environment.systemPackages;
+  sattyConfigFile =
+    if cfg.environment.etc ? "xdg/satty/config.toml" && cfg.environment.etc."xdg/satty/config.toml" ? source then
+      cfg.environment.etc."xdg/satty/config.toml".source
+    else
+      pkgs.emptyFile;
+
   # 安全转义
   escape = v: lib.escapeShellArg (toString v);
 in
@@ -1211,6 +1221,32 @@ pkgs.runCommand "${name}-static-check" {
       exit 1
     fi
     echo "[${name}] 录屏软件模块 (desktop.screenRecorder.obs) 静态验证通过！"
+  fi
+
+  # ── 18. 截屏软件模块 (desktop.screenshot.satty) 静态验证 ─────────────────────
+  if [ "${if screenshotSattyEnabled then "true" else "false"}" = "true" ]; then
+    echo "[${name}] 正在验证截屏软件模块 (desktop.screenshot.satty)..."
+    if [ "${if hasSattyPkg then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.screenshot.satty 启用时 environment.systemPackages 应包含 satty"
+      exit 1
+    fi
+    if [ "${if hasSattyScreenshotPkg then "true" else "false"}" != "true" ]; then
+      echo "错误: desktop.screenshot.satty 启用时 environment.systemPackages 应包含 satty-screenshot 包装脚本"
+      exit 1
+    fi
+    if [ ! -f "${sattyConfigFile}" ]; then
+      echo "错误: desktop.screenshot.satty 启用时应生成有效的 /etc/xdg/satty/config.toml"
+      exit 1
+    fi
+    echo "[${name}] 正在校验 Satty 配置文件 TOML 语法结构..."
+    python3 -c "import tomllib; tomllib.load(open('${sattyConfigFile}', 'rb'))"
+    if [ "${if niriEnabled then "true" else "false"}" = "true" ]; then
+      if [ "${if (cfg.desktop.windowManager.niri.screenshot.enable or false) then "true" else "false"}" != "true" ]; then
+        echo "错误: 当 Niri 与 Satty 同时启用时，Niri screenshot 联动应默认激活"
+        exit 1
+      fi
+    fi
+    echo "[${name}] 截屏软件模块 (desktop.screenshot.satty) 静态验证通过！"
   fi
 
   echo "静态检查通过！"

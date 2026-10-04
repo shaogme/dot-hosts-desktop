@@ -16,6 +16,7 @@
     ./packages
     ./portal
     ./screenRecorder
+    ./screenshot
     ./services
     ./storage
     ./terminal

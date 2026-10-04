@@ -9,6 +9,7 @@
     ./inputMethod
     ./packages
     ./screenRecorder
+    ./screenshot
     ./services
     ./storage
     ./terminal

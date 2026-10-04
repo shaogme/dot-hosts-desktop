@@ -127,6 +127,10 @@ in
     spiceUSBRedirection.enable = true;
   };
 
+  networking = {
+    firewall.trustedInterfaces = [ "virbr0" ];
+  };
+
   # Virt-Manager 图形管理工具
   programs.virt-manager.enable = true;
   programs.dconf.enable = true;

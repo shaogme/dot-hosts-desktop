@@ -17,6 +17,46 @@ let
     name = "Mod+Shift+${toString i}";
     value = { move-column-to-workspace = [ i ]; };
   }) [ 1 2 3 4 5 6 7 8 9 ]);
+
+  areaScreenshotAction =
+    if (cfg.screenshot.enable && cfg.screenshot.command != "") then {
+      _props.hotkey-overlay-title = "Take Screenshot (Area): ${cfg.screenshot.command}";
+      spawn-sh = [ cfg.screenshot.command ];
+    } else {
+      screenshot = { };
+    };
+
+  screenScreenshotAction =
+    if (cfg.screenshot.enable && cfg.screenshot.screenCommand != "") then {
+      _props.hotkey-overlay-title = "Take Screenshot (Screen): ${cfg.screenshot.screenCommand}";
+      spawn-sh = [ cfg.screenshot.screenCommand ];
+    } else {
+      screenshot-screen = { };
+    };
+
+  windowScreenshotAction =
+    if (cfg.screenshot.enable && cfg.screenshot.windowCommand != "") then {
+      _props.hotkey-overlay-title = "Take Screenshot (Window): ${cfg.screenshot.windowCommand}";
+      spawn-sh = [ cfg.screenshot.windowCommand ];
+    } else {
+      screenshot-window = { };
+    };
+
+  screenshotBinds =
+    let
+      areaKey = if cfg.screenshot.enable then cfg.screenshot.keybind else "Print";
+      areaAltKey = if cfg.screenshot.enable then cfg.screenshot.altKeybind else "Mod+P";
+      screenKey = if cfg.screenshot.enable then cfg.screenshot.screenKeybind else "Ctrl+Print";
+      screenAltKey = if cfg.screenshot.enable then cfg.screenshot.altScreenKeybind else "Mod+Ctrl+P";
+      windowKey = if cfg.screenshot.enable then cfg.screenshot.windowKeybind else "Alt+Print";
+      windowAltKey = if cfg.screenshot.enable then cfg.screenshot.altWindowKeybind else "Mod+Alt+P";
+    in
+    (optionalAttrs (areaKey != "") { "${areaKey}" = areaScreenshotAction; })
+    // (optionalAttrs (areaAltKey != "") { "${areaAltKey}" = areaScreenshotAction; })
+    // (optionalAttrs (screenKey != "") { "${screenKey}" = screenScreenshotAction; })
+    // (optionalAttrs (screenAltKey != "") { "${screenAltKey}" = screenScreenshotAction; })
+    // (optionalAttrs (windowKey != "") { "${windowKey}" = windowScreenshotAction; })
+    // (optionalAttrs (windowAltKey != "") { "${windowAltKey}" = windowScreenshotAction; });
 in
 {
   "Mod+Return" = {
@@ -78,13 +118,6 @@ in
     _props.allow-inhibiting = false;
     toggle-keyboard-shortcuts-inhibit = { };
   };
-
-  "Print" = { screenshot = { }; };
-  "Ctrl+Print" = { screenshot-screen = { }; };
-  "Alt+Print" = { screenshot-window = { }; };
-  "Mod+P" = { screenshot = { }; };
-  "Mod+Ctrl+P" = { screenshot-screen = { }; };
-  "Mod+Alt+P" = { screenshot-window = { }; };
 
   "Mod+WheelScrollDown" = {
     _props.cooldown-ms = 150;
@@ -207,6 +240,7 @@ in
 // workspaceFocusBinds
 // workspaceMoveBinds
 // workspaceShiftMoveBinds
+// screenshotBinds
 // (optionalAttrs (cfg.fileManager.enable && cfg.fileManager.keybind != "" && cfg.fileManager.command != "") {
   "${cfg.fileManager.keybind}" = {
     _props.hotkey-overlay-title = "Open File Manager";
