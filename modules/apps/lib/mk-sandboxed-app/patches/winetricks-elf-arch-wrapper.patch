@@ -1,0 +1,17 @@
+--- a/src/winetricks
++++ b/src/winetricks
+@@ -1124,7 +1124,13 @@ winetricks_get_file_arch()
+         esac
+     else
+         # Assume ELF binaries for everything else
+-        _W_ob_output="$(od -An -t x1 -j 0x12 -N 1 "${_W_file}" | tr -d "[:space:]")"
++        _W_ob_target="${_W_file}"
++        if [ -f "$(dirname "${_W_ob_target}")/.$(basename "${_W_ob_target}")" ]; then
++            _W_ob_target="$(dirname "${_W_ob_target}")/.$(basename "${_W_ob_target}")"
++        elif [ -f "$(dirname "$(readlink -f "${_W_ob_target}" 2>/dev/null)")/.$(basename "${_W_ob_target}")" ]; then
++            _W_ob_target="$(dirname "$(readlink -f "${_W_ob_target}" 2>/dev/null)")/.$(basename "${_W_ob_target}")"
++        fi
++        _W_ob_output="$(od -An -t x1 -j 0x12 -N 1 "${_W_ob_target}" 2>/dev/null | tr -d "[:space:]")"
+         case "${_W_ob_output}" in
+             "3e")      _W_file_arch="x86_64" ;;
+             "03"|"06") _W_file_arch="i386" ;;

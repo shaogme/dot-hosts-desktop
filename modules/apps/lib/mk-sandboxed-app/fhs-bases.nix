@@ -181,48 +181,58 @@ let
       pkgs.libxcb-errors
     ];
 
-    wine = pkgs: [
-      pkgs.wineWow64Packages.stagingFull
-      pkgs.vulkan-loader
-      pkgs.vulkan-tools
-      pkgs.mesa
-      pkgs.libGL
-      pkgs.libGLU
-      pkgs.libdrm
-      pkgs.libva
-      pkgs.pipewire
-      pkgs.alsa-lib
-      pkgs.libpulseaudio
-      pkgs.gst_all_1.gstreamer
-      pkgs.gst_all_1.gst-plugins-base
-      pkgs.gst_all_1.gst-plugins-good
-      pkgs.gst_all_1.gst-plugins-bad
-      pkgs.gst_all_1.gst-plugins-ugly
-      pkgs.gst_all_1.gst-libav
-      pkgs.gnutls
-      pkgs.openssl
-      pkgs.samba
-      pkgs.cups
-      pkgs.sane-backends
-      pkgs.fontconfig.lib
-      pkgs.freetype
-      pkgs.harfbuzz
-      pkgs.cabextract
-      pkgs.gnupg
-      pkgs.libxcursor
-      pkgs.libxi
-      pkgs.libxinerama
-      pkgs.libxcomposite
-      pkgs.libxfixes
-      pkgs.libxrandr
-      pkgs.xkeyboard_config
-      pkgs.p7zip
-      pkgs.winetricks
-      pkgs.unzip
-      pkgs.which
-      pkgs.zenity
-      pkgs.wget
-    ];
+    wine = pkgs:
+      let
+        # 补丁 winetricks：使 winetricks_get_file_arch 支持探测 Nixpkgs 被 wrapper 包装的 ELF 真实二进制文件 (如 /usr/bin/.wine)
+        # 从而准确识别 x86_64 架构与 new WoW64 模式，防止因 ELF 头部探测失败导致 WINE_ARCH 为空与 echo %AppData% 崩溃
+        patchedWinetricks = pkgs.winetricks.overrideAttrs (old: {
+          patches = (old.patches or [ ]) ++ [
+            ./patches/winetricks-elf-arch-wrapper.patch
+          ];
+        });
+      in
+      [
+        pkgs.wineWow64Packages.stagingFull
+        pkgs.vulkan-loader
+        pkgs.vulkan-tools
+        pkgs.mesa
+        pkgs.libGL
+        pkgs.libGLU
+        pkgs.libdrm
+        pkgs.libva
+        pkgs.pipewire
+        pkgs.alsa-lib
+        pkgs.libpulseaudio
+        pkgs.gst_all_1.gstreamer
+        pkgs.gst_all_1.gst-plugins-base
+        pkgs.gst_all_1.gst-plugins-good
+        pkgs.gst_all_1.gst-plugins-bad
+        pkgs.gst_all_1.gst-plugins-ugly
+        pkgs.gst_all_1.gst-libav
+        pkgs.gnutls
+        pkgs.openssl
+        pkgs.samba
+        pkgs.cups
+        pkgs.sane-backends
+        pkgs.fontconfig.lib
+        pkgs.freetype
+        pkgs.harfbuzz
+        pkgs.cabextract
+        pkgs.gnupg
+        pkgs.libxcursor
+        pkgs.libxi
+        pkgs.libxinerama
+        pkgs.libxcomposite
+        pkgs.libxfixes
+        pkgs.libxrandr
+        pkgs.xkeyboard_config
+        pkgs.p7zip
+        patchedWinetricks
+        pkgs.unzip
+        pkgs.which
+        pkgs.zenity
+        pkgs.wget
+      ];
 
     desktop-gui = pkgs:
       base pkgs

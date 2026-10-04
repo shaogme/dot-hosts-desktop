@@ -156,11 +156,16 @@ let
           fhsBasesLib.extend fhsBasesLib.fhsBases.desktop-gui-wine (p: [ p.dxvk ])
         else
           fhsBasesLib.fhsBases.desktop-gui-wine;
+      wineExtraCommands = [
+        "mkdir -p $out/usr/bin"
+        "ln -sf wine $out/usr/bin/wine64"
+      ];
     in
     withDefaults {
       fhsBase = customFhs;
       wine = wineNormalized;
       privateTmp = true;
+      fhsExtraCommands = wineExtraCommands ++ (args.fhsExtraCommands or [ ]);
     } args;
 
 in

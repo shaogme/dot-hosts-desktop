@@ -143,10 +143,14 @@ in
         ++ (lib.optional (customReg != null) customReg)
         ++ wineCfg.regFiles;
 
-      # ── 2. 字体包收集 ──
+      # ── 2. 字体包收集与 Fontconfig 配置 ──
       allFontPackages =
         (lib.optional wineCfg.fonts.enableOfficeFonts officeFontsPackage)
         ++ wineCfg.fonts.customFonts;
+
+      fontsConf = pkgs.makeFontsConf {
+        fontDirectories = allFontPackages;
+      };
 
       # ── 3. 环境变量导出 ──
       customExports = lib.concatStringsSep "\n"
@@ -163,14 +167,32 @@ in
         else "${unpacked}/${runInDirectory}";
 
       targetBin = if winExecPath != null then "${unpacked}/${winExecPath}" else null;
-      uniquePackageHash = builtins.hashString "sha256" (toString unpacked + toString winExecPath);
+      uniquePackageHash = builtins.hashString "sha256" (
+        toString pname
+        + toString unpacked
+        + toString winExecPath
+        + builtins.toJSON wineCfg
+      );
 
       # ── 4. Profile 环境 ──
       profile = ''
         # ── ${pname}: Wine 运行时适配 ──
+        export WINE="wine"
+        export WINE64="wine"
         export WINEPREFIX="''${XDG_DATA_HOME:-$HOME}/.sandboxes/${sandboxName}/wineprefix"
         export WINEARCH="${wineCfg.arch}"
         export WINEDEBUG="${wineCfg.debug}"
+        export FONTCONFIG_FILE="${fontsConf}"
+
+        # ── 确保 XDG_RUNTIME_DIR 有效，防止 Wayland/图形驱动报错 ──
+        if [ -z "''${XDG_RUNTIME_DIR:-}" ]; then
+          export XDG_RUNTIME_DIR="/run/user/$(id -u 2>/dev/null || echo 1000)"
+          if [ ! -d "$XDG_RUNTIME_DIR" ]; then
+            export XDG_RUNTIME_DIR="/tmp/user-$(id -u 2>/dev/null || echo 1000)-runtime"
+            mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null || true
+            chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
+          fi
+        fi
 
         # ── 强制 XIM / X11 兼容输入法 ──
         export XMODIFIERS="@im=fcitx"
@@ -193,10 +215,23 @@ in
         META_FILE="$PREFIX_DIR/.nix-prefix-meta"
         CURRENT_HASH="${uniquePackageHash}"
 
+        export WINE="wine"
+        export WINE64="wine"
         export WINEPREFIX="$PREFIX_DIR"
         export WINEARCH="${wineCfg.arch}"
         export WINEDEBUG="${wineCfg.debug}"
         export WINEDLLOVERRIDES="mscoree,mshtml="
+        export FONTCONFIG_FILE="${fontsConf}"
+
+        # ── 确保 XDG_RUNTIME_DIR 有效 ──
+        if [ -z "''${XDG_RUNTIME_DIR:-}" ]; then
+          export XDG_RUNTIME_DIR="/run/user/$(id -u 2>/dev/null || echo 1000)"
+          if [ ! -d "$XDG_RUNTIME_DIR" ]; then
+            export XDG_RUNTIME_DIR="/tmp/user-$(id -u 2>/dev/null || echo 1000)-runtime"
+            mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null || true
+            chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null || true
+          fi
+        fi
 
         link_fonts() {
           mkdir -p "$PREFIX_DIR/drive_c/windows/Fonts"
@@ -218,6 +253,7 @@ in
         }
 
         setup_drives() {
+          mkdir -p "$PREFIX_DIR/dosdevices"
           # 确保全局 Z: 盘正确映射至沙箱根目录，保证 Wine 能够将沙箱内的 Linux 绝对路径 (如 /tmp, /data, ~/.cache)
           # 透明转换为 Windows DOS 路径，避免 ShellExecuteEx 因盘符缺失找不到文件
           ln -sfn "/" "$PREFIX_DIR/dosdevices/z:" 2>/dev/null || true
