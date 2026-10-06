@@ -9,9 +9,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "f027e005dfadf237d23a6ce96126c1443f0a3384",
-      "url": "https://github.com/shaogme/dot-base/archive/f027e005dfadf237d23a6ce96126c1443f0a3384.tar.gz",
-      "hash": "sha256-b5/qV/zQ/Nqqub3FkXZmnblae8kT2PScdF6ZOU8dJrc="
+      "revision": "65acbb15dc3d206c67818f7dd117b94e49694c06",
+      "url": "https://github.com/shaogme/dot-base/archive/65acbb15dc3d206c67818f7dd117b94e49694c06.tar.gz",
+      "hash": "sha256-ykIvDkPvx5IniY66ubxKDrH67Pr+l4osgPyqOJ42qVQ="
     },
     "dot-exts": {
       "type": "Git",
@@ -35,9 +35,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "aa23f720d022187228bc264f759aef6b80233bcf",
-      "url": "https://github.com/nix-community/home-manager/archive/aa23f720d022187228bc264f759aef6b80233bcf.tar.gz",
-      "hash": "sha256-+lrD+sxc2RKUWXRBAcggn7uBCFeJgnV75jD/cz7gJRA="
+      "revision": "fae6e9e42c3b762ab47635cddcfaf6f52374a61b",
+      "url": "https://github.com/nix-community/home-manager/archive/fae6e9e42c3b762ab47635cddcfaf6f52374a61b.tar.gz",
+      "hash": "sha256-KuLePuhwJM9NLt/gTLHzXaOoSZKGoB3m7NfXjiQ98HY="
     },
     "nixpkgs": {
       "type": "Channel",
