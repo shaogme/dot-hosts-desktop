@@ -1,4 +1,8 @@
-{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
+{ pkgs
+, lib ? pkgs.lib
+, sevenZip ? (pkgs.sevenZip or pkgs._7zip-zstd)
+, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; }
+}:
 
 let
   sources = import ./npins;
@@ -51,9 +55,9 @@ mkSandboxedApp.qtApp {
   fhsBase = mkSandboxedApp.extend mkSandboxedApp.fhsBases.desktop-gui-electron-media-xcb-qt (pkgs: [
     pkgs.qt6Packages.libqtpas
     pkgs.xkeyboard_config
+    # 统一 7-Zip 引擎
+    sevenZip
     # 互补与增强归档格式支持
-    pkgs.p7zip
-    pkgs._7zz
     pkgs.zstd
     pkgs.brotli
     pkgs.zpaq

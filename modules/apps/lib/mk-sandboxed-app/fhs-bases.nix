@@ -226,7 +226,7 @@ let
         pkgs.libxfixes
         pkgs.libxrandr
         pkgs.xkeyboard_config
-        pkgs.p7zip
+        (pkgs.sevenZip or pkgs._7zip-zstd)
         patchedWinetricks
         pkgs.unzip
         pkgs.which

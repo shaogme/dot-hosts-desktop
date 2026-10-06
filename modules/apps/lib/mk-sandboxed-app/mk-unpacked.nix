@@ -3,6 +3,7 @@
 let
   typesLib = import ./types.nix { inherit lib; };
   fetchWithRetry = import ../fetch-with-retry.nix { inherit pkgs lib; };
+  sevenZipTool = pkgs.sevenZip or pkgs._7zip-zstd;
 in
 {
   # 多架构映射.
@@ -49,7 +50,7 @@ in
         pname = "${pname}-unpacked";
         inherit version;
         src = outFile;
-        nativeBuildInputs = [ pkgs.p7zip ];
+        nativeBuildInputs = [ sevenZipTool ];
         dontBuild = true;
         dontConfigure = true;
         unpackPhase = ''
@@ -65,7 +66,7 @@ in
         pname = "${pname}-unpacked";
         inherit version;
         src = outFile;
-        nativeBuildInputs = [ pkgs.p7zip ];
+        nativeBuildInputs = [ sevenZipTool ];
         dontBuild = true;
         dontConfigure = true;
         unpackPhase = ''
