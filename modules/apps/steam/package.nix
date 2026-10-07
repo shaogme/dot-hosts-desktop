@@ -65,6 +65,7 @@ let
     pkgs.gcc.cc.lib
     pkgs.libxcrypt
     pkgs.libgpg-error
+    pkgs.attr
     pkgs.zlib
     pkgs.bzip2
 
@@ -78,7 +79,7 @@ let
     pkgs.libva
     pkgs.libvdpau
 
-    # 窗口系统与 GUI 工具包 (X11 / XCB / GTK3)
+    # 窗口系统与 GUI 工具包 (X11 / XCB / GTK3 / Cairo 依赖)
     pkgs.libx11
     pkgs.libxcomposite
     pkgs.libxdamage
@@ -98,6 +99,10 @@ let
     pkgs.gtk3
     pkgs.glib
     pkgs.cairo
+    pkgs.pixman
+    pkgs.libpng
+    pkgs.expat
+    pkgs.brotli
     pkgs.pango
     pkgs.atk
     pkgs.gdk-pixbuf
@@ -171,6 +176,7 @@ in
 mkSandboxedApp.base {
   pname = "steam";
   inherit version;
+  includeClosures = true;
   src = { deb = mkSandboxedApp.fetchWithRetry sources.steam; };
   execPath = "bin/steam";
 

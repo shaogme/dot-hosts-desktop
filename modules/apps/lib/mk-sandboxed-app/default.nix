@@ -39,6 +39,7 @@ let
     , chdirToPwd ? false
     , multiArch ? false
     , multiPkgs ? null
+    , includeClosures ? false
     }:
     let
       isWine = winExecPath != null || wine != null;
@@ -94,7 +95,7 @@ let
         runScript = launcher.runScript;
         unshareUser = false;
         privateTmp = if isWine then true else privateTmp;
-        inherit multiArch multiPkgs;
+        inherit multiArch multiPkgs includeClosures;
       };
       extraBwrapArgs = bwrapArgs;
 
@@ -132,6 +133,7 @@ let
       postBuildHooks = (defaults.postBuildHooks or [ ]) ++ (args.postBuildHooks or [ ]);
       aliases = (defaults.aliases or [ ]) ++ (args.aliases or [ ]);
       windowRules = (defaults.windowRules or [ ]) ++ (args.windowRules or [ ]);
+      includeClosures = args.includeClosures or (defaults.includeClosures or false);
     });
 
   base = args: mkCore args;

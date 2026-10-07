@@ -18,6 +18,7 @@ in
     , chdirToPwd ? false
     , multiArch ? false
     , multiPkgs ? null
+    , includeClosures ? false
     }:
     let
       resolvedMulti = fhsBasesLib.resolveMultiPkgs fhsBase;
@@ -50,5 +51,7 @@ in
     } // lib.optionalAttrs effectiveMultiArch {
       multiArch = true;
       multiPkgs = effectiveMultiPkgs;
+    } // lib.optionalAttrs includeClosures {
+      includeClosures = true;
     });
 }
