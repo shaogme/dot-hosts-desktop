@@ -68,6 +68,8 @@ rec {
     # shareThemeStatic（icons/gtk ini 快照）vs shareThemeLive（desktop-theme/darkman/dconf-runtime），默认全 true。
     shareThemeStatic = true;
     shareThemeLive = true;
+    # 宿主机字体与字体配置继承（系统字体与用户字体目录），默认开启
+    shareFonts = true;
     sharedDirs = [ ];
     roSharedDirs = [ ];
     extraBinds = [ ];

@@ -24,7 +24,7 @@ mkSandboxedApp.qtApp {
   execPath = "opt/onlyoffice/desktopeditors/DesktopEditors";
   runInDirectory = "opt/onlyoffice/desktopeditors";
 
-  # 扩展 Qt 基底，补充多媒体编解码（GStreamer全套插件、x265、libva）、辅助功能（speechd）、XKB 配置、udev shim 与默认中文字体支持
+  # 扩展 Qt 基底，补充多媒体编解码（GStreamer全套插件、x265、libva）、辅助功能（speechd）、XKB 配置与 udev shim
   fhsBase = mkSandboxedApp.extend mkSandboxedApp.fhsBases.desktop-gui-electron-media-xcb-qt (pkgs: [
     pkgs.gst_all_1.gstreamer
     pkgs.gst_all_1.gst-plugins-base
@@ -38,7 +38,6 @@ mkSandboxedApp.qtApp {
     pkgs.libva
     pkgs.libvpx
     pkgs.xkeyboard_config
-    pkgs.noto-fonts-cjk-sans
   ]);
 
   # 沙箱隔离与持久化配置：

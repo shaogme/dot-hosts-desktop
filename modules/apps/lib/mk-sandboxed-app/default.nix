@@ -20,7 +20,6 @@ let
     , execPath ? null
     , winExecPath ? null
     , wine ? null
-    , officeFontsPackage ? null
     , binaryName ? pname
     , fhsBase
     , sandbox ? { }
@@ -76,7 +75,7 @@ let
               inherit pname unpacked winExecPath wineCfg sandboxName;
               env = staticEnv;
               inherit preRunHooks runInDirectory;
-            } // (lib.optionalAttrs (officeFontsPackage != null) { inherit officeFontsPackage; });
+            };
           in
           wineLauncherLib.mkWineLauncherEnv wineLauncherArgs
         else

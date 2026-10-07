@@ -51,6 +51,11 @@ let
     # 音频控制工具 (提供 pactl，用于 Steam 探测系统音频设备与音量状态)
     pkgs.pulseaudio
 
+    # 字体工具与内置中文字体包（确保 FHS 内部 /usr/share/fonts 具备完整 CJK 回退字体）
+    pkgs.fontconfig
+    pkgs.noto-fonts-cjk-sans
+    pkgs.wqy_zenhei
+
     # Glibc 基础二进制工具 (ldd, getconf, locale 等)
     pkgs.glibc.bin
 
@@ -156,6 +161,11 @@ let
     export LIBVA_DRIVERS_PATH=/run/opengl-driver/lib/dri:/run/opengl-driver-32/lib/dri
     export VDPAU_DRIVER_PATH=/run/opengl-driver/lib/vdpau:/run/opengl-driver-32/lib/vdpau
     export XDG_DATA_DIRS=$XDG_DATA_DIRS''${XDG_DATA_DIRS:+:}/run/opengl-driver/share:/run/opengl-driver-32/share
+
+    # 字体配置兜底：若宿主机 /etc/fonts/fonts.conf 不存在，回退使用 fontconfig 缺省配置
+    if [ ! -f /etc/fonts/fonts.conf ] && [ -f "${pkgs.fontconfig.out}/etc/fonts/fonts.conf" ]; then
+      export FONTCONFIG_FILE="${pkgs.fontconfig.out}/etc/fonts/fonts.conf"
+    fi
 
     # 时区自动矫正，消除软链接混淆
     if [ -z "''${TZ+x}" ]; then

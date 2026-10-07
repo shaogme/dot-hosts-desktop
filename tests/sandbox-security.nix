@@ -91,10 +91,27 @@ let
     assert (lib.hasInfix "--tmpfs /run/media" noMediaStr);
     true;
 
+  # ── 7. 验证 shareFonts 默认打通系统与用户字体挂载 ─────────────
+  assertFontsMounted =
+    assert (lib.hasInfix "--ro-bind-try /run/current-system/sw/share/X11/fonts /run/current-system/sw/share/X11/fonts" bwrapStr);
+    assert (lib.hasInfix "--ro-bind-try \${XDG_DATA_HOME:-\$HOME/.local/share}/fonts \${XDG_DATA_HOME:-\$HOME/.local/share}/fonts" bwrapStr);
+    assert (lib.hasInfix "--ro-bind-try \${XDG_CONFIG_HOME:-\$HOME/.config}/fontconfig \${XDG_CONFIG_HOME:-\$HOME/.config}/fontconfig" bwrapStr);
+    true;
+
+  noFontsArgs = sandboxLib.makeBwrapArgs {
+    sandboxName = "test-no-fonts";
+    shareFonts = false;
+  };
+  noFontsStr = builtins.concatStringsSep " " noFontsArgs;
+  assertNoFontsShielded =
+    assert !(lib.hasInfix "/run/current-system/sw/share/X11/fonts" noFontsStr);
+    assert !(lib.hasInfix ".local/share/fonts" noFontsStr);
+    true;
+
 in
 pkgs.runCommand "sandbox-security-check" {
   passthru = {
-    inherit assertNoHardBind assertPathUnification assertShellEscaped assertNoUid1000 assertRootIsolation assertMediaShielded;
+    inherit assertNoHardBind assertPathUnification assertShellEscaped assertNoUid1000 assertRootIsolation assertMediaShielded assertFontsMounted assertNoFontsShielded;
   };
 } ''
   echo "正在验证沙箱安全性与隔离重构规范..."
@@ -110,5 +127,8 @@ pkgs.runCommand "sandbox-security-check" {
   test "${toString assertRootIsolation}" = "1"
   echo "6. 验证 shareMedia=false 外接设备遮蔽 (/run/media tmpfs)..."
   test "${toString assertMediaShielded}" = "1"
+  echo "7. 验证 shareFonts 默认继承宿主机系统与用户字体配置..."
+  test "${toString assertFontsMounted}" = "1"
+  test "${toString assertNoFontsShielded}" = "1"
   echo "所有沙箱隔离与系统安全性测试项均已完美通过！" > $out
 ''

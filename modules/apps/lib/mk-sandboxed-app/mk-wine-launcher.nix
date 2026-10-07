@@ -2,37 +2,6 @@
 
 let
   typesLib = import ./types.nix { inherit lib; };
-
-  # 复用 modules/fonts/npins 中的 Windows 原厂 Office 字体 (包含 SimSun, YaHei 等)
-  fontsSourcesPath = ../../../fonts/npins;
-  fontsSources =
-    if builtins.pathExists fontsSourcesPath then
-      import fontsSourcesPath
-    else
-      null;
-
-  defaultOfficeFonts =
-    if fontsSources != null && fontsSources ? win-fonts then
-      pkgs.stdenvNoCC.mkDerivation {
-        pname = "wine-office-fonts";
-        version = "10.0";
-        src = fontsSources.win-fonts;
-        nativeBuildInputs = [ pkgs.unzip ];
-        unpackPhase = ''
-          runHook preUnpack
-          unzip -q $src
-          runHook postUnpack
-        '';
-        installPhase = ''
-          runHook preInstall
-          mkdir -p $out/share/fonts/truetype
-          find . -maxdepth 1 -type f \( -iname "*.ttf" -o -iname "*.ttc" -o -iname "*.otf" \) \
-            -exec install -Dm644 {} $out/share/fonts/truetype/ \;
-          runHook postInstall
-        '';
-      }
-    else
-      pkgs.noto-fonts-cjk-sans;
 in
 {
   mkWineLauncherEnv =
@@ -44,7 +13,7 @@ in
     , env ? { }
     , preRunHooks ? [ ]
     , runInDirectory ? null
-    , officeFontsPackage ? defaultOfficeFonts
+    , officeFontsPackage ? null
     }:
     let
       # ── 1. 注册表生成器 ──
@@ -144,13 +113,15 @@ in
         ++ wineCfg.regFiles;
 
       # ── 2. 字体包收集与 Fontconfig 配置 ──
-      allFontPackages =
-        (lib.optional wineCfg.fonts.enableOfficeFonts officeFontsPackage)
-        ++ wineCfg.fonts.customFonts;
+      allFontPackages = wineCfg.fonts.customFonts;
 
-      fontsConf = pkgs.makeFontsConf {
-        fontDirectories = allFontPackages;
-      };
+      fontsConf =
+        if allFontPackages != [ ] then
+          pkgs.makeFontsConf {
+            fontDirectories = allFontPackages;
+          }
+        else
+          null;
 
       # ── 3. 环境变量导出 ──
       customExports = lib.concatStringsSep "\n"
@@ -182,7 +153,15 @@ in
         export WINEPREFIX="$HOME/.sandboxes/${sandboxName}/wineprefix"
         export WINEARCH="${wineCfg.arch}"
         export WINEDEBUG="${wineCfg.debug}"
-        export FONTCONFIG_FILE="${fontsConf}"
+
+        # 字体配置兜底：优先使用宿主机 /etc/fonts/fonts.conf，未提供时回退至内置 fontconfig 配置
+        ${if fontsConf != null then ''
+          export FONTCONFIG_FILE="${fontsConf}"
+        '' else ''
+          if [ ! -f /etc/fonts/fonts.conf ] && [ -f "${pkgs.fontconfig.out}/etc/fonts/fonts.conf" ]; then
+            export FONTCONFIG_FILE="${pkgs.fontconfig.out}/etc/fonts/fonts.conf"
+          fi
+        ''}
 
         # ── 确保 XDG_RUNTIME_DIR 有效，防止 Wayland/图形驱动报错 ──
         if [ -z "''${XDG_RUNTIME_DIR:-}" ]; then
@@ -221,7 +200,15 @@ in
         export WINEARCH="${wineCfg.arch}"
         export WINEDEBUG="${wineCfg.debug}"
         export WINEDLLOVERRIDES="mscoree,mshtml="
-        export FONTCONFIG_FILE="${fontsConf}"
+
+        # 字体配置兜底：优先使用宿主机 /etc/fonts/fonts.conf，未提供时回退至内置 fontconfig 配置
+        ${if fontsConf != null then ''
+          export FONTCONFIG_FILE="${fontsConf}"
+        '' else ''
+          if [ ! -f /etc/fonts/fonts.conf ] && [ -f "${pkgs.fontconfig.out}/etc/fonts/fonts.conf" ]; then
+            export FONTCONFIG_FILE="${pkgs.fontconfig.out}/etc/fonts/fonts.conf"
+          fi
+        ''}
 
         # ── 确保 XDG_RUNTIME_DIR 有效 ──
         if [ -z "''${XDG_RUNTIME_DIR:-}" ]; then
@@ -235,9 +222,16 @@ in
 
         link_fonts() {
           mkdir -p "$PREFIX_DIR/drive_c/windows/Fonts"
+          # 从宿主机集中字体目录与用户字体目录自动软链接字体至 Windows Fonts 目录
+          for font_dir in "/run/current-system/sw/share/X11/fonts" "/run/current-system/sw/share/fonts" "/usr/share/fonts" "''${XDG_DATA_HOME:-$HOME/.local/share}/fonts" "$HOME/.fonts"; do
+            if [ -d "$font_dir" ]; then
+              find -L "$font_dir" -type f \( -iname "*.ttf" -o -iname "*.ttc" -o -iname "*.otf" \) \
+                -exec ln -sf {} "$PREFIX_DIR/drive_c/windows/Fonts/" \; 2>/dev/null || true
+            fi
+          done
           ${lib.concatMapStringsSep "\n" (pkg: ''
             if [ -d "${pkg}/share/fonts" ]; then
-              find "${pkg}/share/fonts" -type f \( -iname "*.ttf" -o -iname "*.ttc" -o -iname "*.otf" \) \
+              find -L "${pkg}/share/fonts" -type f \( -iname "*.ttf" -o -iname "*.ttc" -o -iname "*.otf" \) \
                 -exec ln -sf {} "$PREFIX_DIR/drive_c/windows/Fonts/" \; 2>/dev/null || true
             fi
           '') allFontPackages}

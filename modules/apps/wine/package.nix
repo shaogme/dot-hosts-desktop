@@ -35,8 +35,7 @@ mkSandboxedApp.wineApp {
     arch = "win64";
     dxvk = true; # 默认装配 DXVK 2.x (Direct3D 8/9/10/11 -> Vulkan 加速引擎)
     fonts = {
-      enableOfficeFonts = true;   # 自动链接 modules/fonts 微软原装中文字体 (SimSun/YaHei 等)
-      enableCjkFallback = true;   # 自动下发 FontSubstitutes 与 FontLink 映射
+      enableCjkFallback = true;   # 自动下发 FontSubstitutes 与 FontLink 映射（宿主机系统与用户字体由沙箱默认继承）
       enableFontSmoothing = true; # 开启 ClearType 抗锯齿平滑渲染
     };
     drives = {

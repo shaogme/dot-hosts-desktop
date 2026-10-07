@@ -21,6 +21,7 @@
     , shareShm ? true
     , shareThemeStatic ? true
     , shareThemeLive ? true
+    , shareFonts ? true
     , sharedDirs ? [ ]
     , roSharedDirs ? [ ]
     , extraBinds ? [ ]
@@ -102,6 +103,13 @@
       "--ro-bind-try" "\${XDG_DATA_HOME:-\$HOME/.local/share}/icons" "\${XDG_DATA_HOME:-\$HOME/.local/share}/icons"
       "--ro-bind-try" "\$HOME/.icons" "\$HOME/.icons"
     ]
+    # 用户级字体与字体配置继承（默认开启，打通宿主机用户字体与 fontconfig 回退规则）
+    ++ lib.optionals (isolatedHome && shareFonts) [
+      "--ro-bind-try" "\${XDG_DATA_HOME:-\$HOME/.local/share}/fonts" "\${XDG_DATA_HOME:-\$HOME/.local/share}/fonts"
+      "--ro-bind-try" "\$HOME/.fonts" "\$HOME/.fonts"
+      "--ro-bind-try" "\${XDG_CONFIG_HOME:-\$HOME/.config}/fontconfig" "\${XDG_CONFIG_HOME:-\$HOME/.config}/fontconfig"
+      "--ro-bind-try" "\$HOME/.fontconfig" "\$HOME/.fontconfig"
+    ]
     # live 快照（desktop-theme/darkman/dconf）：ro 快照，切换主题需重启 App 方可跟随。
     ++ lib.optionals (isolatedHome && shareThemeLive) [
       "--ro-bind-try" "\${XDG_CONFIG_HOME:-\$HOME/.config}/dconf" "\${XDG_CONFIG_HOME:-\$HOME/.config}/dconf"
@@ -144,6 +152,11 @@
     ++ [
       "--ro-bind-try" "/run/opengl-driver" "/run/opengl-driver"
       "--ro-bind-try" "/run/opengl-driver-32" "/run/opengl-driver-32"
+    ]
+    # 系统级集中字体目录映射（NixOS 全局字体目录 fonts.fontDir.enable）
+    ++ lib.optionals shareFonts [
+      "--ro-bind-try" "/run/current-system/sw/share/X11/fonts" "/run/current-system/sw/share/X11/fonts"
+      "--ro-bind-try" "/run/current-system/sw/share/fonts" "/run/current-system/sw/share/fonts"
     ]
     ++ lib.optionals shareNet [
       "--share-net"
