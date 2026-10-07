@@ -6,53 +6,79 @@
 }:
 
 let
+  sources = import ./npins;
+
+  version =
+    let
+      match = builtins.match ".*/steam-launcher_([0-9.]+)_.*" sources.steam.url;
+    in
+    if match != null then builtins.head match
+    else throw "steam: Could not parse version from URL: ${sources.steam.url}";
+
   compatPaths = lib.makeSearchPathOutput "steamcompattool" "" extraCompatPackages;
   compatEnv = lib.optionalAttrs (extraCompatPackages != [ ]) {
     STEAM_EXTRA_COMPAT_TOOLS_PATHS = compatPaths;
   };
 
-  # 64 位 Steam 运行时基础工具链
+  # 64 位 Steam 运行时基础工具链（对齐 Valve 官方 steam-launcher.deb 依赖与 Steam Linux Runtime 规范）
   steamTargetPkgs = pkgs: [
+    # 核心 Shell 与系统工具链
     pkgs.bash
     pkgs.coreutils
+    pkgs.diffutils
+    pkgs.findutils
+    pkgs.gnutar
+    pkgs.xz
     pkgs.file
+    pkgs.which
+    pkgs.procps
+    pkgs.util-linux
+    pkgs.strace
+
+    # 桌面与外设环境发现（官方 Depends: lsof, zenity, xdg-user-dirs, xdg-utils）
+    pkgs.lsof
+    pkgs.zenity
+    pkgs.xdg-utils
+    pkgs.xdg-user-dirs
     pkgs.lsb-release
     pkgs.pciutils
     pkgs.usbutils
-    pkgs.xdg-utils
-    pkgs.xz
-    pkgs.zenity
+
+    # 网络与下载诊断工具
     pkgs.curl
     pkgs.wget
-    pkgs.which
-    pkgs.procps
-    pkgs.strace
+
+    # Glibc 基础二进制工具 (ldd, getconf, locale 等)
+    pkgs.glibc.bin
+
+    # X11 Locale 数据软链接（避免 libX11 启动因找不到 Locale 闪退）
     (pkgs.runCommand "xorg-locale" { } ''
       mkdir -p $out
       ln -s ${pkgs.libx11}/share $out/share
     '')
   ];
 
-  # 32 位与 64 位双架构运行时依赖库
+  # 32 位与 64 位双架构运行时依赖库（对齐 Valve 官方 steam-libs-amd64 与 steam-libs-i386 元包规范）
   steamMultiPkgs = pkgs: [
+    # C/C++ 基础运行时与底层系统库
     pkgs.glibc
+    pkgs.gcc.cc.lib
     pkgs.libxcrypt
+    pkgs.libgpg-error
+    pkgs.zlib
+    pkgs.bzip2
+
+    # 图形驱动与硬件加速基础设施
+    pkgs.mesa
     pkgs.libGL
     pkgs.libGLU
     pkgs.libdrm
     pkgs.libgbm
-    pkgs.udev
-    pkgs.libudev0-shim
+    pkgs.vulkan-loader
     pkgs.libva
     pkgs.libvdpau
-    pkgs.vulkan-loader
-    pkgs.networkmanager
-    pkgs.libcap
-    pkgs.pipewire
-    pkgs.alsa-lib
-    pkgs.libpulseaudio
-    pkgs.openssl
-    pkgs.gnutls
+
+    # 窗口系统与 GUI 工具包 (X11 / XCB / GTK3)
     pkgs.libx11
     pkgs.libxcomposite
     pkgs.libxdamage
@@ -69,22 +95,37 @@ let
     pkgs.libxshmfence
     pkgs.libxkbfile
     pkgs.libxkbcommon
-    pkgs.zlib
-    pkgs.bzip2
-    pkgs.fontconfig.lib
-    pkgs.freetype
-    pkgs.harfbuzz
     pkgs.gtk3
     pkgs.glib
     pkgs.cairo
     pkgs.pango
     pkgs.atk
     pkgs.gdk-pixbuf
+
+    # 音频服务与驱动通道 (PipeWire, ALSA, PulseAudio)
+    pkgs.pipewire
+    pkgs.alsa-lib
+    pkgs.alsa-plugins
+    pkgs.libpulseaudio
+
+    # 字体与排版引擎
+    pkgs.fontconfig.lib
+    pkgs.freetype
+    pkgs.harfbuzz
+
+    # 网络协议、安全证书与系统服务通信
+    pkgs.dbus
+    pkgs.networkmanager
+    pkgs.openssl
+    pkgs.gnutls
     pkgs.nss
     pkgs.nspr
-    pkgs.dbus
+    pkgs.libcap
+    pkgs.udev
+    pkgs.libudev0-shim
   ];
 
+  # FHS 构建补充指令：
   # Steam 期望 /sbin/ldconfig 存在；如果在嵌套容器中使用软链接会导致循环软链接错误，故复制实体二进制文件
   steamExtraCommands = [
     "cp -f $out/usr/{bin,sbin}/ldconfig"
@@ -129,9 +170,18 @@ let
 in
 mkSandboxedApp.base {
   pname = "steam";
-  version = pkgs.steam-unwrapped.version;
-  src = { custom = pkgs.steam-unwrapped; };
+  inherit version;
+  src = { deb = mkSandboxedApp.fetchWithRetry sources.steam; };
   execPath = "bin/steam";
+
+  postUnpackHooks = [
+    # 移除 Debian 专有的 steamdeps 脚本（其依赖 apt），避免启动时输出缺少 python3-apt 的无害日志
+    "rm -f $out/bin/steamdeps $out/lib/steam/bin_steamdeps.py"
+
+    # 补丁 bin_steam.sh：强制使用 cp -f 覆盖 bootstrap 归档文件。
+    # 从 Nix Store 复制出的 bootstrap 归档为只读权限 (0444)，后续客户端自检时裸 cp 会因权限不足导致覆写失败
+    "substituteInPlace $out/lib/steam/bin_steam.sh --replace-fail 'cp \"$LAUNCHSTEAMBOOTSTRAPFILE\"' 'cp -f \"$LAUNCHSTEAMBOOTSTRAPFILE\"'"
+  ];
 
   fhsBase = mkSandboxedApp.mkMultiFhsBase {
     label = "steam-fhs";
@@ -174,5 +224,43 @@ mkSandboxedApp.base {
       "x-scheme-handler/steam"
       "x-scheme-handler/steamlink"
     ];
+    actions = {
+      Store = {
+        name = "Store";
+        exec = "steam steam://store";
+      };
+      Community = {
+        name = "Community";
+        exec = "steam steam://url/CommunityHome/";
+      };
+      Library = {
+        name = "Library";
+        exec = "steam steam://open/games";
+      };
+      Servers = {
+        name = "Servers";
+        exec = "steam steam://open/servers";
+      };
+      Screenshots = {
+        name = "Screenshots";
+        exec = "steam steam://open/screenshots";
+      };
+      News = {
+        name = "News";
+        exec = "steam steam://openurl/https://store.steampowered.com/news";
+      };
+      Settings = {
+        name = "Settings";
+        exec = "steam steam://open/settings";
+      };
+      BigPicture = {
+        name = "Big Picture";
+        exec = "steam steam://open/bigpicture";
+      };
+      Friends = {
+        name = "Friends";
+        exec = "steam steam://open/friends";
+      };
+    };
   };
 }

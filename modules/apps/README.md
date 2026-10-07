@@ -171,16 +171,43 @@ mkSandboxedApp.wineApp {
 }:
 
 let
+  sources = import ./npins;
+
+  version =
+    let
+      match = builtins.match ".*/steam-launcher_([0-9.]+)_.*" sources.steam.url;
+    in
+    if match != null then builtins.head match
+    else throw "steam: Could not parse version from URL: ${sources.steam.url}";
+
   compatPaths = lib.makeSearchPathOutput "steamcompattool" "" extraCompatPackages;
   compatEnv = lib.optionalAttrs (extraCompatPackages != [ ]) {
     STEAM_EXTRA_COMPAT_TOOLS_PATHS = compatPaths;
   };
 
-  # 64 位 Steam 运行时基础工具链
-  steamTargetPkgs = pkgs: [ pkgs.bash pkgs.coreutils pkgs.zenity pkgs.curl pkgs.pciutils ... ];
+  # 64 位 Steam 运行时基础工具链（对齐 Valve 官方 steam-launcher.deb 依赖与 Steam Linux Runtime 规范）
+  steamTargetPkgs = pkgs: [
+    pkgs.bash pkgs.coreutils pkgs.diffutils pkgs.findutils pkgs.gnutar pkgs.xz
+    pkgs.file pkgs.which pkgs.procps pkgs.util-linux pkgs.strace
+    pkgs.lsof pkgs.zenity pkgs.xdg-utils pkgs.xdg-user-dirs pkgs.lsb-release
+    pkgs.pciutils pkgs.usbutils pkgs.curl pkgs.wget pkgs.glibc.bin
+    (pkgs.runCommand "xorg-locale" { } ''
+      mkdir -p $out
+      ln -s ${pkgs.libx11}/share $out/share
+    '')
+  ];
 
-  # 32 位与 64 位双架构运行时依赖库
-  steamMultiPkgs = pkgs: [ pkgs.glibc pkgs.libGL pkgs.vulkan-loader pkgs.pipewire ... ];
+  # 32 位与 64 位双架构运行时依赖库（对齐 Valve 官方 steam-libs-amd64 与 steam-libs-i386 元包规范）
+  steamMultiPkgs = pkgs: [
+    pkgs.glibc pkgs.gcc.cc.lib pkgs.libxcrypt pkgs.libgpg-error pkgs.zlib pkgs.bzip2
+    pkgs.mesa pkgs.libGL pkgs.libGLU pkgs.libdrm pkgs.libgbm pkgs.vulkan-loader pkgs.libva pkgs.libvdpau
+    pkgs.libx11 pkgs.libxcomposite pkgs.libxdamage pkgs.libxext pkgs.libxfixes pkgs.libxrandr pkgs.libxrender
+    pkgs.libxtst pkgs.libxcb pkgs.libxi pkgs.libxcursor pkgs.libxinerama pkgs.libxscrnsaver pkgs.libxshmfence
+    pkgs.libxkbfile pkgs.libxkbcommon pkgs.gtk3 pkgs.glib pkgs.cairo pkgs.pango pkgs.atk pkgs.gdk-pixbuf
+    pkgs.pipewire pkgs.alsa-lib pkgs.alsa-plugins pkgs.libpulseaudio
+    pkgs.fontconfig.lib pkgs.freetype pkgs.harfbuzz
+    pkgs.dbus pkgs.networkmanager pkgs.openssl pkgs.gnutls pkgs.nss pkgs.nspr pkgs.libcap pkgs.udev pkgs.libudev0-shim
+  ];
 
   steamExtraCommands = [ "cp -f $out/usr/{bin,sbin}/ldconfig" ];
   steamProfile = ''
@@ -202,9 +229,17 @@ let
 in
 mkSandboxedApp.base {
   pname = "steam";
-  version = pkgs.steam-unwrapped.version;
-  src = { custom = pkgs.steam-unwrapped; };
+  inherit version;
+  src = { deb = mkSandboxedApp.fetchWithRetry sources.steam; };
   execPath = "bin/steam";
+
+  postUnpackHooks = [
+    # 移除 Debian 专有的 steamdeps 脚本（其依赖 apt），避免启动时产生缺少 apt 的无害错误日志
+    "rm -f $out/bin/steamdeps $out/lib/steam/bin_steamdeps.py"
+
+    # 补丁 bin_steam.sh：强制使用 cp -f 覆盖 bootstrap 归档文件（防止 Nix Store 只读权限导致覆写失败）
+    "substituteInPlace $out/lib/steam/bin_steam.sh --replace-fail 'cp \"$LAUNCHSTEAMBOOTSTRAPFILE\"' 'cp -f \"$LAUNCHSTEAMBOOTSTRAPFILE\"'"
+  ];
 
   # 显式声明双架构 FHS 基底
   fhsBase = mkSandboxedApp.mkMultiFhsBase {
@@ -238,6 +273,17 @@ mkSandboxedApp.base {
     categories = [ "Network" "Game" ];
     icon = "steam";
     mimeTypes = [ "x-scheme-handler/steam" "x-scheme-handler/steamlink" ];
+    actions = {
+      Store = { name = "Store"; exec = "steam steam://store"; };
+      Community = { name = "Community"; exec = "steam steam://url/CommunityHome/"; };
+      Library = { name = "Library"; exec = "steam steam://open/games"; };
+      Servers = { name = "Servers"; exec = "steam steam://open/servers"; };
+      Screenshots = { name = "Screenshots"; exec = "steam steam://open/screenshots"; };
+      News = { name = "News"; exec = "steam steam://openurl/https://store.steampowered.com/news"; };
+      Settings = { name = "Settings"; exec = "steam steam://open/settings"; };
+      BigPicture = { name = "Big Picture"; exec = "steam steam://open/bigpicture"; };
+      Friends = { name = "Friends"; exec = "steam steam://open/friends"; };
+    };
   };
 }
 ```
@@ -340,7 +386,7 @@ flowchart LR
 
 ---
 
-### 4. 三大典型更新模式与实操样例
+### 4. 四大典型更新模式与实操样例
 
 #### 模式 A：官方 CDN / JSON API 探测（以 QQ 为例）
 
@@ -493,6 +539,55 @@ fi
 
 ---
 
+#### 模式 D：官方稳定归档源与依赖元包跟踪（以 Steam 为例）
+
+适用于厂商提供公开归档文件目录（HTML 索引列表），需从目录中提取最新版本安装包与配套依赖元包的场景。
+
+- **工作原理**：
+  1. 请求 Valve 官方稳定归档源 `https://repo.steampowered.com/steam/archive/stable/` 目录索引。
+  2. 解析所有 `steam-launcher_<version>_amd64.deb` 链接，通过版本比较算法提取最新发布版本号。
+  3. 拼接启动器包（`steam-launcher`）与官方依赖元包（`steam-libs-amd64`）归档 URL。
+  4. 校验下载链接有效性后，通过 `npins add url` 锁定 `type = "Url"` 依赖项。
+- **示例代码**（参考 [`steam/update.sh`](./steam/update.sh)）：
+
+```bash
+# 1. 获取 Valve Steam 官方稳定归档源目录
+REPO_BASE_URL="https://repo.steampowered.com/steam/archive/stable/"
+INDEX_HTML=$(curl -sSL --compressed "$REPO_BASE_URL" 2>/dev/null || true)
+
+# 2. 从官方归档目录中解析最新的稳定版本号
+LATEST_VERSION=$(echo "$INDEX_HTML" | grep -oE 'steam-launcher_[0-9.]+_amd64\.deb' | sed -E 's/steam-launcher_([0-9.]+)_amd64\.deb/\1/' | sort -V | tail -n 1)
+
+NEW_LAUNCHER_URL="${REPO_BASE_URL}steam-launcher_${LATEST_VERSION}_amd64.deb"
+NEW_LIBS_URL="${REPO_BASE_URL}steam-libs-amd64_${LATEST_VERSION}_amd64.deb"
+
+# 3. 比较并执行更新
+if [ "$CURRENT_LAUNCHER_URL" != "$NEW_LAUNCHER_URL" ]; then
+    run_npins -d "$NPINS_DIR" add url --name steam "$NEW_LAUNCHER_URL"
+    run_npins -d "$NPINS_DIR" add url --name steam-libs-amd64 "$NEW_LIBS_URL"
+fi
+```
+
+- **`package.nix` 配合**：在 [`steam/package.nix`](./steam/package.nix) 中通过 `src = { deb = mkSandboxedApp.fetchWithRetry sources.steam; }` 解包官方安装包，并通过 `postUnpackHooks` 移除冗余的 `steamdeps` 以及应用 `cp -f` 覆盖补丁：
+
+  ```nix
+  version =
+    let
+      match = builtins.match ".*/steam-launcher_([0-9.]+)_.*" sources.steam.url;
+    in
+    if match != null then builtins.head match
+    else throw "steam: Could not parse version from URL: ${sources.steam.url}";
+
+  src = { deb = mkSandboxedApp.fetchWithRetry sources.steam; };
+
+  postUnpackHooks = [
+    "rm -f $out/bin/steamdeps $out/lib/steam/bin_steamdeps.py"
+    "substituteInPlace $out/lib/steam/bin_steam.sh --replace-fail 'cp \"$LAUNCHSTEAMBOOTSTRAPFILE\"' 'cp -f \"$LAUNCHSTEAMBOOTSTRAPFILE\"'"
+  ];
+  ```
+
+---
+
 ### 5. `package.nix` 与 `update.sh` 动态联动最佳实践
 
 为了实现真正的“零手动介入更新”，建议 `package.nix` 与 `update.sh` 采用如下解耦规范：
@@ -551,4 +646,4 @@ fi
 | **PeaZip** | Qt6, libQt6Pas, X11, 归档工具链全覆盖, GitHub Release DEB | [`peazip/default.nix`](./peazip/default.nix) · [`peazip/package.nix`](./peazip/package.nix) | [`peazip/update.sh`](./peazip/update.sh) |
 | **Telegram Desktop** | Static Qt6, Wayland/X11, WebKitGTK, GitHub Release Tarball | [`telegram-desktop/default.nix`](./telegram-desktop/default.nix) · [`telegram-desktop/package.nix`](./telegram-desktop/package.nix) | [`telegram-desktop/update.sh`](./telegram-desktop/update.sh) |
 | **Wine (Windows 兼容环境)** | New WoW64, DXVK 2.x, Office CJK 字体, 交互式沙箱容器 | [`wine/default.nix`](./wine/default.nix) · [`wine/package.nix`](./wine/package.nix) | *(系统内置运行时)* |
-| **Steam (游戏分发平台)** | MultiArch FHS, Bwrap-in-Bwrap 穿透, 驱动与多媒体存储挂载, `steam-run` | [`steam/default.nix`](./steam/default.nix) · [`steam/package.nix`](./steam/package.nix) | *(系统内置运行时)* |
+| **Steam (游戏分发平台)** | MultiArch FHS, 官方 DEB 归档源, Bwrap-in-Bwrap 穿透, 驱动与游戏存储挂载, `steam-run` | [`steam/default.nix`](./steam/default.nix) · [`steam/package.nix`](./steam/package.nix) | [`steam/update.sh`](./steam/update.sh) |

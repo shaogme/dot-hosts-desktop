@@ -1,0 +1,23 @@
+{
+  "pins": {
+    "steam": {
+      "type": "Url",
+      "url": "https://repo.steampowered.com/steam/archive/stable/steam-launcher_1.0.0.87_amd64.deb",
+      "unpack": false,
+      "hash": "sha256-dlq6mg7TOaUCJs62FPzJh5qZG6GECYvI3pIO+xLHFKQ="
+    },
+    "steam-libs-amd64": {
+      "type": "Url",
+      "url": "https://repo.steampowered.com/steam/archive/stable/steam-libs-amd64_1.0.0.87_amd64.deb",
+      "unpack": false,
+      "hash": "sha256-iaGfcICHV8I2N27Eusd0i5ChHvvibe+VHIHSs3B5xW0="
+    },
+    "steam-libs-i386": {
+      "type": "Url",
+      "url": "https://repo.steampowered.com/steam/archive/stable/steam-libs-i386_1.0.0.87_i386.deb",
+      "unpack": false,
+      "hash": "sha256-Bc+EzjQsMqi8wvxsFG+oA+z7M56+CZdYSzJHAOSpUUo="
+    }
+  },
+  "version": 8
+}
