@@ -48,6 +48,9 @@ let
     pkgs.curl
     pkgs.wget
 
+    # 音频控制工具 (提供 pactl，用于 Steam 探测系统音频设备与音量状态)
+    pkgs.pulseaudio
+
     # Glibc 基础二进制工具 (ldd, getconf, locale 等)
     pkgs.glibc.bin
 
