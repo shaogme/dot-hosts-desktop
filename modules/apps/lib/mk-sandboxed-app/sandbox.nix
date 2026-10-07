@@ -125,6 +125,7 @@
     ++ lib.optionals dbus [
       "--bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus"
       "--bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dconf" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dconf"
+      "--ro-bind-try" "/run/dbus/system_bus_socket" "/run/dbus/system_bus_socket"
       "--ro-bind-try" "/var/run/dbus/system_bus_socket" "/var/run/dbus/system_bus_socket"
     ]
     ++ lib.optionals inputMethod [
@@ -144,7 +145,10 @@
       "--ro-bind-try" "/run/opengl-driver" "/run/opengl-driver"
       "--ro-bind-try" "/run/opengl-driver-32" "/run/opengl-driver-32"
     ]
-    ++ lib.optional shareNet "--share-net"
+    ++ lib.optionals shareNet [
+      "--share-net"
+      "--ro-bind-try" "/run/systemd/resolve" "/run/systemd/resolve"
+    ]
     ++ (lib.concatMap (b: [ "--bind-try" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) extraBinds)
     ++ (lib.concatMap (b: [ "--ro-bind-try" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) extraRoBinds)
     ++ extraBwrapArgs;

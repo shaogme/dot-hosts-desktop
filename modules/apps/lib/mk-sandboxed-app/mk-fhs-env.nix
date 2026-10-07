@@ -34,7 +34,7 @@ in
         # 均加入 ignored 列表，交由沙箱隔离层 (sandbox.nix) 显式控制挂载与权限。
         for d in /*; do
           case "$d" in
-            /nix|/dev|/proc|/etc|/tmp|/sys|/run) ;;
+            /nix|/dev|/proc|/etc|/tmp|/sys) ;;
             *) ignored+=("$d") ;;
           esac
         done
