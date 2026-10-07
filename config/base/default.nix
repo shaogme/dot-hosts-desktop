@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, options, pkgs, lib, ... }:
 
 let
   defaultEditor = "hx";
@@ -8,6 +8,11 @@ in
   # 通用系统基础配置 (Base)
   # ==========================================
   system.stateVersion = lib.mkDefault "26.11";
+
+  # 全局允许非自由软件
+  nixpkgs.config = lib.mkIf (!options.nixpkgs.pkgs.isDefined) {
+    allowUnfree = lib.mkDefault true;
+  };
 
   # 启用 Lix 代替默认的 CppNix
   nix.package = lib.mkDefault pkgs.lixPackageSets.git.lix;
