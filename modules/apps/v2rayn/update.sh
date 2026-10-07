@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NPINS_DIR="$SCRIPT_DIR/npins"
+
+run_npins() {
+    if command -v npins &>/dev/null; then
+        npins "$@"
+    elif command -v nix &>/dev/null; then
+        nix shell nixpkgs#npins -c npins "$@"
+    else
+        echo "Error: npins or nix command not found." >&2
+        exit 1
+    fi
+}
+
+DRY_RUN=0
+for arg in "$@"; do
+    if [[ "$arg" == "-n" || "$arg" == "--dry-run" ]]; then
+        DRY_RUN=1
+    fi
+done
+
+# 1. 请求 GitHub 官方 Releases API (获取最新发布版本，含常规发布)
+CURL_ARGS=(-sSL)
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    CURL_ARGS+=(-H "Authorization: Bearer $GITHUB_TOKEN")
+fi
+RELEASES_LIST=$(curl "${CURL_ARGS[@]}" "https://api.github.com/repos/2dust/v2rayN/releases?per_page=1" || true)
+if [ -z "$RELEASES_LIST" ]; then
+    echo "Warning: [v2rayn] Failed to fetch GitHub release API, skipping."
+    exit 0
+fi
+
+# 2. 解析最新版本与各架构下载链接
+LATEST_VERSION=""
+NEW_URL_X86=""
+NEW_URL_ARM=""
+if command -v jq &>/dev/null; then
+    LATEST_VERSION=$(echo "$RELEASES_LIST" | jq -r '.[0].tag_name // empty' | sed 's/^v//')
+    NEW_URL_X86=$(echo "$RELEASES_LIST" | jq -r '(.[0].assets[]? | select(.name | test("v2rayN-linux-64\\.deb$")) | .browser_download_url) // empty' | head -n 1)
+    NEW_URL_ARM=$(echo "$RELEASES_LIST" | jq -r '(.[0].assets[]? | select(.name | test("v2rayN-linux-arm64\\.deb$")) | .browser_download_url) // empty' | head -n 1)
+elif command -v python3 &>/dev/null; then
+    PARSED=$(python3 -c "
+import json, sys, re
+try:
+    data = json.loads(sys.argv[1])[0]
+    tag = data.get('tag_name', '').lstrip('v')
+    x86 = ''
+    arm = ''
+    for asset in data.get('assets', []):
+        name = asset.get('name', '')
+        if re.search(r'v2rayN-linux-64\.deb$', name):
+            x86 = asset.get('browser_download_url', '')
+        elif re.search(r'v2rayN-linux-arm64\.deb$', name):
+            arm = asset.get('browser_download_url', '')
+    print(f'{tag}\t{x86}\t{arm}')
+except Exception:
+    pass
+" "$RELEASES_LIST" 2>/dev/null || true)
+    LATEST_VERSION=$(echo "$PARSED" | cut -f1)
+    NEW_URL_X86=$(echo "$PARSED" | cut -f2)
+    NEW_URL_ARM=$(echo "$PARSED" | cut -f3)
+fi
+
+if [ -z "$NEW_URL_X86" ] || [ -z "$NEW_URL_ARM" ]; then
+    echo "Warning: [v2rayn] Could not find Linux 64 / arm64 deb packages in latest release, skipping."
+    exit 0
+fi
+
+# 3. 读取当前 sources.json 中的 URL
+CURRENT_URL_X86=""
+CURRENT_URL_ARM=""
+if [ -f "$NPINS_DIR/sources.json" ]; then
+    if command -v jq &>/dev/null; then
+        CURRENT_URL_X86=$(jq -r '.pins["v2rayn-x86_64"].url // empty' "$NPINS_DIR/sources.json" 2>/dev/null || true)
+        CURRENT_URL_ARM=$(jq -r '.pins["v2rayn-aarch64"].url // empty' "$NPINS_DIR/sources.json" 2>/dev/null || true)
+    elif command -v python3 &>/dev/null; then
+        CURRENT_URL_X86=$(python3 -c "
+import json
+try:
+    with open('$NPINS_DIR/sources.json') as f:
+        data = json.load(f)
+    print(data.get('pins', {}).get('v2rayn-x86_64', {}).get('url', ''))
+except Exception:
+    pass
+" 2>/dev/null || true)
+        CURRENT_URL_ARM=$(python3 -c "
+import json
+try:
+    with open('$NPINS_DIR/sources.json') as f:
+        data = json.load(f)
+    print(data.get('pins', {}).get('v2rayn-aarch64', {}).get('url', ''))
+except Exception:
+    pass
+" 2>/dev/null || true)
+    fi
+fi
+
+# 4. 比较并执行更新
+if [ "$CURRENT_URL_X86" == "$NEW_URL_X86" ] && [ "$CURRENT_URL_ARM" == "$NEW_URL_ARM" ]; then
+    echo "[v2rayn] Up to date: $LATEST_VERSION (x86_64 & aarch64)"
+else
+    echo "[v2rayn] New version detected: $LATEST_VERSION"
+    echo "[v2rayn] Updating x86_64: $NEW_URL_X86"
+    echo "[v2rayn] Updating aarch64: $NEW_URL_ARM"
+
+    for url in "$NEW_URL_X86" "$NEW_URL_ARM"; do
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -A "Mozilla/5.0" "$url" || true)
+        if [ "$HTTP_CODE" -ne 200 ] && [ "$HTTP_CODE" -ne 302 ]; then
+            echo "Warning: [v2rayn] Target URL returned HTTP $HTTP_CODE, skipping update: $url"
+            exit 0
+        fi
+    done
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "[v2rayn] (dry-run) Would update v2rayn-x86_64 to: $NEW_URL_X86"
+        echo "[v2rayn] (dry-run) Would update v2rayn-aarch64 to: $NEW_URL_ARM"
+    else
+        echo "[v2rayn] Updating npins for v2rayn-x86_64 and v2rayn-aarch64..."
+        run_npins -d "$NPINS_DIR" add url --name v2rayn-x86_64 "$NEW_URL_X86"
+        run_npins -d "$NPINS_DIR" add url --name v2rayn-aarch64 "$NEW_URL_ARM"
+    fi
+fi

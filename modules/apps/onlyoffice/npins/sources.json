@@ -1,20 +1,16 @@
 {
   "pins": {
-    "onlyoffice": {
-      "type": "GitRelease",
-      "repository": {
-        "type": "GitHub",
-        "owner": "ONLYOFFICE",
-        "repo": "DesktopEditors"
-      },
-      "pre_releases": false,
-      "version_upper_bound": null,
-      "release_prefix": null,
-      "submodules": false,
-      "version": "v9.4.0",
-      "revision": "7b9cd379f428ce23c7ef9c93cbb93f1e3c75f613",
-      "url": "https://api.github.com/repos/ONLYOFFICE/DesktopEditors/tarball/refs/tags/v9.4.0",
-      "hash": "sha256-mOX/VhLT0pJ+kC5mFQSwmbRzv4r8MVerbyeKma37D20="
+    "onlyoffice-aarch64": {
+      "type": "Url",
+      "url": "https://github.com/ONLYOFFICE/DesktopEditors/releases/download/v9.4.0/onlyoffice-desktopeditors_arm64.deb",
+      "unpack": false,
+      "hash": "sha256-zhQaEDBR4iComDndXchREXKuW5iejem9oOB8NLC3cCw="
+    },
+    "onlyoffice-x86_64": {
+      "type": "Url",
+      "url": "https://github.com/ONLYOFFICE/DesktopEditors/releases/download/v9.4.0/onlyoffice-desktopeditors_amd64.deb",
+      "unpack": false,
+      "hash": "sha256-QnFDToG+QrFVn9mJ0kv21BNILyeNxqXjKCAqT8Ghhkk="
     }
   },
   "version": 8

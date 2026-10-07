@@ -1,22 +1,26 @@
 { pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
 
 let
-  mkUnpacked = import ../lib/mk-sandboxed-app/mk-unpacked.nix { inherit pkgs lib; };
   sources = import ./npins;
-  rawVersion = sources.onlyoffice.version;
-  version = lib.removePrefix "v" rawVersion;
+  system = pkgs.stdenv.hostPlatform.system;
+  pin =
+    if system == "x86_64-linux" then
+      sources.onlyoffice-x86_64
+    else if system == "aarch64-linux" then
+      sources.onlyoffice-aarch64
+    else
+      throw "onlyoffice: 不支持的系统架构 '${system}'";
 
-  arch = mkUnpacked.resolveArch {
-    x86_64 = "amd64";
-    aarch64 = "arm64";
-  };
-
-  debUrl = "https://github.com/ONLYOFFICE/DesktopEditors/releases/download/v${version}/onlyoffice-desktopeditors_${arch}.deb";
+  version =
+    let
+      match = builtins.match ".*/download/v?([0-9.]+)/.*" pin.url;
+    in
+    if match != null then builtins.head match else "9.4.0";
 in
 mkSandboxedApp.qtApp {
   pname = "onlyoffice";
   inherit version;
-  src = { deb = mkSandboxedApp.fetchWithRetry debUrl; };
+  src = { deb = mkSandboxedApp.fetchWithRetry pin; };
   execPath = "opt/onlyoffice/desktopeditors/DesktopEditors";
   runInDirectory = "opt/onlyoffice/desktopeditors";
 

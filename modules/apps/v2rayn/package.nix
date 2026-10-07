@@ -1,24 +1,26 @@
 { pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; } }:
 
 let
-  mkUnpacked = (import ../lib/mk-sandboxed-app/mk-unpacked.nix { inherit pkgs lib; });
   sources = import ./npins;
-  rawVersion = sources.v2rayN.version;
-  version = lib.removePrefix "v" rawVersion;
+  system = pkgs.stdenv.hostPlatform.system;
+  pin =
+    if system == "x86_64-linux" then
+      sources.v2rayn-x86_64
+    else if system == "aarch64-linux" then
+      sources.v2rayn-aarch64
+    else
+      throw "v2rayn: 不支持的系统架构 '${system}'";
 
-  arch = mkUnpacked.resolveArch {
-    x86_64 = "64";
-    aarch64 = "arm64";
-    riscv64 = "riscv64";
-    loongarch64 = "loong64";
-  };
-
-  debUrl = "https://github.com/2dust/v2rayN/releases/download/${rawVersion}/v2rayN-linux-${arch}.deb";
+  version =
+    let
+      match = builtins.match ".*/download/([0-9.]+)/.*" pin.url;
+    in
+    if match != null then builtins.head match else "7.25.5";
 in
 mkSandboxedApp.dotnetApp {
   pname = "v2rayn";
   inherit version;
-  src = { deb = mkSandboxedApp.fetchWithRetry debUrl; };
+  src = { deb = mkSandboxedApp.fetchWithRetry pin; };
   execPath = "opt/v2rayN/v2rayN";
   runInDirectory = "opt/v2rayN";
 

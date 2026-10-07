@@ -2,14 +2,16 @@
 
 let
   sources = import ./npins;
-  rawVersion = sources.clash-verge-rev.version;
-  version = lib.removePrefix "v" rawVersion;
-  debUrl = "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v${version}/Clash.Verge_${version}_amd64.deb";
+  version =
+    let
+      match = builtins.match ".*/v?([0-9.]+)/Clash\\.Verge.*" sources.clash-verge.url;
+    in
+    if match != null then builtins.head match else "2.5.7";
 in
 mkSandboxedApp.webkitApp {
   pname = "clash-verge";
   inherit version;
-  src = { deb = mkSandboxedApp.fetchWithRetry debUrl; };
+  src = { deb = mkSandboxedApp.fetchWithRetry sources.clash-verge; };
   execPath = "bin/clash-verge";
 
   sandbox = {

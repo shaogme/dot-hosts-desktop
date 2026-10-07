@@ -1,20 +1,16 @@
 {
   "pins": {
-    "v2rayN": {
-      "type": "GitRelease",
-      "repository": {
-        "type": "GitHub",
-        "owner": "2dust",
-        "repo": "v2rayN"
-      },
-      "pre_releases": false,
-      "version_upper_bound": null,
-      "release_prefix": null,
-      "submodules": false,
-      "version": "7.25.5",
-      "revision": "f5747bb3212ad65c362bd82a19e520b2db4c38b0",
-      "url": "https://api.github.com/repos/2dust/v2rayN/tarball/refs/tags/7.25.5",
-      "hash": "sha256-/aHfBYisRP/VvVsX66E2cOimvazHs4SeMjJVXUVkBMs="
+    "v2rayn-aarch64": {
+      "type": "Url",
+      "url": "https://github.com/2dust/v2rayN/releases/download/7.25.5/v2rayN-linux-arm64.deb",
+      "unpack": false,
+      "hash": "sha256-XApaGecNJDTM/TG2/rdQHEujYHGksO2tFAPTohuxbDA="
+    },
+    "v2rayn-x86_64": {
+      "type": "Url",
+      "url": "https://github.com/2dust/v2rayN/releases/download/7.25.5/v2rayN-linux-64.deb",
+      "unpack": false,
+      "hash": "sha256-OVMVxdCLNHuB1G2/gqadAjSbBKOLZg0mOJQSp5uVsO0="
     }
   },
   "version": 8

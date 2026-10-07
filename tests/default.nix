@@ -184,5 +184,11 @@ let
 
   themeCoverage = builtins.listToAttrs (map (v: { name = v.name; value = makeThemeVariantTest v; }) themeVariantDefs);
 
+  sandboxSecurityCheck = import ./sandbox-security.nix;
+  dependencyManagementCheck = import ./dependency-check.nix;
+
 in
-allTests // themeCoverage // { __themeVariants = themeVariantDefs; }
+allTests // themeCoverage // {
+  __themeVariants = themeVariantDefs;
+  inherit sandboxSecurityCheck dependencyManagementCheck;
+}

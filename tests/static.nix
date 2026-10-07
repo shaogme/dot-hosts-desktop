@@ -348,6 +348,22 @@ let
     else
       pkgs.emptyFile;
 
+  # ── 沙箱隔离与系统安全性规范静态验证变量 ─────────────────────────────
+  fhsEnvSrc = builtins.readFile ../modules/apps/lib/mk-sandboxed-app/mk-fhs-env.nix;
+  wineLauncherSrc = builtins.readFile ../modules/apps/lib/mk-sandboxed-app/mk-wine-launcher.nix;
+  hasSandboxBindTryExtraBinds = lib.hasInfix ''(lib.concatMap (b: [ "--bind-try"'' sandboxSrc;
+  hasSandboxHomeNoXdgData = !lib.hasInfix "sandboxHome = \"\${XDG_DATA_HOME" sandboxSrc
+    && !lib.hasInfix "SANDBOX_HOME=\"\${XDG_DATA_HOME" wrapperSrc
+    && !lib.hasInfix "WINEPREFIX=\"\${XDG_DATA_HOME" wineLauncherSrc;
+  hasLauncherEscapeShellArg = lib.hasInfix "lib.escapeShellArg" launcherSrc;
+  hasWineLauncherEscapeShellArg = lib.hasInfix "lib.escapeShellArg" wineLauncherSrc;
+  hasNoHardcodedUid1000InSandbox = !lib.hasInfix "/run/user/1000" sandboxSrc
+    && lib.hasInfix "/run/user/$(id -u)" sandboxSrc;
+  hasFhsEnvPreBwrapFilter = lib.hasInfix "extraPreBwrapCmds" fhsEnvSrc
+    && lib.hasInfix "ignored+=(\"$d\")" fhsEnvSrc;
+  hasSandboxHomeTmpfsIsolation = lib.hasInfix ''"--tmpfs" "/home"'' sandboxSrc;
+  hasSandboxMediaShield = lib.hasInfix ''"--tmpfs" "/run/media"'' sandboxSrc;
+
   # 安全转义
   escape = v: lib.escapeShellArg (toString v);
 in
@@ -1248,6 +1264,29 @@ pkgs.runCommand "${name}-static-check" {
     fi
     echo "[${name}] 截屏软件模块 (desktop.screenshot.satty) 静态验证通过！"
   fi
+
+  # ── 19. 沙箱隔离与系统安全性静态验证 ─────────────────────────────────
+  if [ "${if hasSandboxBindTryExtraBinds then "true" else "false"}" != "true" ]; then
+    echo "错误: sandbox.nix extraBinds 未使用 --bind-try 容错挂载"
+    exit 1
+  fi
+  if [ "${if hasSandboxHomeNoXdgData then "true" else "false"}" != "true" ]; then
+    echo "错误: 沙箱路径仍包含 XDG_DATA_HOME，与 systemd tmpfiles (%h) 路径定义分裂"
+    exit 1
+  fi
+  if [ "${if (hasLauncherEscapeShellArg && hasWineLauncherEscapeShellArg) then "true" else "false"}" != "true" ]; then
+    echo "错误: mk-launcher-env 或 mk-wine-launcher 环境变量导出缺少 lib.escapeShellArg 转义"
+    exit 1
+  fi
+  if [ "${if hasNoHardcodedUid1000InSandbox then "true" else "false"}" != "true" ]; then
+    echo "错误: sandbox.nix 仍存在 /run/user/1000 硬编码回退"
+    exit 1
+  fi
+  if [ "${if (hasFhsEnvPreBwrapFilter && hasSandboxHomeTmpfsIsolation && hasSandboxMediaShield) then "true" else "false"}" != "true" ]; then
+    echo "错误: mk-fhs-env 或 sandbox.nix 缺少 buildFHSEnv 敏感目录拦截或 /home /run/media 隔离"
+    exit 1
+  fi
+  echo "[${name}] 沙箱隔离与系统安全性静态验证通过！"
 
   echo "静态检查通过！"
   touch $out

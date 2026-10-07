@@ -1,20 +1,10 @@
 {
   "pins": {
-    "clash-verge-rev": {
-      "type": "GitRelease",
-      "repository": {
-        "type": "GitHub",
-        "owner": "clash-verge-rev",
-        "repo": "clash-verge-rev"
-      },
-      "pre_releases": false,
-      "version_upper_bound": null,
-      "release_prefix": null,
-      "submodules": false,
-      "version": "v2.5.7",
-      "revision": "ef9c626484209d659534511f35750422354a3e90",
-      "url": "https://api.github.com/repos/clash-verge-rev/clash-verge-rev/tarball/refs/tags/v2.5.7",
-      "hash": "sha256-H66mMm42aaHFqvu3OBkVZ8r3yuTxrxKS2uWdXF9xM38="
+    "clash-verge": {
+      "type": "Url",
+      "url": "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.5.7/Clash.Verge_2.5.7_amd64.deb",
+      "unpack": false,
+      "hash": "sha256-CoaerB8GX83D5Vo5aAEDYf0VANjDilAfucmxRotFi54="
     }
   },
   "version": 8
