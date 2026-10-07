@@ -59,7 +59,7 @@ let
       windowRules = mkOption {
         type = types.listOf (types.attrsOf types.anything);
         default = effectiveWindowRules;
-        description = "该应用程序在 Hyprland 下生效的专用窗口规则 (window_rule)。";
+        description = "该应用程序在 Niri 窗口管理器下生效的专用窗口规则 (window-rule)。";
       };
     } // extraOptions;
   };

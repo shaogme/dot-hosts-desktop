@@ -19,7 +19,7 @@
   - [`mk-wrapper.nix`](./lib/mk-sandboxed-app/mk-wrapper.nix): 扁平 wrapper（`exec` + 单 `mkdir` 回退）。
   - [`mk-desktop.nix`](./lib/mk-sandboxed-app/mk-desktop.nix): `desktopItem` + 图标（单次 `find -exec`）+ 别名（`linkFarm`）。
   - [`mk-fhs-env.nix`](./lib/mk-sandboxed-app/mk-fhs-env.nix): 专用 FHS 构造器。
-- **[`lib/mk-app-module.nix`](./lib/mk-app-module.nix)**: 统一 NixOS 模块生成器（`options.desktop.apps.<name>`、别名支持、`systemd.user.tmpfiles` 沙箱目录声明、`security.wrappers` 特权切换、Niri 规则集成）。
+- **[`lib/mk-app-module.nix`](./lib/mk-app-module.nix)**: 统一 NixOS 模块生成器（`options.desktop.apps.<name>`、别名支持、`systemd.user.tmpfiles` 沙箱目录声明、`sg proxy-bypass` 组特权切换、Niri 规则集成）。
 - **[`lib/fetch-with-retry.nix`](./lib/fetch-with-retry.nix)**: 统一通用源码与安装包多线程分块下载与断点续传机制（对外 API 为 `mkSandboxedApp.fetchWithRetry` / `fetchWithRetry`，兼容 `fetchDeb` 别名，通用支持 deb / tarball / zip / 独立二进制等各类安装包与源码；底层集成 `aria2c`，在构建期通过 `$NIX_BUILD_CORES` / `nproc` 根据宿主机 CPU 核心数自适应设定并发连接与分段数（`[2, 16]` 安全区间），原生支持原地断点续传、段级弹性重试与声明式请求配置（`userAgent` / `headers` / `extraAria2Opts`），在构建期由 FOD 执行，彻底消除评估期因 CDN 抖动中断构建的问题）。
 
 ---
@@ -141,7 +141,7 @@ mkSandboxedApp.wineApp {
       riched20 = "native,builtin";
     };
     drives = {
-      "d:" = "Downloads"; # 映射受控的虚拟 D: 盘 (自动收敛危险的全局 Z: 盘)
+      "d:" = "Downloads"; # 映射受控的虚拟 D: 盘（沙箱内 Z: 盘映射至沙箱根目录以支持绝对路径转换与 store 访问；宿主文件系统隔离由 Bubblewrap 保障）
     };
   };
 
@@ -188,6 +188,15 @@ let
     export SDL_JOYSTICK_DISABLE_UDEV=1
     export GTK_IM_MODULE='xim'
     export LIBGL_DRIVERS_PATH=/run/opengl-driver/lib/dri:/run/opengl-driver-32/lib/dri
+
+    # 通过 steam-run 别名调用时，直接执行后续参数命令
+    if [ "''${SANDBOX_CALL_CMD:-}" = "steam-run" ]; then
+      if [ $# -eq 0 ]; then
+        echo "Usage: steam-run command-to-run args..." >&2
+        exit 1
+      fi
+      exec "$@"
+    fi
     ...
   '';
 in
@@ -241,7 +250,7 @@ mkSandboxedApp.base {
 2. **多架构 FHS 与 Glibc LD Cache**：启用多架构 FHS（`multiPkgsList`），自动为 32 位与 64 位 Glibc 烘焙 `/etc/ld.so.cache` 并在启动时挂载，配合应用层 `fhsExtraCommands` 的 `cp -f $out/usr/{bin,sbin}/ldconfig` 实体拷贝，彻底杜绝 pressure-vessel 在嵌套扫描库依赖时的符号链接循环（symlink loop）与驱动缺失。
 3. **双架构驱动与共享内存直通**：自动挂载 `/run/opengl-driver`（64位）与 `/run/opengl-driver-32`（32位），导出 `LIBGL_DRIVERS_PATH`、`__EGL_VENDOR_LIBRARY_DIRS`、`XDG_DATA_DIRS`，并通过 `shareShm = true` 直通 `/dev/shm` 确保大型 3D 游戏与 Proton esync/fsync 共享内存读写不受阻。
 4. **游戏手柄与控制器直通**：应用层显式声明 `shareInput = true` 穿透 `/dev/uinput`、`/dev/input` 与 `/run/udev`（通用沙箱默认隔离输入以防范全局键盘监听），并在环境变量中预置 `SDL_JOYSTICK_DISABLE_UDEV=1`，使 SDL2 自动回退为 inotify 探测，完美支持手柄热插拔与 Steam Input 模拟。
-5. **配套命令穿透**：通过别名注入 `steam-run`，当以 `steam-run` 命令行启动时自动解构为通用沙箱执行器（`exec "$@"`），在相同的多架构沙箱环境中运行任意命令。
+5. **配套命令穿透**：在应用层通过声明别名（`aliases = [ "steam-run" ];`）并在私有 `steamProfile`（`preRunHooks`）中匹配 `$SANDBOX_CALL_CMD`，当以 `steam-run` 命令行启动时特判解构为通用沙箱执行器（`exec "$@"`），从而在相同的多架构沙箱环境中运行任意命令（注：此特性为 Steam 应用包在启动钩子中的特判调度，而非底层工具库框架内置的通用逻辑）。
 
 ---
 
@@ -255,6 +264,7 @@ import ../lib/mk-app-module.nix {
   description = "<App Display Name> 桌面应用程序";
   package = ./package.nix;
   # 可选：提供别名 (如 aliases = [ "app-alias" ];)
+  # 可选：配置 Niri 专用窗口规则 (如 windowRules = [ { match._props = { app-id = "^app$"; }; open-floating = true; } ];)
 }
 ```
 
@@ -542,4 +552,3 @@ fi
 | **Telegram Desktop** | Static Qt6, Wayland/X11, WebKitGTK, GitHub Release Tarball | [`telegram-desktop/default.nix`](./telegram-desktop/default.nix) · [`telegram-desktop/package.nix`](./telegram-desktop/package.nix) | [`telegram-desktop/update.sh`](./telegram-desktop/update.sh) |
 | **Wine (Windows 兼容环境)** | New WoW64, DXVK 2.x, Office CJK 字体, 交互式沙箱容器 | [`wine/default.nix`](./wine/default.nix) · [`wine/package.nix`](./wine/package.nix) | *(系统内置运行时)* |
 | **Steam (游戏分发平台)** | MultiArch FHS, Bwrap-in-Bwrap 穿透, 驱动与多媒体存储挂载, `steam-run` | [`steam/default.nix`](./steam/default.nix) · [`steam/package.nix`](./steam/package.nix) | *(系统内置运行时)* |
-
