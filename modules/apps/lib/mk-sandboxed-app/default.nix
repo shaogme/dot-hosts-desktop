@@ -12,7 +12,7 @@ let
   desktopLib = import ./mk-desktop.nix { inherit pkgs lib; };
   fetchWithRetry = import ../fetch-with-retry.nix { inherit pkgs lib; };
 
-  # 核心装配 (纯静态管线, 无运行时分支).
+  # 核心装配
   mkCore =
     { pname
     , version
@@ -35,6 +35,8 @@ let
     , aliases ? [ ]
     , windowRules ? [ ]
     , privateTmp ? true
+    , multiArch ? false
+    , multiPkgs ? null
     }:
     let
       isWine = winExecPath != null || wine != null;
@@ -90,6 +92,7 @@ let
         runScript = launcher.runScript;
         unshareUser = false;
         privateTmp = if isWine then true else privateTmp;
+        inherit multiArch multiPkgs;
       };
       extraBwrapArgs = bwrapArgs;
 
@@ -173,5 +176,5 @@ in
   inherit fetchWithRetry;
   fetchDeb = fetchWithRetry;
   inherit base desktopApp electronApp firefoxApp qtApp webkitApp dotnetApp wineApp;
-  inherit (fhsBasesLib) fhsBases combine extend;
+  inherit (fhsBasesLib) fhsBases combine extend mkMultiFhsBase;
 }

@@ -105,7 +105,7 @@ mkSandboxedApp.webkitApp {
 }
 ```
 
-> 构造器选型：`base`（显式 `fhsBase`）· `desktopApp` · `electronApp` · `firefoxApp`（默认 `icons.firefox`）· `qtApp` · `webkitApp` · `dotnetApp` · `wineApp`（专有 Wine New WoW64 运行时与声明式前缀状态机）。
+> 构造器选型：`base`（显式 `fhsBase`，支持 `multiArch` / `multiPkgs` 自定义双架构）· `desktopApp` · `electronApp` · `firefoxApp`（默认 `icons.firefox`）· `qtApp` · `webkitApp` · `dotnetApp` · `wineApp`（专有 Wine New WoW64 运行时与声明式前缀状态机）。
 > `src` 仅接受 ADT（`{ deb = …; }` | `{ tarball = …; }` | `{ zip = …; }` | `{ nsis = …; }` | `{ inno = …; }` | `{ msi = …; }` | `{ custom = …; }`）；
 > `sandbox` 为封闭集合（未知字段直接 `throw`），持久目录统一声明于 `sandbox.homeDirs`（由模块层 `systemd.user.tmpfiles` 预建，`wineApp` 自动预建 `wineprefix` 并开启 `privateTmp`）；
 > `icons` 仅接受 ADT（`{ hicolor.auto = true; }` | `{ firefox = {}; }` | `{ none = true; }`）；
@@ -159,6 +159,89 @@ mkSandboxedApp.wineApp {
   };
 }
 ```
+
+#### 附：Steam 应用程序声明范例
+
+针对 Steam 客户端及 Proton 游戏运行环境（处理双架构 multilib、Bwrap-in-Bwrap 嵌套沙箱与外部驱动/库挂载）：
+
+```nix
+{ pkgs, lib ? pkgs.lib, mkSandboxedApp ? import ../lib/mk-sandboxed-app { inherit pkgs lib; }
+, extraCompatPackages ? [ ]
+, extraGameDirs ? [ ]
+}:
+
+let
+  compatPaths = lib.makeSearchPathOutput "steamcompattool" "" extraCompatPackages;
+  compatEnv = lib.optionalAttrs (extraCompatPackages != [ ]) {
+    STEAM_EXTRA_COMPAT_TOOLS_PATHS = compatPaths;
+  };
+
+  # 64 位 Steam 运行时基础工具链
+  steamTargetPkgs = pkgs: [ pkgs.bash pkgs.coreutils pkgs.zenity pkgs.curl pkgs.pciutils ... ];
+
+  # 32 位与 64 位双架构运行时依赖库
+  steamMultiPkgs = pkgs: [ pkgs.glibc pkgs.libGL pkgs.vulkan-loader pkgs.pipewire ... ];
+
+  steamExtraCommands = [ "cp -f $out/usr/{bin,sbin}/ldconfig" ];
+  steamProfile = ''
+    unset GIO_EXTRA_MODULES
+    export SDL_JOYSTICK_DISABLE_UDEV=1
+    export GTK_IM_MODULE='xim'
+    export LIBGL_DRIVERS_PATH=/run/opengl-driver/lib/dri:/run/opengl-driver-32/lib/dri
+    ...
+  '';
+in
+mkSandboxedApp.base {
+  pname = "steam";
+  version = pkgs.steam-unwrapped.version;
+  src = { custom = pkgs.steam-unwrapped; };
+  execPath = "bin/steam";
+
+  # 显式声明双架构 FHS 基底
+  fhsBase = mkSandboxedApp.mkMultiFhsBase {
+    label = "steam-fhs";
+    pkgsList = steamTargetPkgs;
+    multiPkgsList = steamMultiPkgs;
+  };
+
+  privateTmp = true;
+  fhsExtraCommands = steamExtraCommands;
+  preRunHooks = [ steamProfile ];
+  env = compatEnv;
+
+  # 应用层显式按需申请特权与路径 (通用沙箱默认隔离输入硬件与游戏库)
+  sandbox = {
+    shareInput = true;       # 显式直通 /dev/uinput 与 /dev/input 支持手柄映射
+    shareGames = true;       # 显式允许访问游戏存储目录
+    shareMedia = true;       # 挂载 /mnt, /media 等外部媒体与游戏分区
+    shareShm = true;         # 3D 游戏与 esync 共享内存
+    sharedDirs = [ "SteamLibrary" ] ++ extraGameDirs;
+    extraBinds = [ [ "/tmp/dumps" "/tmp/dumps" ] ];
+    homeDirs = [ ".local/share/Steam" ".steam" ".cache" ];
+  };
+
+  aliases = [ "steam-run" ];
+
+  desktop = {
+    desktopName = "Steam";
+    genericName = "游戏分发平台";
+    comment = "在 Bubblewrap 沙箱隔离容器中运行 Steam 游戏与 Proton Windows 兼容环境";
+    categories = [ "Network" "Game" ];
+    icon = "steam";
+    mimeTypes = [ "x-scheme-handler/steam" "x-scheme-handler/steamlink" ];
+  };
+}
+```
+
+##### Steam 与 Bwrap-in-Bwrap 架构原理
+
+当在沙箱容器中运行 Steam 时，Steam 客户端及其自带的 Steam Linux Runtime (pressure-vessel) 会尝试在内部再次启动 `bwrap`（`srt-bwrap`）来为游戏创建隔离环境。重构后的自包含 Steam 配置通过以下设计协同解决嵌套沙箱与环境挂载问题：
+
+1. **User Namespace 对齐与 Procfs 可见性**：外层 FHS 沙箱严格保持 `unshareUser = false`，不创建非特权用户命名空间，使内部的 pressure-vessel 能够如同在宿主机一样直接通过 `CLONE_NEWUSER` 建立嵌套容器，避免内核因嵌套非特权 userns 拒绝挂载 `/proc`（`Can't mount proc: Permission denied`）。
+2. **多架构 FHS 与 Glibc LD Cache**：启用多架构 FHS（`multiPkgsList`），自动为 32 位与 64 位 Glibc 烘焙 `/etc/ld.so.cache` 并在启动时挂载，配合应用层 `fhsExtraCommands` 的 `cp -f $out/usr/{bin,sbin}/ldconfig` 实体拷贝，彻底杜绝 pressure-vessel 在嵌套扫描库依赖时的符号链接循环（symlink loop）与驱动缺失。
+3. **双架构驱动与共享内存直通**：自动挂载 `/run/opengl-driver`（64位）与 `/run/opengl-driver-32`（32位），导出 `LIBGL_DRIVERS_PATH`、`__EGL_VENDOR_LIBRARY_DIRS`、`XDG_DATA_DIRS`，并通过 `shareShm = true` 直通 `/dev/shm` 确保大型 3D 游戏与 Proton esync/fsync 共享内存读写不受阻。
+4. **游戏手柄与控制器直通**：应用层显式声明 `shareInput = true` 穿透 `/dev/uinput`、`/dev/input` 与 `/run/udev`（通用沙箱默认隔离输入以防范全局键盘监听），并在环境变量中预置 `SDL_JOYSTICK_DISABLE_UDEV=1`，使 SDL2 自动回退为 inotify 探测，完美支持手柄热插拔与 Steam Input 模拟。
+5. **配套命令穿透**：通过别名注入 `steam-run`，当以 `steam-run` 命令行启动时自动解构为通用沙箱执行器（`exec "$@"`），在相同的多架构沙箱环境中运行任意命令。
 
 ---
 
@@ -430,7 +513,10 @@ fi
 | :--- | :--- | :--- |
 | **宿主机 $HOME 保护** | `--tmpfs $HOME` | 容器无法接触宿主机 `~/.ssh`、`~/.gnupg`、工作文档与浏览器 Cookies |
 | **数据持久化路径** | `--bind $SANDBOX_HOME $HOME` | 映射至 `~/.sandboxes/<app-name>`，重启或升级配置不丢失 |
-| **图形显示** | `--ro-bind-try $WAYLAND_DISPLAY` / `/tmp/.X11-unix` | 仅只读穿透 Wayland / X11 显示协议通道 |
+| **外部媒体与游戏存储** | `--bind-try /mnt` / `/media` / `/run/media` / `/data` | 自动穿透挂载外部磁盘、移动存储与游戏库分区 (`shareMedia = true` / `shareGames = true`) |
+| **游戏手柄与控制器** | `--dev-bind-try /dev/uinput` / `/dev/input` / `/run/udev` | 默认隔离；应用声明 `shareInput = true` 时允许访问物理控制器与虚拟摇杆 |
+| **进程共享内存 (IPC)** | `--bind-try /dev/shm` | 保证 3D 游戏与 Proton esync/fsync 大容量共享内存互操作 |
+| **图形显示与双架构驱动** | `--ro-bind-try /run/opengl-driver*` / Wayland / X11 | 穿透 32/64 位 Vulkan/OpenGL 驱动及 Wayland/X11 协议通道 |
 | **音频服务** | `--ro-bind-try $XDG_RUNTIME_DIR/pipewire-0` | 仅只读穿透 PipeWire / PulseAudio Socket |
 | **输入法服务** | `--ro-bind-try $XDG_RUNTIME_DIR/fcitx5` / `bus` | 仅只读穿透 Fcitx5 与 DBus 通信通道，支持中文输入 |
 | **网络通道** | `--share-net` | 允许正常的网络通信 |
@@ -455,4 +541,5 @@ fi
 | **PeaZip** | Qt6, libQt6Pas, X11, 归档工具链全覆盖, GitHub Release DEB | [`peazip/default.nix`](./peazip/default.nix) · [`peazip/package.nix`](./peazip/package.nix) | [`peazip/update.sh`](./peazip/update.sh) |
 | **Telegram Desktop** | Static Qt6, Wayland/X11, WebKitGTK, GitHub Release Tarball | [`telegram-desktop/default.nix`](./telegram-desktop/default.nix) · [`telegram-desktop/package.nix`](./telegram-desktop/package.nix) | [`telegram-desktop/update.sh`](./telegram-desktop/update.sh) |
 | **Wine (Windows 兼容环境)** | New WoW64, DXVK 2.x, Office CJK 字体, 交互式沙箱容器 | [`wine/default.nix`](./wine/default.nix) · [`wine/package.nix`](./wine/package.nix) | *(系统内置运行时)* |
+| **Steam (游戏分发平台)** | MultiArch FHS, Bwrap-in-Bwrap 穿透, 驱动与多媒体存储挂载, `steam-run` | [`steam/default.nix`](./steam/default.nix) · [`steam/package.nix`](./steam/package.nix) | *(系统内置运行时)* |
 

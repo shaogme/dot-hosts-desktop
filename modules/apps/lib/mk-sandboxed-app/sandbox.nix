@@ -1,15 +1,7 @@
 { lib }:
 
 {
-  # 类型化 Bubblewrap 参数生成器 (取代 profiles.nix makeBwrapArgs).
-  # 封闭参数集, customBinds/customRoBinds 已更名为 extraBinds/extraRoBinds,
-  # 开放 `sandbox // extra` 合并已删除.
-  #
-  # 输入均为静态值, 输出为字符串列表 (单次求值, 无运行时分支).
-  # 主题绑定说明：保持 ro 快照 + “切换主题必须重启 App”。
-  #   理由：theme-sync 用 install -Dm644 原子替换（rename），bwrap 文件/目录 bind 看到的是旧 inode，
-  #   已运行进程不可能 live-update，只能靠“重启 App”快照更新。portal DBus SettingChanged 才是 live 通道。
-  #   theme-ctl set 成功提示 + 模块注释必须写“需重启”。sandbox bus 已改 rw 以允许新发起 portal/dbus 调用。
+  # 类型化 Bubblewrap 参数生成器
   makeBwrapArgs =
     { sandboxName
     , isolatedHome ? true
@@ -23,6 +15,10 @@
     , shareDownloads ? true
     , shareUserDirs ? false
     , shareData ? true
+    , shareMedia ? true
+    , shareGames ? false
+    , shareInput ? false
+    , shareShm ? true
     , shareThemeStatic ? true
     , shareThemeLive ? true
     , sharedDirs ? [ ]
@@ -50,10 +46,22 @@
         "/data"
       ];
 
+      defaultMediaDirs = [
+        "/mnt"
+        "/media"
+        "/run/media"
+      ];
+
+      defaultGameDirs = [
+        "Games" "游戏"
+      ];
+
       # 静态去重: 调用侧已保证集合语义, 此处仅拼接常量 (O(1) 评估, 无 lib.unique).
       effectiveSharedDirs =
         (lib.optionals shareDownloads defaultDownloadsDirs)
         ++ (lib.optionals shareData defaultDataDirs)
+        ++ (lib.optionals shareMedia defaultMediaDirs)
+        ++ (lib.optionals shareGames defaultGameDirs)
         ++ sharedDirs;
 
       effectiveRoSharedDirs =
@@ -115,6 +123,18 @@
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx5" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx5"
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/ibus" "\${XDG_RUNTIME_DIR:-/run/user/1000}/ibus"
       "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx"
+    ]
+    ++ lib.optionals shareShm [
+      "--bind-try" "/dev/shm" "/dev/shm"
+    ]
+    ++ lib.optionals shareInput [
+      "--dev-bind-try" "/dev/uinput" "/dev/uinput"
+      "--dev-bind-try" "/dev/input" "/dev/input"
+      "--ro-bind-try" "/run/udev" "/run/udev"
+    ]
+    ++ [
+      "--ro-bind-try" "/run/opengl-driver" "/run/opengl-driver"
+      "--ro-bind-try" "/run/opengl-driver-32" "/run/opengl-driver-32"
     ]
     ++ lib.optional shareNet "--share-net"
     ++ (lib.concatMap (b: [ "--bind" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) extraBinds)

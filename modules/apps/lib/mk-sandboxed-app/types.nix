@@ -58,6 +58,10 @@ rec {
     shareDownloads = true;
     shareUserDirs = false;
     shareData = true;
+    shareMedia = true;
+    shareGames = false;
+    shareInput = false;
+    shareShm = true;
     # shareThemeStatic（icons/gtk ini 快照）vs shareThemeLive（desktop-theme/darkman/dconf-runtime），默认全 true。
     shareThemeStatic = true;
     shareThemeLive = true;

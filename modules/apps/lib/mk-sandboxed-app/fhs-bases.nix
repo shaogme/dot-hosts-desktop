@@ -1,7 +1,6 @@
 { lib }:
 
 let
-  # O(n) 去重 (attrset 插入, 替代 lib.unique O(n²)).
   # 注意：禁止使用 p.pname 作为 key，因为同名不同主版本的包 (如 qt5.qtbase 与 qt6.qtbase)
   # 会因 pname 相同 ("qtbase") 导致后者被静默覆盖丢弃。优先使用 outPath / name 进行安全去重。
   dedupePkgs = list:
@@ -247,6 +246,18 @@ let
 
   b = name: pkgsList: mkFhsBase { label = name; inherit pkgsList; };
 
+  mkMultiFhsBase = { label, pkgsList, multiPkgsList }: {
+    inherit label pkgsList multiPkgsList;
+    _isFhsBase = true;
+    _isMulti = true;
+  };
+
+  resolveMultiPkgs = base:
+    if base ? multiPkgsList && base.multiPkgsList != null then
+      p: dedupePkgs (base.multiPkgsList p)
+    else
+      null;
+
   fhsBases = rec {
     base = b "base" P.base;
     x11 = b "x11" P.x11;
@@ -277,5 +288,5 @@ let
   };
 in
 {
-  inherit mkFhsBase combine extend resolveTargetPkgs fhsBases dedupePkgs;
+  inherit mkFhsBase mkMultiFhsBase combine extend resolveTargetPkgs resolveMultiPkgs fhsBases dedupePkgs;
 }

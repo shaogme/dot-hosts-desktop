@@ -15,5 +15,6 @@
     wine.enable = lib.mkDefault true;
     telegram-desktop.enable = lib.mkDefault true;
     peazip.enable = lib.mkDefault true;
+    steam.enable = lib.mkDefault true;
   };
 }
