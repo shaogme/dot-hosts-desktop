@@ -35,6 +35,8 @@ let
     , aliases ? [ ]
     , windowRules ? [ ]
     , privateTmp ? true
+    , extraPreBwrapCmds ? ""
+    , chdirToPwd ? false
     , multiArch ? false
     , multiPkgs ? null
     }:
@@ -86,7 +88,7 @@ let
       extraBuildCommands = typesLib.resolveExtraBuildCommands { inherit fhsExtraCommands; };
 
       fhs = fhsEnvLib.mkFhsEnv {
-        inherit pname fhsBase extraBwrapArgs;
+        inherit pname fhsBase extraBwrapArgs extraPreBwrapCmds chdirToPwd;
         inherit extraBuildCommands;
         profile = launcher.profile;
         runScript = launcher.runScript;
@@ -122,6 +124,14 @@ let
     mkCore (defaults // args // {
       sandbox = (defaults.sandbox or { }) // (args.sandbox or { });
       env = (defaults.env or { }) // (args.env or { });
+      fhsExtraCommands = (defaults.fhsExtraCommands or [ ]) ++ (args.fhsExtraCommands or [ ]);
+      extraPreBwrapCmds = (defaults.extraPreBwrapCmds or "") + (args.extraPreBwrapCmds or "");
+      chdirToPwd = args.chdirToPwd or (defaults.chdirToPwd or false);
+      preRunHooks = (defaults.preRunHooks or [ ]) ++ (args.preRunHooks or [ ]);
+      postUnpackHooks = (defaults.postUnpackHooks or [ ]) ++ (args.postUnpackHooks or [ ]);
+      postBuildHooks = (defaults.postBuildHooks or [ ]) ++ (args.postBuildHooks or [ ]);
+      aliases = (defaults.aliases or [ ]) ++ (args.aliases or [ ]);
+      windowRules = (defaults.windowRules or [ ]) ++ (args.windowRules or [ ]);
     });
 
   base = args: mkCore args;
@@ -156,7 +166,7 @@ let
       wineNormalized = typesLib.normalizeWine (args.wine or { });
       customFhs =
         if wineNormalized.dxvk then
-          fhsBasesLib.extend fhsBasesLib.fhsBases.desktop-gui-wine (p: [ p.dxvk ])
+          fhsBasesLib.extend fhsBasesLib.fhsBases.desktop-gui-wine (p: [ p.dxvk.bin (p.dxvk.out or p.dxvk) ])
         else
           fhsBasesLib.fhsBases.desktop-gui-wine;
       wineExtraCommands = [
@@ -168,7 +178,7 @@ let
       fhsBase = customFhs;
       wine = wineNormalized;
       privateTmp = true;
-      fhsExtraCommands = wineExtraCommands ++ (args.fhsExtraCommands or [ ]);
+      fhsExtraCommands = wineExtraCommands;
     } args;
 
 in

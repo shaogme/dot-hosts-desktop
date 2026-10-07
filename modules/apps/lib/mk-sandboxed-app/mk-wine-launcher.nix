@@ -154,7 +154,7 @@ in
 
       # ── 3. 环境变量导出 ──
       customExports = lib.concatStringsSep "\n"
-        (lib.mapAttrsToList (k: v: "export ${k}=\"${toString v}\"") env);
+        (lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg (toString v)}") env);
 
       # @UNPACKED@ 构建期宏替换
       preRunLines = lib.concatStringsSep "\n" (map
@@ -179,7 +179,7 @@ in
         # ── ${pname}: Wine 运行时适配 ──
         export WINE="wine"
         export WINE64="wine"
-        export WINEPREFIX="''${XDG_DATA_HOME:-$HOME}/.sandboxes/${sandboxName}/wineprefix"
+        export WINEPREFIX="$HOME/.sandboxes/${sandboxName}/wineprefix"
         export WINEARCH="${wineCfg.arch}"
         export WINEDEBUG="${wineCfg.debug}"
         export FONTCONFIG_FILE="${fontsConf}"
@@ -210,7 +210,7 @@ in
       runScript = pkgs.writeShellScript "${pname}-wine-run" ''
         set -euo pipefail
 
-        SANDBOX_ROOT="''${XDG_DATA_HOME:-$HOME}/.sandboxes/${sandboxName}"
+        SANDBOX_ROOT="$HOME/.sandboxes/${sandboxName}"
         PREFIX_DIR="$SANDBOX_ROOT/wineprefix"
         META_FILE="$PREFIX_DIR/.nix-prefix-meta"
         CURRENT_HASH="${uniquePackageHash}"
@@ -265,6 +265,15 @@ in
           '') wineCfg.drives)}
         }
 
+        setup_dxvk() {
+          ${lib.optionalString wineCfg.dxvk ''
+            if command -v setup_dxvk.sh &>/dev/null; then
+              setup_dxvk.sh install --symlink 2>/dev/null || true
+              wineserver -w
+            fi
+          ''}
+        }
+
         # ── 状态机检测与初始化 ──
         if [ ! -f "$META_FILE" ]; then
           echo ">>> [WineApp] 正在为 ${pname} 初始化隔离容器 (WINEPREFIX: $PREFIX_DIR)..."
@@ -281,12 +290,7 @@ in
           apply_registries
 
           # 4. DXVK 驱动部署 (若启用)
-          ${lib.optionalString wineCfg.dxvk ''
-            if command -v setup_dxvk.sh &>/dev/null; then
-              setup_dxvk.sh install --symlink 2>/dev/null || true
-              wineserver -w
-            fi
-          ''}
+          setup_dxvk
 
           # 5. 虚拟驱动器盘符初始化
           setup_drives
@@ -296,10 +300,14 @@ in
           echo ">>> [WineApp] ${pname} 容器初始化完成。"
         elif [ "$(cat "$META_FILE" 2>/dev/null || true)" != "$CURRENT_HASH" ]; then
           echo ">>> [WineApp] 检测到 ${pname} 版本更新，正在执行增量配置同步..."
+          wineboot -u
+          wineserver -w
           link_fonts
           apply_registries
+          setup_dxvk
           setup_drives
           echo "$CURRENT_HASH" > "$META_FILE"
+          echo ">>> [WineApp] ${pname} 增量配置同步完成。"
         else
           # 每次启动确保盘符软链接健康
           setup_drives

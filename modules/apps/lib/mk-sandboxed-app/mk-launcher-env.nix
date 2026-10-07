@@ -12,7 +12,7 @@
     }:
     let
       customExports = lib.concatStringsSep "\n"
-        (lib.mapAttrsToList (k: v: "export ${k}=\"${toString v}\"") env);
+        (lib.mapAttrsToList (k: v: "export ${k}=${lib.escapeShellArg (toString v)}") env);
 
       preRunLines = lib.concatStringsSep "\n" (map
         (h: builtins.replaceStrings [ "@UNPACKED@" ] [ (toString unpacked) ] (toString h))

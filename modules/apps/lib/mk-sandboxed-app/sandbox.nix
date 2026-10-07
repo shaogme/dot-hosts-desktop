@@ -28,7 +28,7 @@
     , extraBwrapArgs ? [ ]
     }:
     let
-      sandboxHome = "\${XDG_DATA_HOME:-$HOME}/.sandboxes/${sandboxName}";
+      sandboxHome = "\$HOME/.sandboxes/${sandboxName}";
 
       defaultUserDirs = [
         "Desktop" "桌面"
@@ -75,10 +75,14 @@
         if lib.hasPrefix "/" dir then [ dir dir ]
         else [ "\$HOME/${dir}" "\$HOME/${dir}" ];
     in
-    lib.optionals isolatedHome [
-      "--tmpfs" "$HOME"
-      "--bind" sandboxHome "$HOME"
-    ]
+    (if isolatedHome then [
+      "--tmpfs" "/home"
+      "--dir" "\$HOME"
+      "--bind" sandboxHome "\$HOME"
+    ] else [
+      "--dir" "\$HOME"
+      "--bind-try" "\$HOME" "\$HOME"
+    ])
     ++ (
       let
         dirsToBind = if isolatedHome then effectiveSharedDirs else (lib.filter (d: lib.hasPrefix "/" d) effectiveSharedDirs);
@@ -87,6 +91,10 @@
       (lib.concatMap (dir: [ "--bind-try" ] ++ (formatBindArg dir)) dirsToBind)
       ++ (lib.concatMap (dir: [ "--ro-bind-try" ] ++ (formatBindArg dir)) roDirsToBind)
     )
+    # 遮蔽宿主机外部介质，防止 shareMedia=false 时 /run/media 泄露
+    ++ lib.optionals (!shareMedia) [
+      "--tmpfs" "/run/media"
+    ]
     # 静态快照（icons/gtk ini）：关掉会连图标一起丢，允许按 App 关 live 但保持静态。
     ++ lib.optionals (isolatedHome && shareThemeStatic) [
       "--ro-bind-try" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-3.0" "\${XDG_CONFIG_HOME:-\$HOME/.config}/gtk-3.0"
@@ -98,31 +106,31 @@
     ++ lib.optionals (isolatedHome && shareThemeLive) [
       "--ro-bind-try" "\${XDG_CONFIG_HOME:-\$HOME/.config}/dconf" "\${XDG_CONFIG_HOME:-\$HOME/.config}/dconf"
       "--ro-bind-try" "\$HOME/.config/dconf" "\$HOME/.config/dconf"
-      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/desktop-theme" "\${XDG_RUNTIME_DIR:-/run/user/1000}/desktop-theme"
-      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/darkman" "\${XDG_RUNTIME_DIR:-/run/user/1000}/darkman"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/desktop-theme"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/darkman" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/darkman"
     ]
     ++ lib.optionals wayland [
-      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}" "\${XDG_RUNTIME_DIR:-/run/user/1000}/\${WAYLAND_DISPLAY:-wayland-0}"
-      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/wayland-0" "\${XDG_RUNTIME_DIR:-/run/user/1000}/wayland-0"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/\${WAYLAND_DISPLAY:-wayland-0}" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/\${WAYLAND_DISPLAY:-wayland-0}"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/wayland-0" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/wayland-0"
     ]
     ++ lib.optionals x11 [
       "--ro-bind-try" "\${XAUTHORITY:-\$HOME/.Xauthority}" "\${XAUTHORITY:-\$HOME/.Xauthority}"
     ]
     ++ lib.optionals audio [
-      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/pulse" "\${XDG_RUNTIME_DIR:-/run/user/1000}/pulse"
-      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/pipewire-0" "\${XDG_RUNTIME_DIR:-/run/user/1000}/pipewire-0"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pipewire-0" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pipewire-0"
     ]
     # bus 必须 rw（--bind-try）。Unix socket 新连接需要 socket 文件写权限，
     # ro-bind 会阻断沙箱内新发起的 portal/dbus 调用（已建连不受影响）。
     ++ lib.optionals dbus [
-      "--bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/bus" "\${XDG_RUNTIME_DIR:-/run/user/1000}/bus"
-      "--bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/dconf" "\${XDG_RUNTIME_DIR:-/run/user/1000}/dconf"
+      "--bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus"
+      "--bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dconf" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dconf"
       "--ro-bind-try" "/var/run/dbus/system_bus_socket" "/var/run/dbus/system_bus_socket"
     ]
     ++ lib.optionals inputMethod [
-      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx5" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx5"
-      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/ibus" "\${XDG_RUNTIME_DIR:-/run/user/1000}/ibus"
-      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx" "\${XDG_RUNTIME_DIR:-/run/user/1000}/fcitx"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/fcitx5" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/fcitx5"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ibus" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ibus"
+      "--ro-bind-try" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/fcitx" "\${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/fcitx"
     ]
     ++ lib.optionals shareShm [
       "--bind-try" "/dev/shm" "/dev/shm"
@@ -137,7 +145,7 @@
       "--ro-bind-try" "/run/opengl-driver-32" "/run/opengl-driver-32"
     ]
     ++ lib.optional shareNet "--share-net"
-    ++ (lib.concatMap (b: [ "--bind" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) extraBinds)
+    ++ (lib.concatMap (b: [ "--bind-try" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) extraBinds)
     ++ (lib.concatMap (b: [ "--ro-bind-try" (builtins.elemAt b 0) (builtins.elemAt b 1) ]) extraRoBinds)
     ++ extraBwrapArgs;
 }

@@ -26,6 +26,21 @@ in
       postUnpack = typesLib.resolvePostUnpack { inherit postUnpackHooks; };
       file = fetchWithRetry.ensureFetched srcADT.file;
       outFile = typesLib.srcOutPath file;
+
+      stripRootCmd =
+        if srcADT.stripRoot then ''
+          chmod -R u+w "$out"
+          shopt -s nullglob dotglob
+          entries=("$out"/*)
+          if [ "''${#entries[@]}" -eq 1 ] && [ -d "''${entries[0]}" ]; then
+            single_dir="''${entries[0]}"
+            tmp_strip=$(mktemp -d "''${TMPDIR:-/tmp}/strip-XXXXXX")
+            mv "$single_dir" "$tmp_strip/root"
+            mv "$tmp_strip/root"/* "$out"/ 2>/dev/null || true
+            rm -rf "$tmp_strip"
+          fi
+          shopt -u dotglob nullglob
+        '' else "";
     in
     if srcADT.kind == "deb" then
       pkgs.stdenv.mkDerivation {
@@ -58,6 +73,7 @@ in
           7z x -y "$src" -o$out/
         '';
         installPhase = ''
+          ${stripRootCmd}
           ${postUnpack}
         '';
       }
@@ -75,6 +91,7 @@ in
           rm -rf $out/\$PLUGINSDIR $out/\$_OUTDIR 2>/dev/null || true
         '';
         installPhase = ''
+          ${stripRootCmd}
           ${postUnpack}
         '';
       }
@@ -89,12 +106,14 @@ in
         unpackPhase = ''
           mkdir -p $out
           innoextract --silent --extract --output-dir "$out" "$src"
-          if [ -d "$out/app" ]; then
-            cp -a --reflink=auto $out/app/* $out/ 2>/dev/null || cp -a $out/app/* $out/
-            rm -rf $out/app
+          if [ -d "$out/app" ] && [ "${if srcADT.stripRoot then "1" else "0"}" = "1" ]; then
+            chmod -R u+w "$out"
+            cp -a --reflink=auto "$out/app"/. "$out"/ 2>/dev/null || cp -a "$out/app"/. "$out"/
+            rm -rf "$out/app"
           fi
         '';
         installPhase = ''
+          ${stripRootCmd}
           ${postUnpack}
         '';
       }
@@ -111,41 +130,32 @@ in
           msiextract "$src" -C "$out"
         '';
         installPhase = ''
+          ${stripRootCmd}
           ${postUnpack}
         '';
       }
     else if srcADT.kind == "tarball" then
-      if lib.isDerivation file || builtins.isPath file then
-        if postUnpackHooks == [ ] then file
-        else
-          pkgs.stdenv.mkDerivation {
-            pname = "${pname}-unpacked";
-            inherit version;
-            src = file;
-            dontBuild = true;
-            dontConfigure = true;
-            installPhase = ''
-              mkdir -p $out
-              cp -a --reflink=auto * $out/ 2>/dev/null || cp -a * $out/
-              ${postUnpack}
-            '';
-          }
-      else if builtins.isAttrs file && file ? outPath then
-        # npins unpack=true 的 fetchTarball 结果 outPath 已是解包目录: 零拷贝复用
-        if postUnpackHooks == [ ] then outFile
-        else
-          pkgs.stdenv.mkDerivation {
-            pname = "${pname}-unpacked";
-            inherit version;
-            src = outFile;
-            dontBuild = true;
-            dontConfigure = true;
-            installPhase = ''
-              mkdir -p $out
-              cp -a --reflink=auto * $out/ 2>/dev/null || cp -a * $out/
-              ${postUnpack}
-            '';
-          }
+      pkgs.stdenv.mkDerivation {
+        pname = "${pname}-unpacked";
+        inherit version;
+        src = outFile;
+        nativeBuildInputs = [ pkgs.gnutar pkgs.zstd ];
+        dontBuild = true;
+        dontConfigure = true;
+        unpackPhase = "true";
+        installPhase = ''
+          mkdir -p $out
+          if [ -d "$src" ]; then
+            cp -a --reflink=auto "$src"/. "$out"/ 2>/dev/null || cp -a "$src"/. "$out"/
+          else
+            tar -xf "$src" -C "$out" --no-same-owner --no-same-permissions
+          fi
+          ${stripRootCmd}
+          ${postUnpack}
+        '';
+      }
+    else if srcADT.kind == "custom" then
+      if postUnpackHooks == [ ] && !srcADT.stripRoot then outFile
       else
         pkgs.stdenv.mkDerivation {
           pname = "${pname}-unpacked";
@@ -153,12 +163,18 @@ in
           src = outFile;
           dontBuild = true;
           dontConfigure = true;
+          unpackPhase = "true";
           installPhase = ''
             mkdir -p $out
-            cp -a --reflink=auto * $out/ 2>/dev/null || cp -a * $out/
+            if [ -d "$src" ]; then
+              cp -a --reflink=auto "$src"/. "$out"/ 2>/dev/null || cp -a "$src"/. "$out"/
+            else
+              cp -a --reflink=auto "$src" "$out"/ 2>/dev/null || cp -a "$src" "$out"/
+            fi
+            ${stripRootCmd}
             ${postUnpack}
           '';
         }
     else
-      outFile;
+      throw "mkSandboxedApp: 未知 srcADT kind '${srcADT.kind}'";
 }

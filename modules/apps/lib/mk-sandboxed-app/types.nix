@@ -11,30 +11,33 @@ rec {
   #       | { custom = <drv | path>; }
   # 返回: { kind; file; stripRoot; }
   normalizeSrc = { src, stripRoot ? true }:
+    let
+      effectiveStripRoot = if src ? stripRoot then src.stripRoot else stripRoot;
+    in
     if !(builtins.isAttrs src) then
       throw "mkSandboxedApp: src 必须为 ADT attrset ({ deb = ...; } | { tarball = ...; } | { zip = ...; } | { nsis = ...; } | { inno = ...; } | { msi = ...; } | { custom = ...; }), 实际类型 ${builtins.typeOf src}"
     else if src ? deb then
       {
         kind = "deb";
         file = src.deb;
-        inherit stripRoot;
+        stripRoot = effectiveStripRoot;
       }
     else if src ? tarball then
       {
         kind = "tarball";
         file = src.tarball;
-        stripRoot = if src ? stripRoot then src.stripRoot else stripRoot;
+        stripRoot = effectiveStripRoot;
       }
     else if src ? zip then
-      { kind = "zip"; file = src.zip; inherit stripRoot; }
+      { kind = "zip"; file = src.zip; stripRoot = effectiveStripRoot; }
     else if src ? nsis then
-      { kind = "nsis"; file = src.nsis; inherit stripRoot; }
+      { kind = "nsis"; file = src.nsis; stripRoot = effectiveStripRoot; }
     else if src ? inno then
-      { kind = "inno"; file = src.inno; inherit stripRoot; }
+      { kind = "inno"; file = src.inno; stripRoot = effectiveStripRoot; }
     else if src ? msi then
-      { kind = "msi"; file = src.msi; inherit stripRoot; }
+      { kind = "msi"; file = src.msi; stripRoot = effectiveStripRoot; }
     else if src ? custom then
-      { kind = "custom"; file = src.custom; inherit stripRoot; }
+      { kind = "custom"; file = src.custom; stripRoot = effectiveStripRoot; }
     else
       throw "mkSandboxedApp: src ADT 缺少 deb|tarball|zip|nsis|inno|msi|custom 键 (实际键: ${lib.concatStringsSep "," (builtins.attrNames src)})";
 

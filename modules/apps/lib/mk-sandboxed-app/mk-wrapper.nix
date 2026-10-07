@@ -23,7 +23,7 @@
     in
     pkgs.writeShellScriptBin binaryName ''
       ${bypassLogic}
-      SANDBOX_HOME="''${XDG_DATA_HOME:-$HOME}/.sandboxes/${sandboxName}"
+      SANDBOX_HOME="$HOME/.sandboxes/${sandboxName}"
       mkdir -p "$SANDBOX_HOME"
       export SANDBOX_CALL_CMD="$(basename "$0" 2>/dev/null || echo "${binaryName}")"
       exec ${fhs}/bin/${pname}-fhs "$@"
