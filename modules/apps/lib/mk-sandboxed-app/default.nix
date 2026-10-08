@@ -22,6 +22,7 @@ let
     , wine ? null
     , binaryName ? pname
     , fhsBase
+    , extraPkgs ? null
     , sandbox ? { }
     , env ? { }
     , preRunHooks ? [ ]
@@ -87,8 +88,20 @@ let
 
       extraBuildCommands = typesLib.resolveExtraBuildCommands { inherit fhsExtraCommands; };
 
+      effectiveFhsBase =
+        if extraPkgs == null then fhsBase
+        else
+          let
+            extraFn =
+              if lib.isFunction extraPkgs then extraPkgs
+              else if lib.isList extraPkgs then (_: extraPkgs)
+              else throw "mkSandboxedApp: extraPkgs 必须是列表或函数 (pkgs: [ ... ])";
+          in
+          fhsBasesLib.extend fhsBase extraFn;
+
       fhs = fhsEnvLib.mkFhsEnv {
-        inherit pname fhsBase extraBwrapArgs extraPreBwrapCmds chdirToPwd;
+        inherit pname extraBwrapArgs extraPreBwrapCmds chdirToPwd;
+        fhsBase = effectiveFhsBase;
         inherit extraBuildCommands;
         profile = launcher.profile;
         runScript = launcher.runScript;
@@ -121,9 +134,25 @@ let
     };
 
   withDefaults = defaults: args:
+    let
+      mergeExtraPkgs = d: a:
+        let
+          toFn = e:
+            if e == null then null
+            else if lib.isFunction e then e
+            else if lib.isList e then (_: e)
+            else throw "mkSandboxedApp: extraPkgs 必须是列表或函数 (pkgs: [ ... ])";
+          dFn = toFn d;
+          aFn = toFn a;
+        in
+        if dFn != null && aFn != null then (p: dFn p ++ aFn p)
+        else if aFn != null then aFn
+        else dFn;
+    in
     mkCore (defaults // args // {
       sandbox = (defaults.sandbox or { }) // (args.sandbox or { });
       env = (defaults.env or { }) // (args.env or { });
+      extraPkgs = mergeExtraPkgs (defaults.extraPkgs or null) (args.extraPkgs or null);
       fhsExtraCommands = (defaults.fhsExtraCommands or [ ]) ++ (args.fhsExtraCommands or [ ]);
       extraPreBwrapCmds = (defaults.extraPreBwrapCmds or "") + (args.extraPreBwrapCmds or "");
       chdirToPwd = args.chdirToPwd or (defaults.chdirToPwd or false);

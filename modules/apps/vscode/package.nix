@@ -16,6 +16,10 @@ mkSandboxedApp.electronApp {
   src = { deb = mkSandboxedApp.fetchWithRetry sources.vscode; };
   execPath = "share/code/bin/code";
 
+  extraPkgs = pkgs: [
+    pkgs.git
+  ];
+
   sandbox = { homeDirs = [ ".config/Code" ".vscode" ]; };
 
   postUnpackHooks = [

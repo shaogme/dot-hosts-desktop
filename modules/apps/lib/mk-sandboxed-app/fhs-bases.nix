@@ -31,10 +31,17 @@ let
   # 增量扩展: fhsBase.extend (pkgs: [ ... ])
   extend = base: extraFn:
     assert lib.isFunction extraFn;
-    mkFhsBase {
-      label = "${base.label}+extra";
-      pkgsList = p: base.pkgsList p ++ extraFn p;
-    };
+    if base ? multiPkgsList && base.multiPkgsList != null then
+      mkMultiFhsBase {
+        label = "${base.label}+extra";
+        pkgsList = p: base.pkgsList p ++ extraFn p;
+        multiPkgsList = base.multiPkgsList;
+      }
+    else
+      mkFhsBase {
+        label = "${base.label}+extra";
+        pkgsList = p: base.pkgsList p ++ extraFn p;
+      };
 
   resolveTargetPkgs = base: p: dedupePkgs (base.pkgsList p);
 

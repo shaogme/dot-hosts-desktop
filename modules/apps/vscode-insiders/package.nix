@@ -16,6 +16,10 @@ mkSandboxedApp.electronApp {
   src = { deb = mkSandboxedApp.fetchWithRetry sources.vscode-insiders; };
   execPath = "share/code-insiders/bin/code-insiders";
 
+  extraPkgs = pkgs: [
+    pkgs.git
+  ];
+
   sandbox = { homeDirs = [ ".config/Code - Insiders" ".vscode-insiders" ]; };
 
   postUnpackHooks = [
