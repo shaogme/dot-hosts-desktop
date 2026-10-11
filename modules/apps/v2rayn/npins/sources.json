@@ -2,15 +2,15 @@
   "pins": {
     "v2rayn-aarch64": {
       "type": "Url",
-      "url": "https://github.com/2dust/v2rayN/releases/download/7.25.5/v2rayN-linux-arm64.deb",
+      "url": "https://github.com/2dust/v2rayN/releases/download/7.25.6/v2rayN-linux-arm64.deb",
       "unpack": false,
-      "hash": "sha256-XApaGecNJDTM/TG2/rdQHEujYHGksO2tFAPTohuxbDA="
+      "hash": "sha256-FT2uxXL7kaHllSHFacXEQplwRt8Cq6+PRLddAkdUj5U="
     },
     "v2rayn-x86_64": {
       "type": "Url",
-      "url": "https://github.com/2dust/v2rayN/releases/download/7.25.5/v2rayN-linux-64.deb",
+      "url": "https://github.com/2dust/v2rayN/releases/download/7.25.6/v2rayN-linux-64.deb",
       "unpack": false,
-      "hash": "sha256-OVMVxdCLNHuB1G2/gqadAjSbBKOLZg0mOJQSp5uVsO0="
+      "hash": "sha256-tyIMY20XuSWBSATUFxy6mzqh93G6rotXBAPyyIUEBug="
     }
   },
   "version": 8
