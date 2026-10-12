@@ -58,7 +58,7 @@ in
   };
 
   # PAM 登录限制配置 (针对音频与高性能任务的内存锁定限制)
-  security.pam.loginLimits = lib.mkDefault [
+  security.pam.loginLimits = [
     {
       domain = "*";
       type = "-";          # 同时设置 soft 和 hard
