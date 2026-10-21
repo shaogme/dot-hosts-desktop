@@ -14,9 +14,6 @@ in
     allowUnfree = lib.mkDefault true;
   };
 
-  # 启用 Lix 代替默认的 CppNix
-  nix.package = lib.mkDefault pkgs.lixPackageSets.git.lix;
-
   # 基础功能启用
   base.enable = lib.mkDefault true;
 
