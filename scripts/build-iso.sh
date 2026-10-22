@@ -4,8 +4,8 @@ set -euo pipefail
 # ==============================================================================
 # Binary Cache 配置 (与 CI 及 tests/run.sh 保持一致)
 # ==============================================================================
-CACHE_SUBSTITUTERS="https://cache.nixos.org https://attic.xuyh0120.win/lantian"
-CACHE_TRUSTED_PUBLIC_KEYS="cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
+CACHE_SUBSTITUTERS="https://cache.nixos.org"
+CACHE_TRUSTED_PUBLIC_KEYS="cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
 
 # 获取脚本所在目录及仓库根目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

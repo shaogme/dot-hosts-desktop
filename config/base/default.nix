@@ -35,10 +35,7 @@ in
     enable = lib.mkDefault true;
     backend = lib.mkDefault "networkmanager";
   };
-
-  # 内核优化: 启用 CachyOS 内核
-  exts.kernel.cachyos.enable = lib.mkDefault true;
-
+  
   # 系统自动更新与同步 (Legacy 模式)
   base.update = {
     enable = lib.mkDefault true;

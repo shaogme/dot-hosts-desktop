@@ -25,7 +25,7 @@ in
   imports = [
     # 1. 引入模块库
     dot-base.nixosModules.default
-    dot-exts.nixosModules.kernel.cachyos
+    dot-base.nixosModules.kernel-xanmod
     dot-exts.nixosModules.hardware.disk.btrfs
     # 2. 引入 Home Manager 模块
     "${sources.home-manager}/nixos"

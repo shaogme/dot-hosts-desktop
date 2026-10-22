@@ -2,8 +2,8 @@
 set -e
 
 # 定义 Binary Cache 参数
-CACHE_Substituters="https://cache.nixos.org https://attic.xuyh0120.win/lantian"
-CACHE_TrustedPublicKeys="cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
+CACHE_Substituters="https://cache.nixos.org"
+CACHE_TrustedPublicKeys="cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
 
 # 获取脚本所在目录及仓库根目录
 TESTS_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -54,8 +54,6 @@ run_test_for_host() {
   
   echo ""
   echo "[2/2] 正在运行虚拟机集成测试..."
-  echo "使用 Binary Caches 加速虚拟机测试构建:"
-  echo "  - https://attic.xuyh0120.win/lantian"
   
   nix-build "$TESTS_DIR" -A "\"$target_host\".vmTest" \
     --option substituters "$CACHE_Substituters" \

@@ -20,8 +20,8 @@ on:
         description: 'Git commit SHA or reference to build'
 
 env:
-  CACHIX_SUBSTITUTERS: https://cache.nixos.org https://attic.xuyh0120.win/lantian
-  CACHIX_PUBLIC_KEYS: cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc=
+  CACHIX_SUBSTITUTERS: https://cache.nixos.org
+  CACHIX_PUBLIC_KEYS: cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
 
 jobs:
   setup-hosts:
