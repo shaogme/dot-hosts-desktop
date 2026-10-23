@@ -4,8 +4,8 @@
       "type": "MutableUrl",
       "update_url": "https://update.code.visualstudio.com/latest/linux-deb-x64/stable",
       "unpack": false,
-      "url": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/2d0b7506a36c1d6db9a466440131a8e01eab2289/code_1.143.0-1792533444_amd64.deb",
-      "hash": "sha256-8EWohtv9GqR+xJ3WiA15qVVwya/eYnUQiXtc9pLbXyo="
+      "url": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/e646868227c3e3a9e3f24277c8c7220be42c0be7/code_1.143.1-1792691907_amd64.deb",
+      "hash": "sha256-5Flyne4TdYlgkkvgcVfaRPC6aVA6te30WG/N6Ta6ybk="
     }
   },
   "version": 8
