@@ -22,9 +22,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "dbdc1cc8bef66b916b85bd418c6045f8a2e78a2e",
-      "url": "https://github.com/shaogme/dot-exts/archive/dbdc1cc8bef66b916b85bd418c6045f8a2e78a2e.tar.gz",
-      "hash": "sha256-Zunx7u60T4lJit7SjADKco1WtsfLCx3edn2FrCHyMPM="
+      "revision": "249cb27042d5d45cf28f958d0cb71088a1cdaa60",
+      "url": "https://github.com/shaogme/dot-exts/archive/249cb27042d5d45cf28f958d0cb71088a1cdaa60.tar.gz",
+      "hash": "sha256-8VwTW8E0crPMAlPrQPqLsiDHTqzqXyHSC+FETNVeYh0="
     },
     "home-manager": {
       "type": "Git",
