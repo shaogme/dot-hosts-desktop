@@ -409,6 +409,9 @@ in
         partOf = [ "graphical-session.target" ];
         after = [ "graphical-session.target" ];
         wantedBy = [ "graphical-session.target" ];
+        # awww-daemon restores cached wallpapers by invoking `awww img` via sh.
+        # ExecStart uses an absolute path, but the child shell also needs the package on PATH.
+        path = [ cfg.package ];
         unitConfig = {
           ConditionEnvironment = "WAYLAND_DISPLAY";
         };
