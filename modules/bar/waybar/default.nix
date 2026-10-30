@@ -156,13 +156,21 @@ in
       autostart = mkOption {
         type = types.bool;
         default = true;
-        description = "是否在 Niri 启动时自动注入 waybar 自启动动作。";
+        description = "是否在图形会话中自动启动 Waybar。systemd.enable 开启时由 graphical-session.target 拉起，否则回退到 Niri spawn-at-startup。";
       };
 
       keybind = mkOption {
         type = types.str;
         default = "Mod+B";
         description = "在 Niri 中切换/显隐 Waybar 的快捷键绑定（设为空字符串则不注册）。";
+      };
+    };
+
+    systemd = {
+      enable = mkOption {
+        type = types.bool;
+        default = true;
+        description = "是否通过 systemd 用户服务管理 Waybar 生命周期并在退出后自动重启。";
       };
     };
 
@@ -273,9 +281,25 @@ in
         fi
       ''];
 
+      # 由 graphical-session.target 管理 Waybar 生命周期；进程意外退出时由 systemd 重启。
+      systemd.user.services.waybar = mkIf cfg.systemd.enable {
+        description = "Waybar status bar";
+        partOf = [ "graphical-session.target" ];
+        after = [ "graphical-session.target" ];
+        wantedBy = optional cfg.niri.autostart "graphical-session.target";
+        unitConfig.ConditionEnvironment = "WAYLAND_DISPLAY";
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = "${cfg.package}/bin/waybar";
+          Restart = "always";
+          RestartSec = 2;
+        };
+      };
+
       # 联动向 Niri 注册自启动与快捷键
       desktop.windowManager.niri = mkIf (config ? desktop && config.desktop ? windowManager && config.desktop.windowManager ? niri && config.desktop.windowManager.niri.enable) {
-        autostart = mkIf cfg.niri.autostart [
+        # systemd 管理开启时不要再通过 spawn-at-startup 重复拉起 Waybar。
+        autostart = mkIf (cfg.niri.autostart && !cfg.systemd.enable) [
           "waybar"
         ];
         extraBinds = mkIf (cfg.niri.keybind != "") {

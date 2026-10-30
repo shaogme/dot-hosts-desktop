@@ -191,6 +191,10 @@ pkgs.testers.nixosTest {
       if ${if (serverCfg.desktop ? bar && serverCfg.desktop.bar ? waybar && serverCfg.desktop.bar.waybar.enable) then "True" else "False"}:
           server.succeed("which waybar")
           server.succeed("test -f /etc/xdg/waybar/config.jsonc")
+          if ${if serverCfg.desktop.bar.waybar.systemd.enable or false then "True" else "False"}:
+              server.succeed("test -f /etc/systemd/user/waybar.service")
+              server.succeed("grep -q '^Restart=always$' /etc/systemd/user/waybar.service")
+              server.succeed("grep -q '^ConditionEnvironment=WAYLAND_DISPLAY$' /etc/systemd/user/waybar.service")
           if ${if (serverCfg.desktop.bar.waybar.powerDraw.enable or false) then "True" else "False"}:
               server.succeed("systemctl is-enabled desktop-power-daemon.service || systemctl is-active desktop-power-daemon.service")
 

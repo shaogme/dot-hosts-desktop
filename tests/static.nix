@@ -56,6 +56,12 @@ let
   # ── Waybar 状态栏与实时功耗监控静态验证 ───────────────────────────
   waybarEnabled = cfg.desktop.bar.waybar.enable or false;
   waybarPowerDrawEnabled = cfg.desktop.bar.waybar.powerDraw.enable or false;
+  waybarSystemdEnabled = cfg.desktop.bar.waybar.systemd.enable or false;
+  waybarAutostart = cfg.desktop.bar.waybar.niri.autostart or false;
+  waybarService = cfg.systemd.user.services.waybar or null;
+  niriWaybarAutostart = lib.any
+    (cmd: if lib.isList cmd then builtins.elem "waybar" cmd else cmd == "waybar")
+    (cfg.desktop.windowManager.niri.autostart or [ ]);
   waybarConfigFile =
     if cfg.environment.etc ? "xdg/waybar/config.jsonc" && cfg.environment.etc."xdg/waybar/config.jsonc" ? text then
       pkgs.writeText "${name}-waybar-config" cfg.environment.etc."xdg/waybar/config.jsonc".text
@@ -424,6 +430,29 @@ pkgs.runCommand "${name}-static-check" {
       echo "错误: Waybar 配置文件为空或不存在！"
       exit 1
     }
+    ${if waybarSystemdEnabled then ''
+      if [ "${if waybarService != null then "true" else "false"}" != "true" ]; then
+        echo "错误: Waybar 的 systemd 用户服务未定义"
+        exit 1
+      fi
+      if [ "${waybarService.serviceConfig.Restart or ""}" != "always" ]; then
+        echo "错误: Waybar 服务必须在进程退出后自动重启 (Restart=always)"
+        exit 1
+      fi
+      if [ "${if builtins.elem "graphical-session.target" (waybarService.wantedBy or [ ]) then "true" else "false"}" != "${if waybarAutostart then "true" else "false"}" ]; then
+        echo "错误: Waybar 服务的 graphical-session.target 自动启动状态与 niri.autostart 不一致"
+        exit 1
+      fi
+      if [ "${if niriWaybarAutostart then "true" else "false"}" = "true" ]; then
+        echo "错误: systemd 管理 Waybar 时不应重复注入 Niri spawn-at-startup"
+        exit 1
+      fi
+    '' else if waybarAutostart then ''
+      if [ "${if niriWaybarAutostart then "true" else "false"}" != "true" ]; then
+        echo "错误: Waybar 的 systemd 管理已禁用，但 Niri autostart 回退项缺失"
+        exit 1
+      fi
+    '' else ""}
     ${if waybarPowerDrawEnabled then ''
       if [ "${if cfg.systemd.services ? desktop-power-daemon then "true" else "false"}" != "true" ]; then
         echo "错误: Waybar 实时功耗监控启用时 desktop-power-daemon 服务未定义"
