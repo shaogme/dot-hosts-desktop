@@ -117,27 +117,13 @@ let
     ]
   );
 
-  # 构建静态主题初始值文件，用于 niri validate 检查期（此时没有运行时 theme.kdl）
-  # 内容对应 dark 模式默认颜色（若未启用 themeIntegration，则不会 include）
-  staticThemeKdl = pkgs.writeText "niri-theme-static.kdl" ''
-    layout {
-        focus-ring {
-            width 4
-            active-color "#7fc8ff"
-            inactive-color "#505050"
-        }
-        border {
-            active-color "#ffc87f"
-            inactive-color "#505050"
-        }
-    }
-  '';
-
   configFile = pkgs.writeTextFile {
     name = "niri-config.kdl";
     text = generatedText + optionalString cfg.themeIntegration.enable ''
 
-include "${staticThemeKdl}"
+// Niri 26.04+ watches included files and reloads the config when this file changes.
+// It is optional because the theme seed hook may not have run when Niri first starts.
+include optional=true "~/.config/niri/theme.kdl"
 '';
     checkPhase = optionalString cfg.checkConfig ''
       ${lib.getExe cfg.package} validate --config "$target"
@@ -842,14 +828,8 @@ in
         }
       ];
 
-      # ── 主题联动：经 hookExtraPackages 追加（base 由 theme 固定，此处只加自身所需） ──
-      desktop.theme.hookExtraPackages = mkIf (config.desktop.theme.enable or false) [
-        cfg.package
-        pkgs.coreutils
-        pkgs.procps
-      ];
-
-      desktop.theme.hookFragmentsSeedSafe = mkIf (config.desktop.theme.enable or false) [''
+      # ── 主题联动：写入动态 KDL include，由 Niri 文件监视器重新加载 ──
+      desktop.theme.hookFragmentsSeedSafe = mkIf ((config.desktop.theme.enable or false) && cfg.themeIntegration.enable) [''
         # --- Niri 主题联动 seedSafe（由 modules/windowManager/niri 注入，仅落盘） ---
         if [ "$MODE" = "dark" ]; then
           NIRI_FOCUS_ACTIVE="${config.desktop.theme.dark.niri.focusRingActiveColor}"
@@ -860,11 +840,14 @@ in
           NIRI_BORDER_ACTIVE="${config.desktop.theme.light.niri.borderActiveColor}"
           NIRI_INACTIVE="${config.desktop.theme.light.niri.inactiveColor}"
         fi
-        NIRI_THEME_DIR="$RUNTIME_DIR/niri"
+        # 与 configFile 中的 ~ 路径保持一致。Niri 26.04+ 会监视这个 include 文件，
+        # 原子替换后会自行重新加载配置，无需对整份配置再次发 IPC reload。
+        NIRI_THEME_DIR="$HOME/.config/niri"
         if [ -e "$NIRI_THEME_DIR" ] && [ ! -d "$NIRI_THEME_DIR" ]; then
           echo "[theme-switch] warn: $NIRI_THEME_DIR is not a directory" >&2
+        elif ! mkdir -p "$NIRI_THEME_DIR"; then
+          echo "[theme-switch] warn: failed to create $NIRI_THEME_DIR" >&2
         else
-          mkdir -p "$NIRI_THEME_DIR" || true
           NIRI_THEME_CONTENT="layout {
         focus-ring {
             width ${toString config.desktop.theme.layout.focusRing.width}
@@ -877,28 +860,12 @@ in
         }
         }
         "
-          if ! printf '%s' "$NIRI_THEME_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$NIRI_THEME_DIR/theme.kdl"; then
-            echo "[theme-switch] warn: install niri theme failed, fallback to redirect" >&2
-            printf '%s' "$NIRI_THEME_CONTENT" > "$NIRI_THEME_DIR/theme.kdl" || echo "[theme-switch] warn: failed to write niri theme" >&2
-          fi
-        fi
-      ''];
-
-      desktop.theme.hookFragmentsReload = mkIf (config.desktop.theme.enable or false) [''
-        # --- Niri 主题联动 reload（由 modules/windowManager/niri 注入，需 niri 守护进程） ---
-        NIRI_THEME_DIR="$RUNTIME_DIR/niri"
-        if [ -d "$NIRI_THEME_DIR" ] && command -v niri >/dev/null 2>&1; then
-          # 仅当 niri 守护进程可响应时才 reload，避免冷启动阻塞
-          if pgrep -x niri >/dev/null 2>&1 || niri msg --help >/dev/null 2>&1; then
-            NIRI_CONFIG_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/niri"
-            NIRI_SYSTEM_CONFIG="/etc/xdg/niri/config.kdl"
-            if [ -f "$NIRI_CONFIG_DIR/config.kdl" ]; then
-              if ! niri msg action load-config-file --path "$NIRI_CONFIG_DIR/config.kdl"; then echo "[theme-switch] warn: niri reload user config failed" >&2; fi
-            elif [ -f "$NIRI_SYSTEM_CONFIG" ]; then
-              if ! niri msg action load-config-file --path "$NIRI_SYSTEM_CONFIG"; then echo "[theme-switch] warn: niri reload system config failed" >&2; fi
-            fi
-          else
-            echo "[theme-switch] diag: niri not ready, skipping reload" >&2
+          NIRI_THEME_FILE="$NIRI_THEME_DIR/theme.kdl"
+          NIRI_THEME_TMP="$NIRI_THEME_FILE.tmp.$$"
+          if ! printf '%s' "$NIRI_THEME_CONTENT" | ${pkgs.coreutils}/bin/install -Dm644 /dev/stdin "$NIRI_THEME_TMP" \
+            || ! ${pkgs.coreutils}/bin/mv -f "$NIRI_THEME_TMP" "$NIRI_THEME_FILE"; then
+            ${pkgs.coreutils}/bin/rm -f "$NIRI_THEME_TMP"
+            echo "[theme-switch] warn: failed to update Niri theme include" >&2
           fi
         fi
       ''];
