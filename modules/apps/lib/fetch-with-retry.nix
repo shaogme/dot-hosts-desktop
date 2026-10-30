@@ -1,7 +1,9 @@
 { pkgs, lib ? pkgs.lib }:
 
 let
-  defaultRetries = 5;
+  # aria2's --max-tries counts total attempts, including the initial attempt.
+  # Two tries per concurrency tier means one retry per tier.
+  defaultRetries = 2;
   defaultRetryDelay = 3;
 
   # 基于 aria2 的多线程分块并发下载与断点续传 FOD Fetcher
@@ -21,6 +23,12 @@ let
     , extraAria2Opts ? [ ]
     }:
     let
+      maxTriesPerTier =
+        if retries < 1 || retries > defaultRetries then
+          defaultRetries
+        else
+          retries;
+
       finalHash =
         if hash != "" then
           hash
@@ -88,12 +96,21 @@ let
           CORES=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
         fi
 
-        # 2. 计算自适应并发数 (限制在 [2, 16] 安全区间，兼顾吞吐加速与防范 CDN 429 限流)
+        # 2. 计算初始分段数 (限制在 [2, 16] 区间)
         CONCURRENCY=$CORES
         if [ "$CONCURRENCY" -lt 2 ]; then
           CONCURRENCY=2
         elif [ "$CONCURRENCY" -gt 16 ]; then
           CONCURRENCY=16
+        fi
+
+        # 下载失败后降低每服务器连接数；固定 split 保持分段布局，便于续传。
+        CONNECTION_LEVELS=("$CONCURRENCY")
+        if [ "$CONCURRENCY" -gt 4 ]; then
+          CONNECTION_LEVELS+=(4)
+        fi
+        if [ "$CONCURRENCY" -gt 1 ]; then
+          CONNECTION_LEVELS+=(1)
         fi
 
         # 3. 规范化目标文件名，保证在控制台与进度摘要中清晰可辨
@@ -107,29 +124,47 @@ let
         echo ">>> [fetchAria2] 正在下载目标文件: $TARGET_FILE"
         echo ">>> [fetchAria2] 下载源地址 (URL): ${url}"
         echo ">>> [fetchAria2] 解包模式 (unpack): ${lib.boolToString unpack}"
-        echo ">>> [fetchAria2] CPU 核心数: $CORES | 并发连接数: $CONCURRENCY"
+        echo ">>> [fetchAria2] CPU 核心数: $CORES | 初始分段/连接数: $CONCURRENCY"
         echo "================================================================================"
 
-        ${pkgs.aria2}/bin/aria2c \
-          --no-conf \
-          --auto-file-renaming=false \
-          --allow-overwrite=true \
-          --ca-certificate="$SSL_CERT_FILE" \
-          --split="$CONCURRENCY" \
-          --max-connection-per-server="$CONCURRENCY" \
-          --min-split-size="2M" \
-          --continue=true \
-          --max-tries=${toString retries} \
-          --retry-wait=${toString retryDelay} \
-          --connect-timeout=30 \
-          --timeout=60 \
-          --console-log-level=warn \
-          --summary-interval=0 \
-          --download-result=full \
-          --dir="$DL_DIR" \
-          --out="$TARGET_FILE" \
-          ${escapedOpts} \
-          ${lib.escapeShellArg url}
+        DOWNLOAD_COMPLETE=0
+        LAST_EXIT_CODE=1
+        for MAX_CONNECTIONS in "''${CONNECTION_LEVELS[@]}"; do
+          echo ">>> [fetchAria2] 尝试每服务器连接数: $MAX_CONNECTIONS (每档最多 ${toString maxTriesPerTier} 次)"
+          if ${pkgs.aria2}/bin/aria2c \
+            --no-conf \
+            --auto-file-renaming=false \
+            --allow-overwrite=true \
+            --ca-certificate="$SSL_CERT_FILE" \
+            --min-split-size="2M" \
+            --continue=true \
+            --connect-timeout=30 \
+            --timeout=60 \
+            --console-log-level=warn \
+            --summary-interval=0 \
+            --download-result=full \
+            --dir="$DL_DIR" \
+            --out="$TARGET_FILE" \
+            ${escapedOpts} \
+            --split="$CONCURRENCY" \
+            --max-connection-per-server="$MAX_CONNECTIONS" \
+            --max-tries=${toString maxTriesPerTier} \
+            --retry-wait=${toString retryDelay} \
+            ${lib.escapeShellArg url}; then
+            DOWNLOAD_COMPLETE=1
+            break
+          else
+            LAST_EXIT_CODE=$?
+            if [ "$MAX_CONNECTIONS" -gt 1 ]; then
+              echo ">>> [fetchAria2] 当前并发档位失败，保留断点并降低连接数后重试。"
+            fi
+          fi
+        done
+
+        if [ "$DOWNLOAD_COMPLETE" -ne 1 ]; then
+          echo ">>> [fetchAria2] 所有并发档位均失败。"
+          exit "$LAST_EXIT_CODE"
+        fi
 
         # 4. 产物放置或原地解包
         ${if unpack then ''

@@ -20,7 +20,7 @@
   - [`mk-desktop.nix`](./lib/mk-sandboxed-app/mk-desktop.nix): `desktopItem` + 图标（单次 `find -exec`）+ 别名（`linkFarm`）。
   - [`mk-fhs-env.nix`](./lib/mk-sandboxed-app/mk-fhs-env.nix): 专用 FHS 构造器。
 - **[`lib/mk-app-module.nix`](./lib/mk-app-module.nix)**: 统一 NixOS 模块生成器（`options.desktop.apps.<name>`、别名支持、`systemd.user.tmpfiles` 沙箱目录声明、`sg proxy-bypass` 组特权切换、Niri 规则集成）。
-- **[`lib/fetch-with-retry.nix`](./lib/fetch-with-retry.nix)**: 统一通用源码与安装包多线程分块下载与断点续传机制（对外 API 为 `mkSandboxedApp.fetchWithRetry` / `fetchWithRetry`，兼容 `fetchDeb` 别名，通用支持 deb / tarball / zip / 独立二进制等各类安装包与源码；底层集成 `aria2c`，在构建期通过 `$NIX_BUILD_CORES` / `nproc` 根据宿主机 CPU 核心数自适应设定并发连接与分段数（`[2, 16]` 安全区间），原生支持原地断点续传、段级弹性重试与声明式请求配置（`userAgent` / `headers` / `extraAria2Opts`），在构建期由 FOD 执行，彻底消除评估期因 CDN 抖动中断构建的问题）。
+- **[`lib/fetch-with-retry.nix`](./lib/fetch-with-retry.nix)**: 统一通用源码与安装包多线程分块下载与断点续传机制（对外 API 为 `mkSandboxedApp.fetchWithRetry` / `fetchWithRetry`，兼容 `fetchDeb` 别名，通用支持 deb / tarball / zip / 独立二进制等各类安装包与源码；底层集成 `aria2c`，初始分段数按 `$NIX_BUILD_CORES` / `nproc` 限制在 `[2, 16]`，失败后依次将每服务器连接上限降到最多 4 和 1，每档最多两次总尝试（首次加一次重试），并在同一临时目录保留断点；支持声明式请求配置（`userAgent` / `headers` / `extraAria2Opts`），在构建期由 FOD 执行并校验产物哈希）。
 
 ---
 
@@ -592,7 +592,7 @@ fi
 为了实现真正的“零手动介入更新”，建议 `package.nix` 与 `update.sh` 采用如下解耦规范：
 
 1. **版本号动态提取**：永远不要在 `package.nix` 中硬编码固定版本号。对于 `type = "Url"` 或 `type = "Tarball"`，使用 `builtins.match` 从 `sources.<name>.url` 中动态提取。
-2. **源码引用直通与多线程下载重试**：将 `sources.<name>` 包裹为 `src = { deb = mkSandboxedApp.fetchWithRetry sources.<name>; }` / `src = { tarball = mkSandboxedApp.fetchWithRetry sources.<name>; }` ADT（或通过 `mkSandboxedApp.fetchWithRetry` 传递特定 header 后同样包裹），由管线静态分发解包和 FHS 组装。`fetchWithRetry` 通用支持各类安装包与源码（deb / tarball / zip 等），底层基于 `aria2c` 实现多线程分块并发下载与断点续传，构建期根据 CPU 核心数自适应计算并发连接数（`[2, 16]` 安全区间），原生支持 `userAgent`、`headers` 与 `extraAria2Opts` 等声明式参数，由 Nix 统一在构建期作为 Fixed-Output Derivation 执行并支持分段原地容错重试，彻底消除评估期因 CDN 抖动中断构建的问题；解包管线内部亦包含 `ensureFetched` 兜底转换。
+2. **源码引用直通与多线程下载重试**：将 `sources.<name>` 包裹为 `src = { deb = mkSandboxedApp.fetchWithRetry sources.<name>; }` / `src = { tarball = mkSandboxedApp.fetchWithRetry sources.<name>; }` ADT（或通过 `mkSandboxedApp.fetchWithRetry` 传递特定 header 后同样包裹），由管线静态分发解包和 FHS 组装。`fetchWithRetry` 通用支持各类安装包与源码（deb / tarball / zip 等），底层基于 `aria2c` 实现多线程分块并发下载与断点续传，初始分段数按 CPU 核心数限制在 `[2, 16]`，连接失败后逐档降低每服务器连接上限至最多 4 和 1（每档最多两次总尝试），原生支持 `userAgent`、`headers` 与 `extraAria2Opts` 等声明式参数，由 Nix 统一在构建期作为 Fixed-Output Derivation 执行并支持分段原地容错重试，彻底消除评估期因 CDN 抖动中断构建的问题；解包管线内部亦包含 `ensureFetched` 兜底转换。
 3. **一键全量维护**：执行 `bash scripts/update-npins.sh` 时，所有定制应用的 `update.sh` 会自动拉取最新版本，`npins/sources.json` 自动锁定哈希，Nix 配置无需任何手动代码修改即可构建最新版。
 
 ---
