@@ -35,6 +35,8 @@ in
     ../../config/default.nix
   ];
 
+  base.update.upgrade.nixpkgsPath = toString sources.nixpkgs;
+
   # ==========================================
   # 主机特有硬件与基础配置
   # ==========================================
