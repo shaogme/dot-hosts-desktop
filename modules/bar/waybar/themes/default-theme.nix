@@ -332,7 +332,7 @@ let
       };
       return-type = "json";
       exec-if = "which swaync-client";
-      exec = "swaync-client -df -p";
+      exec = "swaync-client -swb";
       on-click = "swaync-client -t -sw";
       on-click-right = "swaync-client -d -sw";
       escape = true;
