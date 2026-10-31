@@ -506,15 +506,7 @@ in
       enable = mkOption {
         type = types.bool;
         default = true;
-        description = "是否通过 systemd 用户服务管理 SwayNC 守护进程。启用后由 graphical-session.target 统一管理生命周期，避免与 D-Bus 激活及 Hyprland autostart 产生竞态双开冲突。";
-      };
-    };
-
-    blur = {
-      enable = mkOption {
-        type = types.bool;
-        default = true;
-        description = "是否自动向 Hyprland 注册 swaync 的 layer_rule 背景毛玻璃模糊。";
+        description = "是否通过 systemd 用户服务管理 SwayNC 守护进程。启用后由 graphical-session.target 统一管理生命周期，避免与 D-Bus 激活及 Niri autostart 产生竞态双开冲突。";
       };
     };
 

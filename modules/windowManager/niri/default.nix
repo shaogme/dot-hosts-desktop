@@ -158,6 +158,7 @@ in
 
     terminal = mkOption {
       type = types.str;
+      default = "";
       description = "Niri 默认快捷键 (Mod + Return / Mod + T) 启动的终端命令或可执行程序名称（必须显式配置，禁止提供默认 fallback）。";
     };
 

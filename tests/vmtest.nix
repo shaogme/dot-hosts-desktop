@@ -195,6 +195,9 @@ pkgs.testers.nixosTest {
               server.succeed("test -f /etc/systemd/user/waybar.service")
               server.succeed("grep -q '^Restart=always$' /etc/systemd/user/waybar.service")
               server.succeed("grep -q '^ConditionEnvironment=WAYLAND_DISPLAY$' /etc/systemd/user/waybar.service")
+              server.succeed("grep -q 'PATH=.*current-system/sw/bin' /etc/systemd/user/waybar.service")
+              server.succeed("PATH=/run/current-system/sw/bin:/run/current-system/sw/sbin:/run/wrappers/bin command -v rio")
+              server.succeed("PATH=/run/current-system/sw/bin:/run/current-system/sw/sbin:/run/wrappers/bin command -v anyrun-power")
           if ${if (serverCfg.desktop.bar.waybar.powerDraw.enable or false) then "True" else "False"}:
               server.succeed("systemctl is-enabled desktop-power-daemon.service || systemctl is-active desktop-power-daemon.service")
 

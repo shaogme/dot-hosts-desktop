@@ -14,38 +14,50 @@ let
   selectedTheme = availableThemes.${cfg.theme} or availableThemes.default-theme;
   svgIcons = import ./icons.nix { inherit pkgs; };
 
-  # 专用电源管理菜单包装脚本（纯净文本，无 emoji）
-  anyrunPowerScript = pkgs.writeShellScriptBin "anyrun-power" ''
-    OPTIONS="锁定屏幕 (Lock)
-注销登录 (Logout)
-睡眠挂起 (Suspend)
-休眠挂起 (Hibernate)
-重启系统 (Reboot)
-关闭计算机 (Shutdown)"
+  # 专用电源管理菜单包装脚本。脚本运行依赖通过 runtimeInputs 声明，
+  # 注销动作使用 Niri IPC，并且只在 IPC 不可用时结束当前 logind session。
+  anyrunPowerScript = pkgs.writeShellApplication {
+    name = "anyrun-power";
+    runtimeInputs = [ pkgs.systemd ];
+    text = ''
+      OPTIONS="锁定屏幕 (Lock)
+      注销登录 (Logout)
+      睡眠挂起 (Suspend)
+      休眠挂起 (Hibernate)
+      重启系统 (Reboot)
+      关闭计算机 (Shutdown)"
 
-    CHOICE=$(echo "$OPTIONS" | ${cfg.package}/bin/anyrun --plugins libstdin.so)
+      CHOICE=$(printf '%s\n' "$OPTIONS" | ${cfg.package}/bin/anyrun --plugins libstdin.so) || exit 0
 
-    case "$CHOICE" in
-      *"锁定屏幕"*)
-        hyprlock || loginctl lock-session
-        ;;
-      *"注销登录"*)
-        hyprctl dispatch exit || loginctl terminate-user $USER
-        ;;
-      *"睡眠挂起"*)
-        systemctl suspend
-        ;;
-      *"休眠挂起"*)
-        systemctl hibernate
-        ;;
-      *"重启系统"*)
-        systemctl reboot
-        ;;
-      *"关闭计算机"*)
-        systemctl poweroff
-        ;;
-    esac
-  '';
+      case "$CHOICE" in
+        *"锁定屏幕"*)
+          loginctl lock-session || true
+          ;;
+        *"注销登录"*)
+          if ${config.desktop.windowManager.niri.package}/bin/niri msg action quit --skip-confirmation; then
+            :
+          elif [ -n "''${XDG_SESSION_ID:-}" ]; then
+            loginctl terminate-session "$XDG_SESSION_ID"
+          else
+            echo "无法注销：Niri IPC 不可用且 XDG_SESSION_ID 未设置。" >&2
+            exit 1
+          fi
+          ;;
+        *"睡眠挂起"*)
+          systemctl suspend
+          ;;
+        *"休眠挂起"*)
+          systemctl hibernate
+          ;;
+        *"重启系统"*)
+          systemctl reboot
+          ;;
+        *"关闭计算机"*)
+          systemctl poweroff
+          ;;
+      esac
+    '';
+  };
 
   # 专用 Niri 窗口模糊搜索与切换器包装脚本
   anyrunWindowScript = pkgs.writeShellScriptBin "anyrun-niri-focus" ''
@@ -155,42 +167,42 @@ let
       custom_actions: [
         (
           title: "锁定屏幕",
-          command: "hyprlock || loginctl lock-session",
+          command: "${pkgs.systemd}/bin/loginctl lock-session",
           description: "锁定当前桌面会话",
           icon: "${svgIcons}/icons/lock.svg",
           confirm: false,
         ),
         (
           title: "注销登录",
-          command: "hyprctl dispatch exit || loginctl terminate-user $USER",
+          command: "${config.desktop.windowManager.niri.package}/bin/niri msg action quit --skip-confirmation",
           description: "退出当前用户桌面会话",
           icon: "${svgIcons}/icons/logout.svg",
           confirm: true,
         ),
         (
           title: "睡眠",
-          command: "systemctl suspend",
+          command: "${pkgs.systemd}/bin/systemctl suspend",
           description: "挂起系统到内存 (RAM)",
           icon: "${svgIcons}/icons/suspend.svg",
           confirm: false,
         ),
         (
           title: "休眠",
-          command: "systemctl hibernate",
+          command: "${pkgs.systemd}/bin/systemctl hibernate",
           description: "挂起系统到硬盘 (Disk)",
           icon: "${svgIcons}/icons/hibernate.svg",
           confirm: false,
         ),
         (
           title: "重启系统",
-          command: "systemctl reboot",
+          command: "${pkgs.systemd}/bin/systemctl reboot",
           description: "重新启动计算机",
           icon: "${svgIcons}/icons/reboot.svg",
           confirm: true,
         ),
         (
           title: "关闭计算机",
-          command: "systemctl poweroff",
+          command: "${pkgs.systemd}/bin/systemctl poweroff",
           description: "关闭计算机电源",
           icon: "${svgIcons}/icons/shutdown.svg",
           confirm: true,
@@ -282,13 +294,34 @@ in
     terminal = {
       command = mkOption {
         type = types.str;
+        default = "";
         description = "Anyrun 运行终端应用时调用的终端命令行或可执行文件路径（必须显式配置，禁止提供默认 fallback）。";
+      };
+
+      desktopId = mkOption {
+        type = types.str;
+        default = "";
+        description = "Anyrun 与 xdg-terminal-exec 使用的默认终端 Desktop Entry ID（必须显式配置）。";
       };
 
       args = mkOption {
         type = types.str;
         default = "-e {}";
         description = "Anyrun 调用终端时传递的参数模板。";
+      };
+    };
+
+    integration = {
+      menuCommand = mkOption {
+        type = types.str;
+        default = "";
+        description = "供其他桌面模块引用的 Anyrun 绝对可执行路径。";
+      };
+
+      powerMenuCommand = mkOption {
+        type = types.str;
+        default = "";
+        description = "供其他桌面模块引用的 Anyrun 电源菜单绝对可执行路径。";
       };
     };
 
@@ -533,7 +566,16 @@ in
           assertion = cfg.terminal.command != "";
           message = "desktop.launcher.anyrun: 启用了 Anyrun 启动器时，必须显式配置终端命令 (desktop.launcher.anyrun.terminal.command)，禁止提供默认 fallback。";
         }
+        {
+          assertion = cfg.terminal.desktopId != "";
+          message = "desktop.launcher.anyrun: 启用 Anyrun 时必须显式配置终端 Desktop Entry ID (desktop.launcher.anyrun.terminal.desktopId)。";
+        }
       ];
+
+      desktop.launcher.anyrun.integration = {
+        menuCommand = "${cfg.package}/bin/anyrun";
+        powerMenuCommand = "${anyrunPowerScript}/bin/anyrun-power";
+      };
 
       environment.systemPackages = [
         cfg.package
@@ -575,13 +617,13 @@ in
         enable = true;
         settings = {
           default = [
-            "${cfg.terminal.command}.desktop"
+            cfg.terminal.desktopId
           ];
           Niri = [
-            "${cfg.terminal.command}.desktop"
+            cfg.terminal.desktopId
           ];
           niri = [
-            "${cfg.terminal.command}.desktop"
+            cfg.terminal.desktopId
           ];
         };
       };
@@ -608,20 +650,20 @@ in
           (optionalAttrs (cfg.niri.keybind != "") {
             "${cfg.niri.keybind}" = {
               _props.hotkey-overlay-title = "Application Launcher: Anyrun";
-              spawn = [ "anyrun" ];
+              spawn = [ "${cfg.package}/bin/anyrun" ];
             };
           })
           // (optionalAttrs (cfg.niri.windowKeybind != "") {
             "${cfg.niri.windowKeybind}" = {
               _props.hotkey-overlay-title = "Window Switcher: Anyrun";
-              spawn = [ "anyrun-niri-focus" ];
+              spawn = [ "${anyrunWindowScript}/bin/anyrun-niri-focus" ];
             };
           })
           // (listToAttrs (map (bindStr: {
             name = bindStr;
             value = {
               _props.hotkey-overlay-title = "Power Menu";
-              spawn = [ "anyrun-power" ];
+              spawn = [ "${anyrunPowerScript}/bin/anyrun-power" ];
             };
           }) cfg.niri.powerKeybinds));
       };
@@ -651,8 +693,8 @@ in
             };
 
             xdg.configFile = allConfigFiles // {
-              "xdg-terminals.list".text = "${cfg.terminal.command}.desktop\n";
-              "niri-xdg-terminals.list".text = "${cfg.terminal.command}.desktop\n";
+              "xdg-terminals.list".text = "${cfg.terminal.desktopId}\n";
+              "niri-xdg-terminals.list".text = "${cfg.terminal.desktopId}\n";
             };
           })
         ];

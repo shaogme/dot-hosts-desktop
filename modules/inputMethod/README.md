@@ -9,7 +9,7 @@
 - **开箱即用 雾凇拼音（rime-ice）**：默认启用优质开源全拼词库与拼音方案，支持双拼（小鹤双拼、微软双拼、自然码等）一键切换。
 - **深度主题与 UI 定制**：内建支持 Catppuccin（Mocha / Macchiato / Frappe / Latte）、TokyoNight、Nord、Material-Color 等精致主题，横排/竖排候选框自由定制。
 - **大词库与云拼音增强**：集成 `rime-zhwiki` 维基词库、`fcitx5-pinyin-zhwiki` 与百度云拼音增强联想。
-- **Wayland / Hyprland 深度融合**：默认启用 Wayland 原生输入法前端（text-input 协议），自动优化会话环境变量（`XMODIFIERS`, `QT_IM_MODULE`, `SDL_IM_MODULE`, `GLFW_IM_MODULE`，并在 Wayland 下按官方规范不设置 `GTK_IM_MODULE` 避免桌面诊断告警），支持 Hyprland 自动启动与配置窗口居中浮动规则。
+- **Wayland / Niri 深度融合**：默认启用 Wayland 原生输入法前端（text-input 协议），自动优化会话环境变量（`XMODIFIERS`, `QT_IM_MODULE`, `SDL_IM_MODULE`, `GLFW_IM_MODULE`，并在 Wayland 下按官方规范不设置 `GTK_IM_MODULE` 避免桌面诊断告警），支持 Niri 自动启动与配置窗口居中浮动规则。
 - **Bubblewrap 沙箱无缝穿透**：底层沙箱工具库（`mk-sandboxed-app/sandbox.nix`）自动穿透输入法套接字通道，保障 QQ、微信、VSCode、Firefox 等隔离应用即开即打。
 - **系统与 Home Manager 双重联动**：全局声明式统一部署，自动同步至用户级别。
 

@@ -68,60 +68,67 @@ in
     commands = {
       menu = mkOption {
         type = types.str;
-        default = "anyrun";
+        default = "";
         description = "点击菜单图标执行的应用启动器命令行。";
       };
 
       terminal = mkOption {
         type = types.str;
+        default = "";
         description = "右键菜单图标执行的终端命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       cpu = mkOption {
         type = types.str;
+        default = "";
         description = "点击 CPU 监控模块执行的性能监控命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       memory = mkOption {
         type = types.str;
+        default = "";
         description = "点击内存监控模块执行的性能监控命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       network = mkOption {
         type = types.str;
+        default = "";
         description = "点击网络状态模块执行的网络配置命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       netSpeed = mkOption {
         type = types.str;
+        default = "";
         description = "点击实时网速监控模块执行的命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       bluetooth = mkOption {
         type = types.str;
+        default = "";
         description = "点击蓝牙状态模块执行的蓝牙管理命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
       audioControl = mkOption {
         type = types.str;
-        default = "pavucontrol";
+        default = "";
         description = "点击音量控制模块执行的音频控制台命令行。";
       };
 
       audioMuteToggle = mkOption {
         type = types.str;
-        default = "pamixer -t";
+        default = "";
         description = "右键音量控制模块执行的静音切换命令行。";
       };
 
       powerMenu = mkOption {
         type = types.str;
-        default = "anyrun-power";
+        default = "";
         description = "点击电源管理按钮执行的电源菜单命令行。";
       };
 
       powerDraw = mkOption {
         type = types.str;
+        default = "";
         description = "点击实时功耗监控模块执行的命令行（必须显式配置，禁止提供默认 fallback）。";
       };
 
@@ -256,6 +263,7 @@ in
 
       environment.systemPackages = [
         cfg.package
+        pkgs.bluetuith
       ] ++ selectedTheme.extraPackages;
 
       environment.etc = {
@@ -287,6 +295,9 @@ in
         partOf = [ "graphical-session.target" ];
         after = [ "graphical-session.target" ];
         wantedBy = optional cfg.niri.autostart "graphical-session.target";
+        # Click handlers execute outside an interactive shell. Give them the
+        # same package commands available in the NixOS system profile.
+        path = [ "/run/current-system/sw" "/run/wrappers" ];
         unitConfig.ConditionEnvironment = "WAYLAND_DISPLAY";
         serviceConfig = {
           Type = "simple";

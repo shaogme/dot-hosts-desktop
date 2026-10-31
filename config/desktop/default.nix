@@ -2,6 +2,7 @@
 
 let
   defaultTerminal = "rio";
+  defaultTerminalExecutable = lib.getExe config.desktop.terminal.${defaultTerminal}.package;
   defaultEditor = "hx";
 in
 {
@@ -10,10 +11,10 @@ in
   # ==========================================
   desktop.windowManager.niri = {
     enable = lib.mkDefault true;
-    terminal = lib.mkDefault defaultTerminal;
+    terminal = lib.mkDefault defaultTerminalExecutable;
     editor = {
       enable = lib.mkDefault true;
-      command = lib.mkDefault "${defaultTerminal} -e ${defaultEditor}";
+      command = lib.mkDefault "${defaultTerminalExecutable} -e ${defaultEditor}";
     };
     clipboard = {
       enable = lib.mkDefault true;
@@ -29,27 +30,32 @@ in
   desktop.bar.waybar = {
     enable = lib.mkDefault true;
     commands = {
-      terminal = lib.mkDefault defaultTerminal;
-      cpu = lib.mkDefault "${defaultTerminal} -e btop";
-      memory = lib.mkDefault "${defaultTerminal} -e btop";
-      network = lib.mkDefault "${defaultTerminal} -e nmtui";
-      netSpeed = lib.mkDefault "${defaultTerminal} -e btop";
-      bluetooth = lib.mkDefault "${defaultTerminal} -e bluetuith";
-      powerDraw = lib.mkDefault "${defaultTerminal} -e btop";
+      menu = lib.mkDefault config.desktop.launcher.anyrun.integration.menuCommand;
+      terminal = lib.mkDefault defaultTerminalExecutable;
+      cpu = lib.mkDefault "${defaultTerminalExecutable} -e btop";
+      memory = lib.mkDefault "${defaultTerminalExecutable} -e btop";
+      network = lib.mkDefault "${defaultTerminalExecutable} -e nmtui";
+      netSpeed = lib.mkDefault "${defaultTerminalExecutable} -e btop";
+      bluetooth = lib.mkDefault "${defaultTerminalExecutable} -e bluetuith";
+      audioControl = lib.mkDefault (lib.getExe pkgs.pavucontrol);
+      audioMuteToggle = lib.mkDefault "${lib.getExe pkgs.pamixer} -t";
+      powerMenu = lib.mkDefault config.desktop.launcher.anyrun.integration.powerMenuCommand;
+      powerDraw = lib.mkDefault "${defaultTerminalExecutable} -e btop";
     };
   };
 
   desktop.launcher.anyrun = {
     enable = lib.mkDefault true;
     terminal = {
-      command = lib.mkDefault defaultTerminal;
+      command = lib.mkDefault defaultTerminalExecutable;
+      desktopId = lib.mkDefault "${defaultTerminal}.desktop";
       args = lib.mkDefault "-e {}";
     };
   };
 
   desktop.launcher.fuzzel = {
     enable = lib.mkDefault true;
-    terminal = lib.mkDefault "${defaultTerminal} -e";
+    terminal = lib.mkDefault "${defaultTerminalExecutable} -e";
     font = {
       family = lib.mkDefault "monospace";
       size = lib.mkDefault 11;
@@ -83,19 +89,19 @@ in
   # 文件管理器与桌面门户 (Yazi & termfilechooser)
   desktop.fileManager.yazi = {
     enable = lib.mkDefault true;
-    terminal = lib.mkDefault defaultTerminal;
+    terminal = lib.mkDefault defaultTerminalExecutable;
     editor = lib.mkDefault defaultEditor;
     videoPlayer = lib.mkDefault "mpv";
     terminalKeybind = {
       enable = lib.mkDefault true;
-      command = lib.mkDefault defaultTerminal;
+      command = lib.mkDefault defaultTerminalExecutable;
     };
   };
 
   # 文本编辑器 (Helix)
   desktop.editor.helix = {
     enable = lib.mkDefault true;
-    terminal = lib.mkDefault defaultTerminal;
+    terminal = lib.mkDefault defaultTerminalExecutable;
   };
 
   # 视频播放器 (MPV)
@@ -105,7 +111,7 @@ in
 
   desktop.portal.termfilechooser = {
     enable = lib.mkDefault true;
-    terminal = lib.mkDefault defaultTerminal;
+    terminal = lib.mkDefault defaultTerminalExecutable;
     env = {
       EDITOR = lib.mkDefault defaultEditor;
     };
@@ -136,4 +142,8 @@ in
       session = lib.mkDefault true;
     };
   };
+
+  # Swaylock 通过 Niri 的 Wayland session-lock 支持锁定桌面；systemd-lock-handler
+  # 将启动器中的 loginctl lock-session 请求转发给该锁屏服务。
+  desktop.loginManager.swaylock.enable = lib.mkDefault true;
 }

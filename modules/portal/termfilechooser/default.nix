@@ -123,7 +123,7 @@ in
     setAsDefaultFileChooser = mkOption {
       type = types.bool;
       default = true;
-      description = "是否自动将 termfilechooser 设为系统与 Hyprland 的默认 FileChooser 门户后端。";
+      description = "是否自动将 termfilechooser 设为系统与 Niri 的默认 FileChooser 门户后端。";
     };
 
     extraConfig = mkOption {

@@ -27,6 +27,7 @@ let
     device = "";
     scrollStep = 5.0;
   };
+  swayncClient = "${config.desktop.notification.swaync.package}/bin/swaync-client";
 
   waybarPowerDrawScript = pkgs.writeShellScriptBin "waybar-powerdraw" ''
     if [ -f /run/desktop-power/power.json ]; then
@@ -291,8 +292,9 @@ let
       format = "<span size='11500'></span>";
       tooltip = true;
       tooltip-format = "应用启动器 (Anyrun)\n• 左键：搜索并启动应用\n• 右键：打开终端";
-      on-click = cfg.commands.menu;
       on-click-right = cfg.commands.terminal;
+    } // optionalAttrs (cfg.commands.menu != "") {
+      on-click = cfg.commands.menu;
     };
 
     "niri/window" = {
@@ -331,10 +333,10 @@ let
         dnd-inhibited-none = "";
       };
       return-type = "json";
-      exec-if = "which swaync-client";
-      exec = "swaync-client -swb";
-      on-click = "swaync-client -t -sw";
-      on-click-right = "swaync-client -d -sw";
+      exec-if = "${pkgs.coreutils}/bin/test -x ${swayncClient}";
+      exec = "${swayncClient} -swb";
+      on-click = "${swayncClient} -t -sw";
+      on-click-right = "${swayncClient} -d -sw";
       escape = true;
     };
 
@@ -449,6 +451,7 @@ let
       format-icons = [ "󰁺" "󰁻" "󰁼" "󰁽" "󰁾" "󰁿" "󰂀" "󰂁" "󰂂" "󰁹" ];
       tooltip-format = "{timeTo}, 功率: {power:>1.0f}W";
       interval = 5;
+    } // optionalAttrs (cfg.commands.powerMenu != "") {
       on-click = cfg.commands.powerMenu;
     };
 
@@ -472,6 +475,7 @@ let
     "custom/power" = {
       format = "";
       tooltip = false;
+    } // optionalAttrs (cfg.commands.powerMenu != "") {
       on-click = cfg.commands.powerMenu;
     };
   } // optionalAttrs (netSpeedCfg.enable && netSpeedCfg.mode == "custom") {

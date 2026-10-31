@@ -67,6 +67,15 @@ let
       pkgs.writeText "${name}-waybar-config" cfg.environment.etc."xdg/waybar/config.jsonc".text
     else
       pkgs.emptyFile;
+  waybarSettings =
+    if cfg.environment.etc ? "xdg/waybar/config.jsonc" && cfg.environment.etc."xdg/waybar/config.jsonc" ? text then
+      builtins.fromJSON (builtins.unsafeDiscardStringContext cfg.environment.etc."xdg/waybar/config.jsonc".text)
+    else
+      { };
+  waybarMenuClick = waybarSettings."custom/menu"."on-click" or "";
+  waybarTerminalClick = waybarSettings."custom/menu"."on-click-right" or "";
+  waybarPowerClick = waybarSettings."custom/power"."on-click" or "";
+  waybarServicePath = if waybarService == null then "" else waybarService.environment.PATH or "";
 
   # ── Fuzzel 启动器与 Cliphist 剪贴板静态验证 ─────────────────────────
   fuzzelEnabled = cfg.desktop.launcher.fuzzel.enable or false;
@@ -435,6 +444,10 @@ pkgs.runCommand "${name}-static-check" {
         echo "错误: Waybar 的 systemd 用户服务未定义"
         exit 1
       fi
+      if [ "${if lib.hasInfix "/run/current-system/sw/bin" (builtins.unsafeDiscardStringContext waybarServicePath) then "true" else "false"}" != "true" ]; then
+        echo "错误: Waybar systemd 用户服务 PATH 未包含当前 NixOS 系统 profile"
+        exit 1
+      fi
       if [ "${waybarService.serviceConfig.Restart or ""}" != "always" ]; then
         echo "错误: Waybar 服务必须在进程退出后自动重启 (Restart=always)"
         exit 1
@@ -445,6 +458,18 @@ pkgs.runCommand "${name}-static-check" {
       fi
       if [ "${if niriWaybarAutostart then "true" else "false"}" = "true" ]; then
         echo "错误: systemd 管理 Waybar 时不应重复注入 Niri spawn-at-startup"
+        exit 1
+      fi
+      if [ "${if lib.hasPrefix "/nix/store/" (builtins.unsafeDiscardStringContext waybarMenuClick) then "true" else "false"}" != "true" ]; then
+        echo "错误: Waybar 启动器点击动作必须使用 Nix store 绝对路径"
+        exit 1
+      fi
+      if [ "${if lib.hasPrefix "/nix/store/" (builtins.unsafeDiscardStringContext waybarTerminalClick) then "true" else "false"}" != "true" ]; then
+        echo "错误: Waybar 终端点击动作必须使用 Nix store 绝对路径"
+        exit 1
+      fi
+      if [ "${if lib.hasPrefix "/nix/store/" (builtins.unsafeDiscardStringContext waybarPowerClick) then "true" else "false"}" != "true" ]; then
+        echo "错误: Waybar 电源点击动作必须使用 Nix store 绝对路径"
         exit 1
       fi
     '' else if waybarAutostart then ''

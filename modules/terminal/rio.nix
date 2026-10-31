@@ -763,7 +763,7 @@ in
       decorations = mkOption {
         type = types.enum [ "Enabled" "Disabled" "Transparent" "Buttonless" ];
         default = "Disabled";
-        description = "窗口标题栏与客户端边框装饰（Hyprland 平铺环境下推荐 Disabled）。";
+        description = "窗口标题栏与客户端边框装饰（Niri 平铺环境下推荐 Disabled）。";
       };
 
       colorspace = mkOption {
