@@ -2,9 +2,9 @@
   "pins": {
     "clash-verge": {
       "type": "Url",
-      "url": "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.5.8/Clash.Verge_2.5.8_amd64.deb",
+      "url": "https://github.com/clash-verge-rev/clash-verge-rev/releases/download/v2.5.10/Clash.Verge_2.5.10_amd64.deb",
       "unpack": false,
-      "hash": "sha256-zut1eMbwMLM932NGSG2yQBPPRVfMNA3l8xL5ipJKhUY="
+      "hash": "sha256-rdhWSBG6TSMF2kQyiNI6JsXtGWdLZ2oLtYuZ7E99E88="
     }
   },
   "version": 8
