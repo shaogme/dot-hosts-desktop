@@ -2,9 +2,9 @@
   "pins": {
     "telegram-desktop": {
       "type": "Url",
-      "url": "https://github.com/telegramdesktop/tdesktop/releases/download/v7.4.0/td-setup-linux-x64-7.4.0.tar.xz",
+      "url": "https://github.com/telegramdesktop/tdesktop/releases/download/v7.4.1/td-setup-linux-x64-7.4.1.tar.xz",
       "unpack": true,
-      "hash": "sha256-AxbT8iL5qayF/iTFdWsLWgw2A/Mm7agUw1Mqf4BYFXM="
+      "hash": "sha256-OET3zk7f+o6NzsvaHUTREmg86y7bvsCObWVUCnFMDTQ="
     }
   },
   "version": 8
