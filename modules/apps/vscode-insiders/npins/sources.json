@@ -4,8 +4,8 @@
       "type": "MutableUrl",
       "update_url": "https://update.code.visualstudio.com/latest/linux-deb-x64/insider",
       "unpack": false,
-      "url": "https://vscode.download.prss.microsoft.com/dbazure/download/insider/6bd30dab6e29addbe64365b91e27e20e611f064c/code-insiders_1.146.0-1794291158_amd64.deb",
-      "hash": "sha256-BwBi0R+zDlAQo3qVr7eVbzHu/FR+TNSlPV6jrAmLfio="
+      "url": "https://vscode.download.prss.microsoft.com/dbazure/download/insider/d8e7b56cfb4be060f87f3851bb8261846054f639/code-insiders_1.147.0-1794504562_amd64.deb",
+      "hash": "sha256-y0QFliHpfQi6FELDc5LpSTF8v0eOMk041PnWS8ihVl0="
     }
   },
   "version": 8
