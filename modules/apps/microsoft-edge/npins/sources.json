@@ -2,9 +2,9 @@
   "pins": {
     "microsoft-edge": {
       "type": "Url",
-      "url": "https://packages.microsoft.com/repos/edge/pool/main/m/microsoft-edge-stable/microsoft-edge-stable_157.0.4341.60-1_amd64.deb",
+      "url": "https://packages.microsoft.com/repos/edge/pool/main/m/microsoft-edge-stable/microsoft-edge-stable_158.0.4370.33-1_amd64.deb",
       "unpack": false,
-      "hash": "sha256-SSstM22cM3gU23LFEpOAcDjuAQRlRCfyg/00S8oXxQA="
+      "hash": "sha256-m84X0qg+EEvGdRAiGAxzKYc3nXigBSIdZ3qB+2WQaMs="
     }
   },
   "version": 8
