@@ -2,9 +2,9 @@
   "pins": {
     "microsoft-edge-dev": {
       "type": "Url",
-      "url": "https://packages.microsoft.com/repos/edge/pool/main/m/microsoft-edge-dev/microsoft-edge-dev_160.0.4408.0-1_amd64.deb",
+      "url": "https://packages.microsoft.com/repos/edge/pool/main/m/microsoft-edge-dev/microsoft-edge-dev_160.0.4416.0-1_amd64.deb",
       "unpack": false,
-      "hash": "sha256-5z4pnvzs5ORGCBmWJUDjp/mA8uuOBsOiddGnZ5r+ryQ="
+      "hash": "sha256-qM2mLd3x0nBhtYDJRerONms6wv6JH31CuhEXoxG/dJ0="
     }
   },
   "version": 8
