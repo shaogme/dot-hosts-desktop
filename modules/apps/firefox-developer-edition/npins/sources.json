@@ -2,9 +2,9 @@
   "pins": {
     "firefox-developer-edition": {
       "type": "Url",
-      "url": "https://archive.mozilla.org/pub/devedition/releases/162.0b2/linux-x86_64/en-US/firefox-162.0b2.tar.xz",
+      "url": "https://archive.mozilla.org/pub/devedition/releases/162.0b3/linux-x86_64/en-US/firefox-162.0b3.tar.xz",
       "unpack": true,
-      "hash": "sha256-p7/YR0u8uHfKSZkFDQrX+I8WzFd0Au74gQE9M7OWlM0="
+      "hash": "sha256-vJKRXZW3Er4TT07IkcJIaPjb//FWVHEp6WBn6sdrh+U="
     }
   },
   "version": 8
